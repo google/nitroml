@@ -1,0 +1,20 @@
+{
+  "evalConfig": {
+    "modelSpecs": [
+      {}
+    ],
+    "slicingSpecs": [
+      {}
+    ],
+    "options": {
+      "computeConfidenceIntervals": false,
+      "minSliceSize": 1
+    }
+  },
+  "version": "0.22.0dev",
+  "dataLocation": "<user provided PCollection>",
+  "fileFormat": "<unknown>",
+  "modelLocations": {
+    "": "/google3/autolx/nitroml/benchmark_results/testdata/1581102509"
+  }
+}
