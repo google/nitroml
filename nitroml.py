@@ -1,7 +1,20 @@
+# Copyright 2020 Google LLC
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     https://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # Lint as: python3
 """NitroML: Accelerate AutoML development.
 
-go/nitroml-docs
+go/nitroml
 
 NitroML is a framework for benchmarking AutoML workflows composed of
 TFX OSS and MyOrchestrator components.
@@ -15,8 +28,6 @@ data-driven as they modify their systems.
 NitroML's API is inspired by the Python stdlib's `unittest` package. It
 is intended to encourage writing benchmarks in a similar manner to writing
 test cases.
-
-**HIGHLY EXPERIMENTAL AND API SUBJECT TO CHANGE**
 """
 
 import abc
