@@ -29,6 +29,8 @@ _MLMD_03_31_20_PATH = os.path.join(
     os.path.dirname(__file__), 'testdata/mlmd/mlmd_03_31_20.sqlite')
 _MLMD_04_01_20_PATH = os.path.join(
     os.path.dirname(__file__), 'testdata/mlmd/mlmd_04_01_20.sqlite')
+_MLMD_05_21_20_PATH = os.path.join(
+    os.path.dirname(__file__), 'testdata/mlmd/mlmd_05_21_20.sqlite')
 
 
 class OverviewTest(parameterized.TestCase):
@@ -209,6 +211,48 @@ class OverviewTest(parameterized.TestCase):
               'recall mean',
               'recall std',
           ],
+      }, {
+          'testcase_name':
+              'no aggregation 05-21-20',
+          'mlmd_store_path':
+              _MLMD_05_21_20_PATH,
+          'metric_aggregators': None,
+          'want_columns': [
+              'run_id',
+              'benchmark_fullname',
+              'benchmark',
+              'run',
+              'num_runs',
+              'eval_batch_size',
+              'layer_size',
+              'num_layers',
+              'train_batch_size',
+              'accuracy',
+              'accuracy_baseline',
+              'auc',
+              'auc_precision_recall',
+              'average_loss',
+              'label/mean',
+              'pipeline_name',
+              'post_export_metrics/example_count',
+              'precision',
+              'prediction/mean',
+              'recall',
+              'kaggle_date',
+              'kaggle_description',
+              'kaggle_errorDescription',
+              'kaggle_fileName',
+              'kaggle_privateScore',
+              'kaggle_publicScore',
+              'kaggle_ref',
+              'kaggle_status',
+              'kaggle_submittedBy',
+              'kaggle_submittedByRef',
+              'kaggle_teamName',
+              'kaggle_totalBytes',
+              'kaggle_type',
+              'kaggle_url'
+          ],
       })
   def test_overview(self, mlmd_store_path, metric_aggregators, want_columns):
     config = metadata_store_pb2.ConnectionConfig()
@@ -290,7 +334,7 @@ class MergeResultTest(absltest.TestCase):
     result1 = results._Result(properties={}, property_names=[])
     result2 = results._Result(properties={}, property_names=[])
 
-    merge_result = results._merge_results(result1, result2)
+    merge_result = results._merge_results([result1, result2])
 
     self.assertEqual(
         results._Result(properties={}, property_names=[]), merge_result)
@@ -302,7 +346,7 @@ class MergeResultTest(absltest.TestCase):
         }}, property_names=['test'])
     result2 = results._Result(properties={}, property_names=[])
 
-    merge_result = results._merge_results(result1, result2)
+    merge_result = results._merge_results([result1, result2])
 
     self.assertEqual(
         results._Result(
@@ -332,7 +376,7 @@ class MergeResultTest(absltest.TestCase):
         },
         property_names=['metric_names'])
 
-    merge_result = results._merge_results(result1, result2)
+    merge_result = results._merge_results([result1, result2])
 
     want_result = results._Result(
         properties={
@@ -365,21 +409,21 @@ class GetHparamsTest(absltest.TestCase):
     exec_type.name = results._TRAINER
     exec_type.properties[results.RUN_ID_KEY] = metadata_store_pb2.STRING
     exec_type.properties[results._HPARAMS] = metadata_store_pb2.STRING
-    exec_type.properties[results._TRAINER_ID] = metadata_store_pb2.STRING
+    exec_type.properties[results._COMPONENT_ID] = metadata_store_pb2.STRING
     return self.store.put_execution_type(exec_type)
 
   def _put_execution(self, run_id: str, trainer_name: str, hparam: str) -> int:
     execution = metadata_store_pb2.Execution()
     execution.properties[results._HPARAMS].string_value = hparam
     execution.properties[results.RUN_ID_KEY].string_value = run_id
-    execution.properties[results._TRAINER_ID].string_value = trainer_name
+    execution.properties[results._COMPONENT_ID].string_value = trainer_name
     execution.type_id = self.exec_type_id
     self.store.put_executions([execution])
 
   def testGetHparams(self):
     hparam = "['batch_size=256', 'learning_rate=0.05', 'decay_rate=0.95']"
     run_id = '0'
-    trainer_name = results._TRAINER_ID_PREFIX + '.Test'
+    trainer_name = results._TRAINER_PREFIX + '.Test'
     self._put_execution(run_id, trainer_name, hparam)
 
     result = results._get_hparams(self.store)

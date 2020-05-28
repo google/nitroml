@@ -18,31 +18,45 @@ import ast
 import datetime
 import json
 import re
-from typing import Dict, Any, List, NamedTuple, Optional
+from typing import Dict, Any, List, NamedTuple, Optional, Text
 
 import pandas as pd
 
 from ml_metadata.metadata_store import metadata_store
+from ml_metadata.proto import metadata_store_pb2
 
-# Constants
+# Column name constants
 RUN_ID_KEY = 'run_id'
 STARTED_AT = 'started_at'
 BENCHMARK_FULL_KEY = 'benchmark_fullname'
 BENCHMARK_KEY = 'benchmark'
 RUN_KEY = 'run'
 NUM_RUNS_KEY = 'num_runs'
-_DEFAULT_COLUMNS = (STARTED_AT, RUN_ID_KEY, BENCHMARK_KEY, RUN_KEY,
-                    NUM_RUNS_KEY)
-_DATAFRAME_CONTEXTUAL_COLUMNS = (STARTED_AT, RUN_ID_KEY, BENCHMARK_FULL_KEY,
-                                 BENCHMARK_KEY, RUN_KEY, NUM_RUNS_KEY)
+
+# Component constants
 _TRAINER = 'my_orchestrator.components.trainer.component.EstimatorTrainer'
+_TRAINER_PREFIX = 'EstimatorTrainer'
 _BENCHMARK_RESULT = 'NitroML.BenchmarkResult'
-_TRAINER_ID = 'component_id'
-_TRAINER_ID_PREFIX = 'EstimatorTrainer'
+_KAGGLE_RESULT = 'NitroML.KaggleSubmissionResult'
+_KAGGLE_PUBLISHER = 'nitroml.google.autokaggle.components.publisher.component.KagglePublisher'
+_KAGGLE_PUBLISHER_PREFIX = 'KagglePublisher'
+
+# Name constants
 _HPARAMS = 'hparams'
 _NAME = 'name'
 _PRODUCER_COMPONENT = 'producer_component'
 _STATE = 'state'
+_PIPELINE_NAME = 'pipeline_name'
+_COMPONENT_ID = 'component_id'
+_KAGGLE = 'kaggle'
+
+# Default columns
+_DEFAULT_COLUMNS = (STARTED_AT, RUN_ID_KEY, BENCHMARK_KEY, RUN_KEY,
+                    NUM_RUNS_KEY)
+_DATAFRAME_CONTEXTUAL_COLUMNS = (STARTED_AT, RUN_ID_KEY, BENCHMARK_FULL_KEY,
+                                 BENCHMARK_KEY, RUN_KEY, NUM_RUNS_KEY)
+_DEFAULT_CUSTOM_PROPERTIES = {_NAME, _PRODUCER_COMPONENT, _STATE,
+                              _PIPELINE_NAME}
 
 
 class _Result(NamedTuple):
@@ -51,15 +65,23 @@ class _Result(NamedTuple):
   property_names: List[str]
 
 
-def _merge_results(result1: _Result, result2: _Result) -> _Result:
-  """Merges two _Result object into one."""
-  properties = result1.properties
-  for key, props in result2.properties.items():
-    if key in properties:
-      properties[key].update(props)
-    else:
-      properties[key] = props
-  property_names = result1.property_names + result2.property_names
+class _RunInfo(NamedTuple):
+  """Wrapper for run id and component name."""
+  run_id: Text
+  component_name: Text
+
+
+def _merge_results(results: List[_Result]) -> _Result:
+  """Merges _Result objects into one."""
+  properties = {}
+  property_names = []
+  for result in results:
+    for key, props in result.properties.items():
+      if key in properties:
+        properties[key].update(props)
+      else:
+        properties[key] = props
+    property_names += result.property_names
   return _Result(properties=properties, property_names=property_names)
 
 
@@ -69,6 +91,16 @@ def _to_pytype(val: str) -> Any:
     return json.loads(val.lower())
   except ValueError:
     return val
+
+
+def _parse_value(value: metadata_store_pb2.Value) -> Any:
+  """Parse value from `metadata_store_pb2.Value` proto."""
+  if value.HasField('int_value'):
+    return value.int_value
+  elif value.HasField('double_value'):
+    return value.double_value
+  else:
+    return _to_pytype(value.string_value)
 
 
 def _parse_hparams(hp_prop: str) -> Dict[str, Any]:
@@ -111,8 +143,8 @@ def _get_hparams(store: metadata_store.MetadataStore) -> _Result:
     hparams = _parse_hparams(ex.properties[_HPARAMS].string_value)
     hparam_names.update(hparams.keys())
     hparams[RUN_ID_KEY] = run_id
-    trainer_id = ex.properties[_TRAINER_ID].string_value.replace(
-        _TRAINER_ID_PREFIX, '')
+    trainer_id = ex.properties[_COMPONENT_ID].string_value.replace(
+        _TRAINER_PREFIX, '')
     result_key = run_id + trainer_id
     hparams[BENCHMARK_KEY] = trainer_id[1:]  # Removing '.' prefix
     # BeamDagRunner uses iso format timestamp. See for details:
@@ -125,8 +157,8 @@ def _get_hparams(store: metadata_store.MetadataStore) -> _Result:
   return _Result(properties=results, property_names=sorted(hparam_names))
 
 
-def _get_artifact_run_id_map(store: metadata_store.MetadataStore,
-                             artifact_ids: List[int]) -> Dict[int, str]:
+def _get_artifact_run_info_map(store: metadata_store.MetadataStore,
+                               artifact_ids: List[int]) -> Dict[int, _RunInfo]:
   """Returns a dictionary mapping artifact_id to its MyOrchestrator run_id.
 
   Args:
@@ -144,12 +176,15 @@ def _get_artifact_run_id_map(store: metadata_store.MetadataStore,
 
   # Get execution of artifacts.
   executions = store.get_executions_by_id(list(exec_to_artifact.keys()))
-  artifact_to_run_id = {}
+  artifact_to_run_info = {}
   for execution in executions:
-    artifact_to_run_id[exec_to_artifact[
-        execution.id]] = execution.properties[RUN_ID_KEY].string_value
+    run_id = execution.properties[RUN_ID_KEY].string_value
+    component = execution.properties[_COMPONENT_ID].string_value
+    artifact_id = exec_to_artifact[execution.id]
+    artifact_to_run_info[artifact_id] = _RunInfo(
+        run_id=run_id, component_name=component)
 
-  return artifact_to_run_id
+  return artifact_to_run_info
 
 
 def _get_benchmark_results(store: metadata_store.MetadataStore) -> _Result:
@@ -167,27 +202,59 @@ def _get_benchmark_results(store: metadata_store.MetadataStore) -> _Result:
   for artifact in publisher_artifacts:
     evals = {}
     for key, val in artifact.custom_properties.items():
-      if val.HasField('int_value'):
-        evals[key] = val.int_value
-      else:
-        evals[key] = _to_pytype(val.string_value)
+      evals[key] = _parse_value(val)
     property_names = property_names.union(evals.keys())
     metrics[artifact.id] = evals
 
-  artifact_to_run_id = _get_artifact_run_id_map(store, list(metrics.keys()))
+  artifact_to_run_info = _get_artifact_run_info_map(store, list(metrics.keys()))
 
   properties = {}
   for artifact_id, evals in metrics.items():
-    run_id = artifact_to_run_id[artifact_id]
-    evals[RUN_ID_KEY] = run_id
+    run_info = artifact_to_run_info[artifact_id]
+    evals[RUN_ID_KEY] = run_info.run_id
     # BeamDagRunner uses iso format timestamp. See for details:
     # http://google3/third_party/tfx/orchestration/beam/beam_dag_runner.py
     try:
-      evals[STARTED_AT] = datetime.datetime.fromtimestamp(int(run_id))
+      evals[STARTED_AT] = datetime.datetime.fromtimestamp(int(run_info.run_id))
     except ValueError:
-      evals[STARTED_AT] = run_id
-    result_key = run_id + '.' + evals[BENCHMARK_KEY]
+      evals[STARTED_AT] = run_info.run_id
+    result_key = run_info.run_id + '.' + evals[BENCHMARK_KEY]
     properties[result_key] = evals
+
+  property_names = property_names.difference(
+      {_NAME, _PRODUCER_COMPONENT, _STATE, *_DEFAULT_COLUMNS})
+  return _Result(properties=properties, property_names=sorted(property_names))
+
+
+def _get_kaggle_results(store: metadata_store.MetadataStore) -> _Result:
+  """Returns the kaggle score detail from the KagglePublisher component.
+
+  Args:
+    store: MetaDataStore object to connect to MLMD instance.
+
+  Returns:
+    A _Result objects with properties containing kaggle results.
+  """
+  results = {}
+  property_names = set()
+  kaggle_artifacts = store.get_artifacts_by_type(_KAGGLE_RESULT)
+  for artifact in kaggle_artifacts:
+    submit_info = {}
+    for key, val in artifact.custom_properties.items():
+      if key not in _DEFAULT_CUSTOM_PROPERTIES:
+        name = _KAGGLE + '_' + key
+        submit_info[name] = _parse_value(val)
+    property_names = property_names.union(submit_info.keys())
+    results[artifact.id] = submit_info
+
+  artifact_to_run_info = _get_artifact_run_info_map(store, list(results.keys()))
+
+  properties = {}
+  for artifact_id, submit_info in results.items():
+    run_info = artifact_to_run_info[artifact_id]
+    result_key = run_info.run_id + run_info.component_name.replace(
+        _KAGGLE_PUBLISHER_PREFIX, '')
+    properties[result_key] = submit_info
 
   property_names = property_names.difference(
       {_NAME, _PRODUCER_COMPONENT, _STATE, *_DEFAULT_COLUMNS})
@@ -270,7 +337,10 @@ def overview(
   """
   hparams_result = _get_hparams(store)
   metrics_result = _get_benchmark_results(store)
-  result = _merge_results(hparams_result, metrics_result)
+  kaggle__result = _get_kaggle_results(store)
+
+  # Merge results
+  result = _merge_results([hparams_result, metrics_result, kaggle__result])
 
   # Filter metrics that have empty hparams and evaluation results.
   results_list = [
