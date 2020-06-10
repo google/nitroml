@@ -1,16 +1,17 @@
-from typing import List, Text, Dict, NamedTuple
-
+"""
+The module file for Trainer component.
+"""
 import os
+from typing import Dict, List, NamedTuple, Text
+
 import absl
-import datetime
 import tensorflow as tf
 import tensorflow_transform as tft
-
-from tfx.components.trainer.executor import TrainerFnArgs
-
 from tensorflow_metadata.proto.v0 import schema_pb2
 from tensorflow_transform.tf_metadata import schema_utils
+from tfx.components.trainer.executor import TrainerFnArgs
 from tfx.utils import io_utils
+
 from datasets.task import Task
 
 

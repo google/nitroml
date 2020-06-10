@@ -1,29 +1,30 @@
-import sys
-import os
-from pprint import pprint as pprint_
-import functools
+"""
+Dataset Class that downloads data and provides `components` as the ExampleGen components.
+"""
+
 import datetime
-
-from absl import app
-from absl import flags
-from absl import logging
-
-from concurrent.futures import ThreadPoolExecutor, wait, as_completed
-from data_utils import rename_columns, get, parse_dataset_filters
-from task import Task
-
-from tfx.utils.dsl_utils import external_input
-from tfx.components.example_gen.csv_example_gen.component import CsvExampleGen
-from tfx.components.base import base_component
-
-from typing import Text, List
-from abc import ABC, abstractmethod
-
-# TODO: Consider using protobuff here.
+import functools
+import os
 import pickle
+from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pprint import pprint as pprint_
+from typing import List, Text
+
+from absl import logging
+from tfx.components.base import base_component
+from tfx.components.example_gen.csv_example_gen.component import CsvExampleGen
+from tfx.utils.dsl_utils import external_input
+
+from data_utils import get, parse_dataset_filters, rename_columns
+from task import Task
 
 
 class Dataset(ABC):
+  """
+  Dataset abstract class
+  """
+
   _MAX_THREADS = 1
 
   def __init__(self, data_dir: Text = '/tmp/', max_threads: int = -1):
@@ -62,11 +63,6 @@ class Dataset(ABC):
   def name(self) -> Text:
     pass
 
-  @property
-  def competition_id(self) -> Text:
-    #TODO: Check if there is a competition id
-    return ''
-
 
 class OpenMLDataset(Dataset):
   """
@@ -76,7 +72,6 @@ class OpenMLDataset(Dataset):
   _OPENML_API_URL = 'https://www.openml.org/api/v1/json'
   _OPENML_FILE_API_URL = 'https://www.openml.org/data/v1'
   _DATASET_FILTERS = ['status=active', 'tag=OpenML-CC18']
-  _MAX_THREADS = 1
   _API_KEY = 'b1514bb2761ecc4709ab26db50673a41'
 
   def __init__(self, root_dir: Text = None, max_threads: int = -1):
@@ -119,7 +114,6 @@ class OpenMLDataset(Dataset):
     self._tasks = tasks
     return tasks
 
-  # TODO: Think about this. This should be part of the pipeline
   def _get_data(self):
 
     assert self.root_dir, 'output_root_dir cannot be empty'
@@ -264,8 +258,8 @@ class OpenMLDataset(Dataset):
       os.makedirs(task_dir)
 
     task_path = os.path.join(task_dir, 'task.pkl')
-    with open(task_path, 'wb') as f:
-      pickle.dump(task, f, pickle.HIGHEST_PROTOCOL)
+    with open(task_path, 'wb') as fout:
+      pickle.dump(task, fout, pickle.HIGHEST_PROTOCOL)
 
     print(f'OpenML dataset with id={dataset_id}, name={dataset_name}, '
           f'on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.')
@@ -322,8 +316,8 @@ class OpenMLDataset(Dataset):
     # Write the dataset in CSV format.
     csv_path = os.path.join(dataset_dir, 'dataset.csv')
 
-    with open(csv_path, 'w') as f:
-      f.write(csv)
+    with open(csv_path, 'w') as fout:
+      fout.write(csv)
     return column_rename_dict
 
   def _get_data_qualities(self, dataset_id):
@@ -341,10 +335,10 @@ class OpenMLDataset(Dataset):
     return resp['data_set_description']
 
   def _get_task_type(self, n_classes):
-
+    """ Get the task information from num_classes"""
     if n_classes == 2:
       return Task.BINARY_CLASSIFICATION
     elif n_classes > 2:
       return Task.CATEGORICAL_CLASSIFICATION
-    else:
-      return Task.REGRESSION
+
+    return Task.REGRESSION

@@ -1,3 +1,6 @@
+"""
+The module file for the Transform component.
+"""
 import tensorflow as tf
 import tensorflow_transform as tft
 

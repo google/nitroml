@@ -1,6 +1,6 @@
+import json
 from enum import Enum
 from typing import Text
-import json
 
 
 class Task(object):
@@ -46,6 +46,10 @@ class Task(object):
   @property
   def head(self):
     return self._head
+
+  @property
+  def label_key(self):
+    return self._label_key
 
   def toJSON(self):
     return_dict = {}

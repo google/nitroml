@@ -1,8 +1,8 @@
 import os
 
+from absl import app, flags
+
 from dataset import OpenMLDataset
-from absl import flags
-from absl import app
 
 flags.DEFINE_string('root_dir', os.path.join(os.environ['HOME'], 'output'),
                     'Path to output csv files.')
