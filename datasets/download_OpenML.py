@@ -1,6 +1,6 @@
 import os
 
-from absl import app, flags
+from absl import app, flags, logging
 
 from dataset import OpenMLDataset
 
@@ -26,7 +26,7 @@ def main(argv):
 
   # check the first task
   task = da.tasks[0]
-  print(task.toJSON())
+  logging.info(task.toJSON())
 
 
 if __name__ == "__main__":

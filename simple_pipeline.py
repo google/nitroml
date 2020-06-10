@@ -6,13 +6,14 @@ import os
 import sys
 
 import tensorflow_model_analysis as tfma
+from absl import logging
 from tfx.components import (Evaluator, SchemaGen, StatisticsGen, Trainer,
                             Transform)
 from tfx.components.base import executor_spec
 from tfx.components.trainer.executor import GenericExecutor
 from tfx.orchestration import metadata, pipeline
-from tfx.orchestration.airflow.airflow_dag_runner import (AirflowDagRunner,
-                                                          AirflowPipelineConfig)
+from tfx.orchestration.airflow.airflow_dag_runner import (
+    AirflowDagRunner, AirflowPipelineConfig)
 from tfx.proto import trainer_pb2
 
 from datasets.dataset import OpenMLDataset
@@ -42,7 +43,7 @@ def _create_pipeline(datasets: object):
 
   assert len(all_tasks) == len(all_example_gens)
 
-  print(f'A Total of {len(all_example_gens)} benchmarks.')
+  logging.info(f'A Total of {len(all_example_gens)} benchmarks.')
 
   example_gen = all_example_gens[0]
   task = all_tasks[0]

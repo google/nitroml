@@ -8,7 +8,6 @@ import os
 import pickle
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pprint import pprint as pprint_
 from typing import List, Text
 
 from absl import logging
@@ -142,7 +141,7 @@ class OpenMLDataset(Dataset):
       }
 
       for future in as_completed(tasks):
-        # print(f'Downloaded: {future}')
+        # logging.info(f'Downloaded: {future}')
 
         exec_info = future.exception()
 
@@ -160,15 +159,15 @@ class OpenMLDataset(Dataset):
 
         else:
           failed[tasks[future]['did']] = exec_info
-          print('Exception: ', exec_info)
+          logging.warn('Exception: ', exec_info)
           logging.info(
               f'Done! Succeeded={succeeded}, failed={len(failed)}, skipped={skipped}'
           )
 
     for dataset in failed:
-      pprint_(dataset)
-      pprint_(failed[dataset])
-      print('\n**********')
+      logging.warn(dataset)
+      logging.warn(failed[dataset])
+      logging.info('\n**********')
 
     logging.info(
         f'Done! Succeeded={succeeded}, failed={len(failed)}, skipped={skipped}')
@@ -261,8 +260,8 @@ class OpenMLDataset(Dataset):
     with open(task_path, 'wb') as fout:
       pickle.dump(task, fout, pickle.HIGHEST_PROTOCOL)
 
-    print(f'OpenML dataset with id={dataset_id}, name={dataset_name}, '
-          f'on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.')
+    logging.info(f'OpenML dataset with id={dataset_id}, name={dataset_name}, '
+                 f'on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.')
 
     logging.info(f'Dumped dataset_id={dataset_id} to {dataset_dir}')
     return True
@@ -323,7 +322,6 @@ class OpenMLDataset(Dataset):
   def _get_data_qualities(self, dataset_id):
     """Returns the qualities of the dataset with `dataset_id`."""
     url = f'{self._OPENML_API_URL}/data/qualities/{dataset_id}?api_key={self._API_KEY}'
-    print()
     resp = get(url).json()
     return resp['data_qualities']['quality']
 
