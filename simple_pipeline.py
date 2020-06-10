@@ -12,15 +12,16 @@ from tfx.components import (Evaluator, SchemaGen, StatisticsGen, Trainer,
 from tfx.components.base import executor_spec
 from tfx.components.trainer.executor import GenericExecutor
 from tfx.orchestration import metadata, pipeline
-from tfx.orchestration.airflow.airflow_dag_runner import (
-    AirflowDagRunner, AirflowPipelineConfig)
+from tfx.orchestration.airflow.airflow_dag_runner import (AirflowDagRunner,
+                                                          AirflowPipelineConfig)
 from tfx.proto import trainer_pb2
 
 from datasets.dataset import OpenMLDataset
 
 _HOME = os.environ['HOME']
-sys.path.append(os.path.join(_HOME, 'airflow', 'dags'))
-sys.path.append(os.path.join(_HOME, 'airflow', 'dags', 'datasets'))
+# sys.path.insert(0, os.path.join(_HOME, 'nitroml'))
+# sys.path.insert(0, os.path.join(_HOME, 'airflow', 'dags'))
+# sys.path.insert(0, os.path.join(_HOME, 'airflow', 'dags', 'datasets'))
 
 _PIPELINE_NAME = 'starter_project_pipeline'
 _WORKSPACE_ROOT = os.path.join(_HOME, 'nitroml')

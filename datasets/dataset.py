@@ -15,8 +15,8 @@ from tfx.components.base import base_component
 from tfx.components.example_gen.csv_example_gen.component import CsvExampleGen
 from tfx.utils.dsl_utils import external_input
 
-from data_utils import get, parse_dataset_filters, rename_columns
-from task import Task
+from datasets.data_utils import get, parse_dataset_filters, rename_columns
+from datasets.task import Task
 
 
 class Dataset(ABC):

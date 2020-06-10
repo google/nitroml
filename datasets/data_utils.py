@@ -1,5 +1,5 @@
 import re
-from typing import Text
+from typing import Dict, List, Text
 
 import requests
 

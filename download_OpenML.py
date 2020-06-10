@@ -2,7 +2,7 @@ import os
 
 from absl import app, flags, logging
 
-from dataset import OpenMLDataset
+from datasets.dataset import OpenMLDataset
 
 flags.DEFINE_string('root_dir', os.path.join(os.environ['HOME'], 'output'),
                     'Path to output csv files.')
@@ -16,6 +16,8 @@ def main(argv):
   del argv  # not being used for now!
 
   dir_path = FLAGS.root_dir
+  logging.info(dir_path)
+
   da = OpenMLDataset(dir_path)
 
   # Downloads OpenML data
