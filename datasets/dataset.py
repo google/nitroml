@@ -9,7 +9,7 @@ from absl import flags
 from absl import logging
 
 from concurrent.futures import ThreadPoolExecutor, wait, as_completed
-from data_utils import rename_columns, _get, parse_dataset_filters
+from data_utils import rename_columns, get, parse_dataset_filters
 from task import Task
 
 from tfx.utils.dsl_utils import external_input
@@ -186,7 +186,7 @@ class OpenMLDataset(Dataset):
       url = f'{url}/{name}/{value}'
 
     url = f'{url}?api_key={self._API_KEY}'
-    resp = _get(url).json()
+    resp = get(url).json()
     return resp['data']['dataset']
 
   def _latest_version_only(self, datasets):
@@ -284,7 +284,7 @@ class OpenMLDataset(Dataset):
     Returns:
     The downloaded CSV.
     """
-    resp = _get(f'{self._OPENML_FILE_API_URL}/get_csv/{file_id}')
+    resp = get(f'{self._OPENML_FILE_API_URL}/get_csv/{file_id}')
     resp = resp.text.replace(', ', ',').replace(' ,', ',')
     return resp
 
@@ -330,12 +330,12 @@ class OpenMLDataset(Dataset):
     """Returns the qualities of the dataset with `dataset_id`."""
     url = f'{self._OPENML_API_URL}/data/qualities/{dataset_id}?api_key={self._API_KEY}'
     print()
-    resp = _get(url).json()
+    resp = get(url).json()
     return resp['data_qualities']['quality']
 
   def _get_dataset_description(self, dataset_id):
     """Returns the dataset description of the dataset with `dataset_id`."""
-    resp = _get(
+    resp = get(
         f'{self._OPENML_API_URL}/data/{dataset_id}?api_key={self._API_KEY}'
     ).json()
     return resp['data_set_description']

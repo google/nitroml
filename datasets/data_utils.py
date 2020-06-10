@@ -2,7 +2,7 @@ import re
 import requests
 
 
-def _get(url):
+def get(url):
   """Sends a GET request to the given `url`."""
   resp = requests.get(url)
   if resp.status_code != requests.codes.ok:

@@ -3,7 +3,6 @@ import os
 from dataset import OpenMLDataset
 from absl import flags
 from absl import app
-from data_utils import rename_columns, _get, parse_dataset_filters
 
 flags.DEFINE_string('root_dir', os.path.join(os.environ['HOME'], 'output'),
                     'Path to output csv files.')
