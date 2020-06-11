@@ -18,6 +18,7 @@
 from typing import Any, Dict, List, Text
 
 from nitroml import results
+import tensorflow.compat.v2 as tf
 import tensorflow_model_analysis as tfma
 
 from tfx.components.base import base_executor
@@ -43,9 +44,15 @@ class BenchmarkResultPublisherExecutor(base_executor.BaseExecutor):
         - benchmark_result: `BenchmarkResult` artifact.
       exec_properties: A dict of execution properties, including either one of:
         - benchmark_name: An unique name of a benchmark.
+
+    Raises:
+      ValueError: If evaluation uri doesn't exists.
     """
 
     uri = artifact_utils.get_single_uri(input_dict['evaluation'])
+    if not tf.io.gfile.exists(uri):
+      raise ValueError('The uri="{}" does not exist.'.format(uri))
+
     benchmark_result = artifact_utils.get_single_instance(
         output_dict['benchmark_result'])
     benchmark_result.set_string_custom_property(

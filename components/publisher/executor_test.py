@@ -21,7 +21,6 @@ from typing import Text, Dict, List, Any
 from absl.testing import absltest
 from nitroml.components.publisher.component import BenchmarkResult
 from nitroml.components.publisher.executor import BenchmarkResultPublisherExecutor
-import tensorflow.compat.v2 as tf
 
 from tfx.types import standard_artifacts
 from tfx.types.artifact import Artifact
@@ -80,7 +79,7 @@ class ExecutorTest(absltest.TestCase):
     exec_prop = self._make_executor_properties('test')
     executor = BenchmarkResultPublisherExecutor()
 
-    with self.assertRaises(tf.errors.NotFoundError):
+    with self.assertRaises(ValueError):
       executor.Do(input_dict, output_dict, exec_prop)
 
 
