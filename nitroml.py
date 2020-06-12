@@ -51,7 +51,6 @@ from tfx.orchestration.beam import beam_dag_runner
 
 T = TypeVar("T")
 
-
 FLAGS = flags.FLAGS
 
 # FLAGS
@@ -413,11 +412,11 @@ def run(benchmarks: List[Benchmark],
     The string list of benchmark names that were included in this run.
   """
 
-
   if not tfx_runner:
     logging.info("Setting TFX runner to OSS default: BeamDagRunner.")
     tfx_runner = beam_dag_runner.BeamDagRunner()
 
+  runs_per_benchmark = FLAGS.runs_per_benchmark
   if runs_per_benchmark <= 0:
     raise ValueError("runs_per_benchmark must be strictly positive; "
                      f"got runs_per_benchmark={runs_per_benchmark} instead.")

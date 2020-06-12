@@ -18,6 +18,7 @@
 import abc
 import json
 import re
+import sys
 
 from absl import flags
 from absl.testing import absltest
@@ -166,25 +167,19 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
 
   def setUp(self):
     super(NitroMLTest, self).setUp()
+    flags.FLAGS(sys.argv)
     # Reset flags.
-    FLAGS.config = ''
     FLAGS.runs_per_benchmark = 1
 
   @parameterized.named_parameters(
       {
           'testcase_name': 'default',
-          'config_flag': {
-              'local_config': {},
-          },
           'runs_per_benchmark_flag': 1,
           'benchmarks': [Benchmarks.BenchmarkNoComponents()],
           'want_benchmarks': ['Benchmarks.BenchmarkNoComponents.benchmark']
       }, {
           'testcase_name':
               'runs_per_benchmark flag set',
-          'config_flag': {
-              'local_config': {},
-          },
           'runs_per_benchmark_flag':
               3,
           'benchmarks': [Benchmarks.BenchmarkNoComponents()],
@@ -193,74 +188,23 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
               'Benchmarks.BenchmarkNoComponents.benchmark.run_2_of_3',
               'Benchmarks.BenchmarkNoComponents.benchmark.run_3_of_3',
           ]
-      }, {
-          'testcase_name':
-              'runs_per_benchmark config pipeline_arg set',
-          'config_flag': {
-              'pipeline_args': {
-                  'runs_per_benchmark': 3,
-              },
-              'local_config': {},
-          },
-          'runs_per_benchmark_flag':
-              1,
-          'benchmarks': [Benchmarks.BenchmarkNoComponents()],
-          'want_benchmarks': [
-              'Benchmarks.BenchmarkNoComponents.benchmark.run_1_of_3',
-              'Benchmarks.BenchmarkNoComponents.benchmark.run_2_of_3',
-              'Benchmarks.BenchmarkNoComponents.benchmark.run_3_of_3',
-          ]
       })
-  def test_run(self, config_flag, runs_per_benchmark_flag, benchmarks,
-               want_benchmarks):
-    FLAGS.config = json.dumps(config_flag)
+  def test_run(self, runs_per_benchmark_flag, benchmarks, want_benchmarks):
     FLAGS.runs_per_benchmark = runs_per_benchmark_flag
     benchmark_names = nitroml.run(benchmarks, tfx_runner=FakeTfxRunner())
     self.assertEqual(want_benchmarks, benchmark_names)
 
   @parameterized.named_parameters(
       {
-          'testcase_name': 'missing runtime config',
-          'config_flag': {},
-          'runs_per_benchmark_flag': 1,
-          'benchmarks': [Benchmarks.BenchmarkNoComponents()],
-      }, {
           'testcase_name': 'zero runs_per_benchmark flag',
-          'config_flag': {
-              'local_config': {},
-          },
           'runs_per_benchmark_flag': 0,
           'benchmarks': [Benchmarks.BenchmarkNoComponents()],
       }, {
           'testcase_name': 'negative runs_per_benchmark flag',
-          'config_flag': {
-              'local_config': {},
-          },
           'runs_per_benchmark_flag': -1,
           'benchmarks': [Benchmarks.BenchmarkNoComponents()],
-      }, {
-          'testcase_name': 'zero runs_per_benchmark config pipeline_args',
-          'config_flag': {
-              'pipeline_args': {
-                  'runs_per_benchmark': 0,
-              },
-              'local_config': {},
-          },
-          'runs_per_benchmark_flag': 1,
-          'benchmarks': [Benchmarks.BenchmarkNoComponents()],
-      }, {
-          'testcase_name': 'negative runs_per_benchmark config pipeline_args',
-          'config_flag': {
-              'pipeline_args': {
-                  'runs_per_benchmark': -1,
-              },
-              'local_config': {},
-          },
-          'runs_per_benchmark_flag': 1,
-          'benchmarks': [Benchmarks.BenchmarkNoComponents()],
       })
-  def test_run_errors(self, config_flag, runs_per_benchmark_flag, benchmarks):
-    FLAGS.config = json.dumps(config_flag)
+  def test_run_errors(self, runs_per_benchmark_flag, benchmarks):
     FLAGS.runs_per_benchmark = runs_per_benchmark_flag
     with self.assertRaises(ValueError):
       nitroml.run(benchmarks, tfx_runner=FakeTfxRunner())
