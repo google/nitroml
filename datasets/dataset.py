@@ -2,11 +2,11 @@
 Dataset Class that downloads data and provides `components` as the ExampleGen components.
 """
 
+import abc
 import datetime
 import functools
 import os
 import pickle
-from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Text
 
@@ -15,28 +15,23 @@ from tfx.components.base import base_component
 from tfx.components.example_gen.csv_example_gen.component import CsvExampleGen
 from tfx.utils.dsl_utils import external_input
 
-from datasets.data_utils import get, parse_dataset_filters, rename_columns
-from datasets.task import Task
+from datasets import data_utils, task
 
 
-class Dataset(ABC):
-  """
-  Dataset abstract class
-  """
+class Dataset(abc.ABC):
+  """Dataset abstract class"""
 
-  _MAX_THREADS = 1
+  def __init__(self, data_dir: Text = '/tmp/', max_threads: int = 1):
 
-  def __init__(self, data_dir: Text = '/tmp/', max_threads: int = -1):
+    assert max_threads > 0
 
     self._components = None
     self._tasks = None
     self.root_dir = data_dir
-
-    if max_threads > 0:
-      self._MAX_THREADS = max_threads
+    self.max_threads = max_threads
     super().__init__()
 
-  @abstractmethod
+  @abc.abstractmethod
   def _create_components(self) -> List[base_component.BaseComponent]:
     pass
 
@@ -47,8 +42,8 @@ class Dataset(ABC):
     else:
       return self._create_components()
 
-  @abstractmethod
-  def _create_tasks(self) -> List[Task]:
+  @abc.abstractmethod
+  def _create_tasks(self) -> List[task.Task]:
     pass
 
   @property
@@ -64,16 +59,14 @@ class Dataset(ABC):
 
 
 class OpenMLDataset(Dataset):
-  """
-    Dataset class which at and stores OpenML datasets.
-  """
+  """Dataset class which at and stores OpenML datasets."""
 
   _OPENML_API_URL = 'https://www.openml.org/api/v1/json'
   _OPENML_FILE_API_URL = 'https://www.openml.org/data/v1'
   _DATASET_FILTERS = ['status=active', 'tag=OpenML-CC18']
   _API_KEY = 'b1514bb2761ecc4709ab26db50673a41'
 
-  def __init__(self, root_dir: Text = None, max_threads: int = -1):
+  def __init__(self, root_dir: Text = None, max_threads: int = 1):
     super().__init__(root_dir, max_threads)
 
   def _load_task(self, dataset_name='car'):
@@ -86,29 +79,33 @@ class OpenMLDataset(Dataset):
 
   def _create_components(self) -> List[base_component.BaseComponent]:
 
-    # only working with one dataset for now!
     components = []
-    # for dataset_name in os.listdir(self.root_dir):
-    #   dataset_dir = os.path.join(self.root_dir, f'{dataset_name}')
-    #   examples = external_input(dataset_dir)
-    #   example_gen = CsvExampleGen(input=examples)
-    #   components.append(example_gen)
-    dataset_name = 'car'
-    dataset_dir = os.path.join(self.root_dir, f'{dataset_name}/data')
-    examples = external_input(dataset_dir)
-    example_gen = CsvExampleGen(input=examples)
-    components.append(example_gen)
+    names = []
+    for dataset_name in os.listdir(self.root_dir):
+      dataset_dir = os.path.join(self.root_dir, f'{dataset_name}/data')
+      examples = external_input(dataset_dir)
+      example_gen = CsvExampleGen(input=examples, instance_name=dataset_name)
+      components.append(example_gen)
+      names.append(dataset_name)
 
+    self._names = names
     self._components = components
     return components
 
-  def _create_tasks(self) -> List[Task]:
-    # only working with one dataset for now!
+  @property
+  def names(self) -> List[Text]:
+
+    if self._names:
+      return self._names
+    else:
+      return os.listdir(self.root_dir)
+
+  def _create_tasks(self) -> List[task.Task]:
+
     tasks = []
-    # for dataset_name in os.listdir(self.root_dir):
-    dataset_name = 'car'
-    task = self._load_task(dataset_name)
-    tasks.append(task)
+    for dataset_name in os.listdir(self.root_dir):
+      dataset_dir = os.path.join(self.root_dir, f'{dataset_name}')
+      tasks.append(self._load_task(dataset_name))
 
     self._tasks = tasks
     return tasks
@@ -120,7 +117,8 @@ class OpenMLDataset(Dataset):
     if not os.path.isdir(self.root_dir):
       os.mkdir(self.root_dir)
 
-    datasets = self._list_datasets(parse_dataset_filters(self._DATASET_FILTERS))
+    datasets = self._list_datasets(
+        data_utils.parse_dataset_filters(self._DATASET_FILTERS))
     logging.info(f'There are {len(datasets)} datasets.')
     datasets = self._latest_version_only(datasets)
 
@@ -135,7 +133,7 @@ class OpenMLDataset(Dataset):
     succeeded, skipped = 0, 0
     failed = {}
 
-    with ThreadPoolExecutor(max_workers=self._MAX_THREADS) as pool:
+    with ThreadPoolExecutor(max_workers=self.max_threads) as pool:
       tasks = {
           pool.submit(fn): datasets[ix] for ix, fn in enumerate(parallel_fns)
       }
@@ -179,7 +177,7 @@ class OpenMLDataset(Dataset):
       url = f'{url}/{name}/{value}'
 
     url = f'{url}?api_key={self._API_KEY}'
-    resp = get(url).json()
+    resp = data_utils.get(url).json()
     return resp['data']['dataset']
 
   def _latest_version_only(self, datasets):
@@ -246,9 +244,9 @@ class OpenMLDataset(Dataset):
         f'on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.')
     logging.info(f'description:{description}')
 
-    task = Task(
+    task_desc = task.Task(
         task_type=task_type,
-        head=n_classes,
+        num_classes=n_classes,
         label_key=target_name,
         description=description)
 
@@ -258,7 +256,7 @@ class OpenMLDataset(Dataset):
 
     task_path = os.path.join(task_dir, 'task.pkl')
     with open(task_path, 'wb') as fout:
-      pickle.dump(task, fout, pickle.HIGHEST_PROTOCOL)
+      pickle.dump(task_desc, fout, pickle.HIGHEST_PROTOCOL)
 
     logging.info(f'OpenML dataset with id={dataset_id}, name={dataset_name}, '
                  f'on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.')
@@ -277,7 +275,7 @@ class OpenMLDataset(Dataset):
     Returns:
     The downloaded CSV.
     """
-    resp = get(f'{self._OPENML_FILE_API_URL}/get_csv/{file_id}')
+    resp = data_utils.get(f'{self._OPENML_FILE_API_URL}/get_csv/{file_id}')
     resp = resp.text.replace(', ', ',').replace(' ,', ',')
     return resp
 
@@ -300,7 +298,7 @@ class OpenMLDataset(Dataset):
     # both the CSV and the tf.Example datasets.
     csv = csv.split('\n')
     columns = csv[0].split(',')
-    column_rename_dict = rename_columns(columns)
+    column_rename_dict = data_utils.rename_columns(columns)
     # column_rename_dict = qset_factory_util.ColumnRenameDict(columns)
     csv[0] = ','.join([column_rename_dict[column] for column in columns])
     csv = '\n'.join(csv)
@@ -322,12 +320,12 @@ class OpenMLDataset(Dataset):
   def _get_data_qualities(self, dataset_id):
     """Returns the qualities of the dataset with `dataset_id`."""
     url = f'{self._OPENML_API_URL}/data/qualities/{dataset_id}?api_key={self._API_KEY}'
-    resp = get(url).json()
+    resp = data_utils.get(url).json()
     return resp['data_qualities']['quality']
 
   def _get_dataset_description(self, dataset_id):
     """Returns the dataset description of the dataset with `dataset_id`."""
-    resp = get(
+    resp = data_utils.get(
         f'{self._OPENML_API_URL}/data/{dataset_id}?api_key={self._API_KEY}'
     ).json()
     return resp['data_set_description']
@@ -335,8 +333,8 @@ class OpenMLDataset(Dataset):
   def _get_task_type(self, n_classes):
     """ Get the task information from num_classes"""
     if n_classes == 2:
-      return Task.BINARY_CLASSIFICATION
+      return task.Task.BINARY_CLASSIFICATION
     elif n_classes > 2:
-      return Task.CATEGORICAL_CLASSIFICATION
+      return task.Task.CATEGORICAL_CLASSIFICATION
 
-    return Task.REGRESSION
+    return task.Task.REGRESSION

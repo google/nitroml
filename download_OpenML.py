@@ -2,7 +2,7 @@ import os
 
 from absl import app, flags, logging
 
-from datasets.dataset import OpenMLDataset
+from datasets import dataset
 
 flags.DEFINE_string('root_dir', os.path.join(os.environ['HOME'], 'output'),
                     'Path to output csv files.')
@@ -18,7 +18,7 @@ def main(argv):
   dir_path = FLAGS.root_dir
   logging.info(dir_path)
 
-  da = OpenMLDataset(dir_path)
+  da = dataset.OpenMLDataset(dir_path)
 
   # Downloads OpenML data
   if FLAGS.download:
@@ -29,6 +29,7 @@ def main(argv):
   # check the first task
   task = da.tasks[0]
   logging.info(task.toJSON())
+  logging.info(da.names)
 
 
 if __name__ == "__main__":

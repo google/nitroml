@@ -4,15 +4,15 @@ The module file for Trainer component.
 import os
 from typing import Dict, List, NamedTuple, Text
 
-import absl
 import tensorflow as tf
 import tensorflow_transform as tft
+from absl import logging
 from tensorflow_metadata.proto.v0 import schema_pb2
 from tensorflow_transform.tf_metadata import schema_utils
 from tfx.components.trainer.executor import TrainerFnArgs
 from tfx.utils import io_utils
 
-from datasets.task import Task
+from datasets import task
 
 
 def _build_keras_model(feature_spec: Dict[Text, NamedTuple],
@@ -29,19 +29,12 @@ def _build_keras_model(feature_spec: Dict[Text, NamedTuple],
     A keras Model.
   """
 
-  # categorical_columns = [
-  #     tf.feature_column.categorical_column_with_identity(
-  #         key, num_buckets=_VOCAB_SIZE + _OOV_SIZE, default_value=0)
-  #     for key in _transformed_names(_VOCAB_FEATURE_KEYS)
-  # ]
-
   categorical_columns = []
+  real_valued_columns = []
 
   for key in feature_spec:
-
     feature_type = feature_spec[key].dtype
 
-    # TODO: Consider other feature_types
     if feature_type == tf.string:
       values = domains[key].value
 
@@ -50,80 +43,86 @@ def _build_keras_model(feature_spec: Dict[Text, NamedTuple],
       feature = tf.feature_column.indicator_column(feature)
       categorical_columns.append(feature)
 
+    elif feature_type == tf.int64 or feature_type == tf.int32 or feature_type == tf.int32:
+      feature = tf.feature_column.numeric_column(key)
+      real_valued_columns.append(feature)
+
   model = _simple_classifier(
-      columns=categorical_columns,
+      wide_columns=categorical_columns,
+      deep_columns=real_valued_columns,
       feature_spec=feature_spec,
       dnn_hidden_units=hidden_units,
       head_size=head_size,
-      task=task_type)
+      task_type=task_type)
 
   return model
 
 
 # : List[tf.feature_column.FeatureColumn]
-def _simple_classifier(columns,
+def _simple_classifier(wide_columns,
+                       deep_columns,
                        feature_spec,
                        dnn_hidden_units: List[int] = None,
                        head_size: int = 1,
-                       task: str = '') -> tf.keras.Model:
+                       task_type: Text = '') -> tf.keras.Model:
+  """Builds a simple keras classifier."""
 
-  # input_layers = {
-  #     colname: tf.keras.layers.Input(name=colname, shape=(), dtype=tf.float32)
-  #     for colname in _transformed_names(_DENSE_FLOAT_FEATURE_KEYS)
-  # }
-  # input_layers.update({
-  #     colname: tf.keras.layers.Input(name=colname, shape=(), dtype='int32')
-  #     for colname in _transformed_names(_VOCAB_FEATURE_KEYS)
-  # })
-  # input_layers.update({
-  #     colname: tf.keras.layers.Input(name=colname, shape=(), dtype='int32')
-  #     for colname in _transformed_names(_BUCKET_FEATURE_KEYS)
-  # })
-  input_layers = {
-      key: tf.keras.layers.Input(name=key, shape=(), dtype='string')
-      for key in feature_spec
-  }
+  input_layers = {}
+  # Using a simple linear classifier for now.
+  for key in feature_spec:
 
-  # TODO(b/144500510): SparseFeatures for feature columns + Keras.
-  # deep = tf.keras.layers.DenseFeatures(deep_columns)(input_layers)
-  # for numnodes in dnn_hidden_units:
-  #   deep = tf.keras.layers.Dense(numnodes)(deep)
-  wide = tf.keras.layers.DenseFeatures(columns)(input_layers)
+    feature_type = feature_spec[key].dtype
 
-  # TODO: Write else cases
-  if task == Task.CATEGORICAL_CLASSIFICATION:
+    if feature_type == tf.string:
+      input_layers[key] = tf.keras.layers.Input(
+          name=key, shape=(), dtype='string')
+    elif feature_type == tf.int64 or feature_type == tf.int32 or feature_type == tf.int32:
+      keras_tensor = tf.keras.layers.Input(name=key, shape=(), dtype=tf.float32)
+      input_layers[key] = keras_tensor
 
-    output = tf.keras.layers.Dense(head_size, activation='softmax')(wide)
+  all_layers = []
+  if len(deep_columns) > 0:
+    deep = tf.keras.layers.DenseFeatures(deep_columns)(input_layers)
+
+    for numnodes in dnn_hidden_units:
+      deep = tf.keras.layers.Dense(numnodes)(deep)
+
+    all_layers.append(deep)
+
+  if len(wide_columns) > 0:
+    wide = tf.keras.layers.DenseFeatures(wide_columns)(input_layers)
+    all_layers.append(wide)
+
+  if len(all_layers) > 1:
+    output = tf.keras.layers.concatenate(all_layers)
+  else:
+    output = all_layers[0]
+
+  if task_type == task.Task.CATEGORICAL_CLASSIFICATION:
+
+    output = tf.keras.layers.Dense(head_size, activation='softmax')(output)
     model = tf.keras.Model(input_layers, output)
     model.compile(
         loss='categorical_crossentropy',
         optimizer=tf.keras.optimizers.Adam(lr=0.001),
         metrics=[tf.keras.metrics.CategoricalAccuracy()])
 
-  elif task == Task.BINARY_CLASSIFICATION:
+  elif task_type == task.Task.BINARY_CLASSIFICATION:
 
-    output = tf.keras.layers.Dense(head_size, activation='softmax')(wide)
+    output = tf.keras.layers.Dense(1, activation='sigmoid')(output)
     model = tf.keras.Model(input_layers, output)
     model.compile(
         loss='binary_crossentropy',
         optimizer=tf.keras.optimizers.Adam(lr=0.001),
-        metrics=[tf.keras.metrics.CategoricalAccuracy()])
+        metrics=[tf.keras.metrics.BinaryAccuracy()])
 
-  elif task == Task.REGRESSION:
-
+  elif task_type == task.Task.REGRESSION:
     raise NotImplementedError
-
-    # output = tf.keras.layers.Dense(head_size, activation='softmax')(wide)
-    # model = tf.keras.Model(input_layers, output)
-    # model.compile(
-    #     loss='regression',
-    #     optimizer=tf.keras.optimizers.Adam(lr=0.001),
-    #     metrics=[tf.keras.metrics.CategoricalAccuracy()])
 
   else:
     raise NotImplementedError
 
-  model.summary(print_fn=absl.logging.info)
+  model.summary(print_fn=logging.info)
   return model
 
 
@@ -162,7 +161,6 @@ def _input_fn(file_pattern: List[Text],
   table = tf.lookup.StaticHashTable(initializer, default_value=-1)
 
   # check the available feature map
-  print(transformed_feature_spec)
   dataset = tf.data.experimental.make_batched_features_dataset(
       file_pattern=file_pattern,
       batch_size=batch_size,
@@ -171,6 +169,11 @@ def _input_fn(file_pattern: List[Text],
       label_key=label_key)
 
   def map_fn(x, y, table=table):
+
+    for key in x:
+      # x[key] = tf.squeeze(tf.sparse.to_dense(x[key]))
+      x[key] = _fill_in_missing(x[key])
+
     y = table.lookup(tf.squeeze(tf.sparse.to_dense(y)))
     y = tf.one_hot(y, table._initializer._keys.shape[0])
     return (x, y)
@@ -192,15 +195,12 @@ def run_fn(fn_args: TrainerFnArgs):
       file_name=schema_uri, message=schema_pb2.Schema())
   feature_spec, domains = schema_utils.schema_as_feature_spec(schema_proto)
 
-  # print(schema_proto)
-  # print(type(schema_proto))
-
   # Number of nodes in the first layer of the DNN
   first_dnn_layer_size = 10
   num_dnn_layers = 2
   dnn_decay_factor = 0.5
   label_key = fn_args.label_key
-  head_size = fn_args.head
+  head_size = fn_args.num_classes
   task_type = fn_args.type
 
   tf_transform_output = tft.TFTransformOutput(fn_args.transform_output)
@@ -272,8 +272,6 @@ def _get_serve_tf_examples_fn(model, tf_transform_output, label_key):
   def serve_tf_examples_fn(serialized_tf_examples):
     """Returns the output to be used in the serving signature."""
 
-    print('served tf examples fn', serialized_tf_examples)
-
     feature_spec = tf_transform_output.raw_feature_spec()
     feature_spec.pop(label_key)
     parsed_features = tf.io.parse_example(serialized_tf_examples, feature_spec)
@@ -281,60 +279,26 @@ def _get_serve_tf_examples_fn(model, tf_transform_output, label_key):
     transformed_features = model.tft_layer(parsed_features)
     transformed_features.pop(label_key)
 
+    for key in transformed_features:
+      transformed_features[key] = _fill_in_missing(transformed_features[key])
+
     return model(transformed_features)
 
   return serve_tf_examples_fn
 
 
-# def _wide_and_deep_classifier(wide_columns, deep_columns, dnn_hidden_units):
-#   """Build a simple keras wide and deep model.
-
-#   Args:
-#     wide_columns: Feature columns wrapped in indicator_column for wide (linear)
-#       part of the model.
-#     deep_columns: Feature columns for deep part of the model.
-#     dnn_hidden_units: [int], the layer sizes of the hidden DNN.
-
-#   Returns:
-#     A Wide and Deep Keras model
-#   """
-#   # Following values are hard coded for simplicity in this example,
-#   # However prefarably they should be passsed in as hparams.
-
-#   # Keras needs the feature definitions at compile time.
-#   # TODO(b/139081439): Automate generation of input layers from FeatureColumn.
-#   input_layers = {
-#       colname: tf.keras.layers.Input(name=colname, shape=(), dtype=tf.float32)
-#       for colname in _transformed_names(_DENSE_FLOAT_FEATURE_KEYS)
-#   }
-#   input_layers.update({
-#       colname: tf.keras.layers.Input(name=colname, shape=(), dtype='int32')
-#       for colname in _transformed_names(_VOCAB_FEATURE_KEYS)
-#   })
-#   input_layers.update({
-#       colname: tf.keras.layers.Input(name=colname, shape=(), dtype='int32')
-#       for colname in _transformed_names(_BUCKET_FEATURE_KEYS)
-#   })
-#   input_layers.update({
-#       colname: tf.keras.layers.Input(name=colname, shape=(), dtype='int32')
-#       for colname in _transformed_names(_CATEGORICAL_FEATURE_KEYS)
-#   })
-
-#   # TODO(b/144500510): SparseFeatures for feature columns + Keras.
-#   deep = tf.keras.layers.DenseFeatures(deep_columns)(input_layers)
-#   for numnodes in dnn_hidden_units:
-#     deep = tf.keras.layers.Dense(numnodes)(deep)
-#   wide = tf.keras.layers.DenseFeatures(wide_columns)(input_layers)
-
-#   # this should not be hard-coded
-#   output = tf.keras.layers.Dense(
-#       4, activation='softmax')(
-#           tf.keras.layers.concatenate([deep, wide]))
-
-#   model = tf.keras.Model(input_layers, output)
-#   model.compile(
-#       loss='categorical_crossentropy',
-#       optimizer=tf.keras.optimizers.Adam(lr=0.001),
-#       metrics=[tf.keras.metrics.CategoricalAccuracy()])
-#   model.summary(print_fn=absl.logging.info)
-#   return model
+def _fill_in_missing(x):
+  """Replace missing values in a SparseTensor.
+  Fills in missing values of `x` with '' or 0, and converts to a dense tensor.
+  Args:
+    x: A `SparseTensor` of rank 2.  Its dense shape should have size at most 1
+      in the second dimension.
+  Returns:
+    A rank 1 tensor where missing values of `x` have been filled in.
+  """
+  default_value = '' if x.dtype == tf.string else 0
+  return tf.squeeze(
+      tf.sparse.to_dense(
+          tf.SparseTensor(x.indices, x.values, [x.dense_shape[0], 1]),
+          default_value),
+      axis=1)

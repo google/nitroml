@@ -13,8 +13,7 @@ def get(url: Text) -> Text:
 
 
 def convert_to_valid_identifier(s: Text) -> Text:
-  """
-  Converts the string `s` to a valid python identifier
+  """Converts the string `s` to a valid python identifier
   Remove invalid characters, and remove leading characters until letter/underscore.
   """
   s = re.sub('[^0-9a-zA-Z_]', '', s)
@@ -23,9 +22,7 @@ def convert_to_valid_identifier(s: Text) -> Text:
 
 
 def rename_columns(columns: Dict[Text, Text]) -> Dict[Text, Text]:
-  """
-  Returns a dict with keys as column and value as the new column name which is a valid python identifier.
-  """
+  """Returns a dict with keys as column and value as the new column name which is a valid python identifier."""
   return {column: convert_to_valid_identifier(column) for column in columns}
 
 
