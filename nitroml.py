@@ -18,7 +18,7 @@
 go/nitroml
 
 NitroML is a framework for benchmarking AutoML workflows composed of
-TFX OSS and MyOrchestrator components.
+TFX OSS components.
 
 NitroML enables AutoML teams to iterate more quickly on their custom machine
 learning pipelines. It offers machine learning benchmarking best practices
@@ -34,20 +34,23 @@ test cases.
 import abc
 import contextlib
 import re
-from typing import List, Text, TypeVar
+from typing import List, Optional, Text, TypeVar
 
 from absl import app
 from absl import flags
 from absl import logging
 
 from nitroml.components.publisher.component import BenchmarkResultPublisher
-from my_orchestrator.common import my_orchestrator
+from ml_metadata.proto import metadata_store_pb2
 from tfx import components as tfx
 from tfx import types
 from tfx.components.base import base_component
+from tfx.orchestration import pipeline as pipeline_lib
+from tfx.orchestration import tfx_runner as tfx_runner_lib
+from tfx.orchestration.beam import beam_dag_runner
 
 T = TypeVar("T")
-pipeline_args = my_orchestrator.pipeline_args
+
 
 FLAGS = flags.FLAGS
 
@@ -139,12 +142,12 @@ class _RepeatablePipeline(object):
     return self._publisher
 
   @property
-  def pipeline(self) -> List[base_component.BaseComponent]:
+  def components(self) -> List[base_component.BaseComponent]:
     return self.benchmark_pipeline.pipeline + [self.publisher]
 
 
-class _ConcatenatedPipeline(object):
-  """A pipeline composed of repeatable benchmark pipelines.
+class _ConcatenatedPipelineBuilder(object):
+  """Constructs a pipeline composed of repeatable benchmark pipelines.
 
   For combining multiple benchmarked pipelines into a single DAG.
   """
@@ -156,14 +159,45 @@ class _ConcatenatedPipeline(object):
   def benchmark_names(self):
     return [p.benchmark_name for p in self._pipelines]
 
-  def __call__(self, *args) -> List[base_component.BaseComponent]:
+  def build(self,
+            pipeline_name: Optional[Text],
+            pipeline_root: Optional[Text],
+            metadata_connection_config: Optional[
+                metadata_store_pb2.ConnectionConfig] = None,
+            components: Optional[List[base_component.BaseComponent]] = None,
+            enable_cache: Optional[bool] = False,
+            beam_pipeline_args: Optional[List[Text]] = None,
+            **kwargs) -> pipeline_lib.Pipeline:
+    """Contatenates multiple benchmarks into a single pipeline DAG.
+
+    Args:
+      pipeline_name: name of the pipeline;
+      pipeline_root: path to root directory of the pipeline;
+      metadata_connection_config: the config to connect to ML metadata.
+      components: a list of components in the pipeline (optional only for
+        backward compatible purpose to be used with deprecated
+        PipelineDecorator).
+      enable_cache: whether or not cache is enabled for this run.
+      beam_pipeline_args: Beam pipeline args for beam jobs within executor.
+        Executor will use beam DirectRunner as Default.
+      **kwargs: additional kwargs forwarded as pipeline args.
+
+    Returns:
+      A TFX Pipeline.
+    """
+
+    if not pipeline_name:
+      pipeline_name = "nitroml"
+    if not pipeline_root:
+      pipeline_root = "/tmp/nitroml_pipeline_root"
+
     dag = []
     logging.info("NitroML benchmarks:")
     seen = set()
     for repeatable_pipeline in self._pipelines:
       logging.info("\t%s", repeatable_pipeline.benchmark_name)
       logging.info("\t\tRUNNING")
-      components = repeatable_pipeline.pipeline
+      components = repeatable_pipeline.components
       for component in components:
         if component in seen:
           continue
@@ -173,7 +207,14 @@ class _ConcatenatedPipeline(object):
         # pylint: enable=protected-access
         seen.add(component)
       dag += components
-    return dag
+    return pipeline_lib.Pipeline(
+        pipeline_name=pipeline_name,
+        pipeline_root=pipeline_root,
+        metadata_connection_config=metadata_connection_config,
+        components=dag,
+        enable_cache=enable_cache,
+        beam_pipeline_args=beam_pipeline_args,
+        **kwargs)
 
 
 class BenchmarkResult(object):
@@ -202,8 +243,13 @@ class Benchmark(abc.ABC):
     self._seen_benchmarks = None
 
   @abc.abstractmethod
-  def benchmark(self):
-    """Benchmark method to be overridden by subclasses."""
+  def benchmark(self, **kwargs):
+    """Benchmark method to be overridden by subclasses.
+
+    Args:
+      **kwargs: Keyword args that are propagated from the called to
+        nitroml.run(...).
+    """
 
   @contextlib.contextmanager
   def sub_benchmark(self, name: Text):
@@ -269,12 +315,12 @@ class Benchmark(abc.ABC):
 
     return f"{self.__class__.__qualname__}.benchmark"
 
-  def __call__(self, *args):
+  def __call__(self, *args, **kwargs):
     result = BenchmarkResult()
     self._seen_benchmarks = set()
     self._result = result
     try:
-      self.benchmark()
+      self.benchmark(**kwargs)
     finally:
       self._result = None
       self._seen_benchmarks = set()
@@ -331,28 +377,46 @@ def _load_benchmarks() -> List[Benchmark]:
   return [subclass() for subclass in subclasses]  # pylint: disable=no-value-for-parameter
 
 
-def run(benchmarks: List[Benchmark]):
-  """Runs the given benchmarks using MyOrchestrator.
+def run(benchmarks: List[Benchmark],
+        tfx_runner: Optional[tfx_runner_lib.TfxRunner] = None,
+        pipeline_name: Optional[Text] = None,
+        pipeline_root: Optional[Text] = None,
+        metadata_connection_config: Optional[
+            metadata_store_pb2.ConnectionConfig] = None,
+        enable_cache: Optional[bool] = False,
+        beam_pipeline_args: Optional[List[Text]] = None,
+        **kwargs) -> List[Text]:
+  """Runs the given benchmarks as part of a single pipeline DAG.
 
   First it concatenates all the benchmark pipelines into a single DAG
-  metapipeline. Next it executes the workflow via my_orchestrator.run().
+  benchmark pipeline. Next it executes the workflow via tfx_runner.run().
 
   When the `match` flag is set, matched benchmarks are filtered by name.
 
+  When the `runs_per_benchmark` flag is set, each benchmark is run the number
+  of times specified.
+
+
   Args:
     benchmarks: List of Benchmark instances to include in the suite.
+    tfx_runner: The TfxRunner instance that defines the platform where
+      benchmarks are run.
+    pipeline_name: Name of the benchmark pipeline.
+    pipeline_root: Path to root directory of the pipeline.
+    metadata_connection_config: The config to connect to ML metadata.
+    enable_cache: Whether or not cache is enabled for this run.
+    beam_pipeline_args: Beam pipeline args for beam jobs within executor.
+      Executor will use beam DirectRunner as Default.
+    **kwargs: Additional kwargs forwarded as kwargs to benchmarks.
+
+  Returns:
+    The string list of benchmark names that were included in this run.
   """
 
-  if "runs_per_benchmark" in pipeline_args():
-    runs_per_benchmark = int(pipeline_args()["runs_per_benchmark"])
-    logging.info(
-        "Using runs_per_benchmark=%d as specified "
-        "in the config's pipeline_args.", runs_per_benchmark)
-  else:
-    runs_per_benchmark = FLAGS.runs_per_benchmark
-    logging.info(
-        "Using runs_per_benchmark=%d as specified "
-        "by the --runs_per_benchmark flag.", runs_per_benchmark)
+
+  if not tfx_runner:
+    logging.info("Setting TFX runner to OSS default: BeamDagRunner.")
+    tfx_runner = beam_dag_runner.BeamDagRunner()
 
   if runs_per_benchmark <= 0:
     raise ValueError("runs_per_benchmark must be strictly positive; "
@@ -361,7 +425,8 @@ def run(benchmarks: List[Benchmark]):
   pipelines = []
   for b in benchmarks:
     for benchmark_run in range(runs_per_benchmark):
-      result = b()
+      # Call benchmarks with pipeline args.
+      result = b(**kwargs)
       for pipeline in result.pipelines:
         if re.match(FLAGS.match, pipeline.benchmark_name):
           pipelines.append(
@@ -369,7 +434,13 @@ def run(benchmarks: List[Benchmark]):
                   pipeline,
                   repetition=benchmark_run + 1,  # One-index runs.
                   num_repetitions=runs_per_benchmark))
-  my_orchestrator.run(_ConcatenatedPipeline(pipelines))
+  pipeline_builder = _ConcatenatedPipelineBuilder(pipelines)
+  benchmark_pipeline = pipeline_builder.build(pipeline_name, pipeline_root,
+                                              metadata_connection_config,
+                                              enable_cache, beam_pipeline_args,
+                                              **kwargs)
+  tfx_runner.run(benchmark_pipeline)
+  return pipeline_builder.benchmark_names
 
 
 def main(*args, **kwargs):

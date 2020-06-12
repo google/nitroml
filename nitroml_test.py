@@ -13,20 +13,18 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Tests for nitroml.nitroml.py."""
+"""Tests for nitroml.py."""
 
 import abc
 import json
 import re
 
 from absl import flags
+from absl.testing import absltest
 from absl.testing import parameterized
-import mock
-
 from nitroml import nitroml
-from my_orchestrator.common import my_orchestrator
-from google3.testing.pybase import flagsaver
-from google3.testing.pybase import googletest
+
+from tfx.orchestration import tfx_runner
 from tfx.types import channel_utils
 from tfx.types import standard_artifacts
 
@@ -34,6 +32,7 @@ FLAGS = flags.FLAGS
 
 
 class FakePipeline(object):
+  """A fake pipeline definition for testing."""
 
   @property
   def components(self):
@@ -50,8 +49,15 @@ class FakePipeline(object):
     return channel_utils.as_channel([model])
 
 
+class FakeTfxRunner(tfx_runner.TfxRunner):
+  """A fake TFX runner for testing."""
+
+  def run(self, pipeline):
+    return pipeline
+
+
 class Benchmarks(object):
-  """Hide these benchmarks from the googletest.main runner below."""
+  """Hide these benchmarks from the nitroml.main runner below."""
 
   class Benchmark1(nitroml.Benchmark):
 
@@ -156,7 +162,7 @@ class Benchmarks(object):
             model=pipeline.model)
 
 
-class NitroMLTest(parameterized.TestCase, googletest.TestCase):
+class NitroMLTest(parameterized.TestCase, absltest.TestCase):
 
   def setUp(self):
     super(NitroMLTest, self).setUp()
@@ -209,11 +215,8 @@ class NitroMLTest(parameterized.TestCase, googletest.TestCase):
                want_benchmarks):
     FLAGS.config = json.dumps(config_flag)
     FLAGS.runs_per_benchmark = runs_per_benchmark_flag
-    with mock.patch.object(my_orchestrator, 'run', autospec=True) as run_mock:
-      nitroml.run(benchmarks)
-      mock_args = run_mock.call_args_list[0][0]
-      concatenated_pipeline = mock_args[0]
-      self.assertEqual(want_benchmarks, concatenated_pipeline.benchmark_names)
+    benchmark_names = nitroml.run(benchmarks, tfx_runner=FakeTfxRunner())
+    self.assertEqual(want_benchmarks, benchmark_names)
 
   @parameterized.named_parameters(
       {
@@ -260,8 +263,7 @@ class NitroMLTest(parameterized.TestCase, googletest.TestCase):
     FLAGS.config = json.dumps(config_flag)
     FLAGS.runs_per_benchmark = runs_per_benchmark_flag
     with self.assertRaises(ValueError):
-      with mock.patch.object(my_orchestrator, 'run', autospec=True):
-        nitroml.run(benchmarks)
+      nitroml.run(benchmarks, tfx_runner=FakeTfxRunner())
 
   @parameterized.named_parameters(
       {
@@ -364,26 +366,7 @@ class NitroMLTest(parameterized.TestCase, googletest.TestCase):
     ])
 
 
-class NitroMLFlagTest(googletest.TestCase):
-
-  def testDefaultFlagValue(self):
-    self.assertEqual('', FLAGS.match)
-
-  def testDefaultFlagValueMatches(self):
-    self.assertTrue(re.match(FLAGS.match, 'SomeBenchmarkName'))
-
-  @flagsaver.FlagSaver
-  def testValidFlagValue(self):
-    FLAGS.match = '.*mnist.*'
-    self.assertEqual('.*mnist.*', FLAGS.match)
-
-  @flagsaver.FlagSaver
-  def testInvalidFlagValue(self):
-    with self.assertRaises(Exception):
-      FLAGS.match = 'he(lo'
-
-
-class NitroMLGetSubclassesTest(googletest.TestCase):
+class NitroMLGetSubclassesTest(absltest.TestCase):
 
   def testNoSubclass(self):
 
@@ -450,4 +433,4 @@ class NitroMLGetSubclassesTest(googletest.TestCase):
 
 
 if __name__ == '__main__':
-  googletest.main()
+  absltest.main()
