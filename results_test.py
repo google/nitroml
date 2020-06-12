@@ -49,10 +49,6 @@ class OverviewTest(parameterized.TestCase):
               'run_id',
               'benchmark_fullname',
               'benchmark',
-              'eval_batch_size',
-              'layer_size',
-              'num_layers',
-              'train_batch_size',
               'accuracy',
               'accuracy_baseline',
               'auc',
@@ -65,7 +61,8 @@ class OverviewTest(parameterized.TestCase):
               'prediction/mean',
               'recall',
           ],
-      }, {
+      },
+      {
           'testcase_name':
               'mean 03-31-20',
           'mlmd_store_path':
@@ -74,10 +71,6 @@ class OverviewTest(parameterized.TestCase):
           'want_columns': [
               'run_id',
               'benchmark',
-              'eval_batch_size',
-              'layer_size',
-              'num_layers',
-              'train_batch_size',
               'accuracy mean',
               'accuracy_baseline mean',
               'auc mean',
@@ -89,7 +82,8 @@ class OverviewTest(parameterized.TestCase):
               'prediction/mean mean',
               'recall mean',
           ],
-      }, {
+      },
+      {
           'testcase_name':
               'mean and stdev 03-31-20',
           'mlmd_store_path':
@@ -98,10 +92,6 @@ class OverviewTest(parameterized.TestCase):
           'want_columns': [
               'run_id',
               'benchmark',
-              'eval_batch_size',
-              'layer_size',
-              'num_layers',
-              'train_batch_size',
               'accuracy mean',
               'accuracy std',
               'accuracy_baseline mean',
@@ -123,7 +113,8 @@ class OverviewTest(parameterized.TestCase):
               'recall mean',
               'recall std',
           ],
-      }, {
+      },
+      {
           'testcase_name':
               'no aggregation 04-01-20',
           'mlmd_store_path':
@@ -136,10 +127,6 @@ class OverviewTest(parameterized.TestCase):
               'benchmark',
               'run',
               'num_runs',
-              'eval_batch_size',
-              'layer_size',
-              'num_layers',
-              'train_batch_size',
               'accuracy',
               'accuracy_baseline',
               'auc',
@@ -152,7 +139,8 @@ class OverviewTest(parameterized.TestCase):
               'prediction/mean',
               'recall',
           ],
-      }, {
+      },
+      {
           'testcase_name':
               'mean 04-01-20',
           'mlmd_store_path':
@@ -162,10 +150,6 @@ class OverviewTest(parameterized.TestCase):
               'run_id',
               'benchmark',
               'num_runs',
-              'eval_batch_size',
-              'layer_size',
-              'num_layers',
-              'train_batch_size',
               'accuracy mean',
               'accuracy_baseline mean',
               'auc mean',
@@ -177,7 +161,8 @@ class OverviewTest(parameterized.TestCase):
               'prediction/mean mean',
               'recall mean',
           ],
-      }, {
+      },
+      {
           'testcase_name':
               'mean and stdev 04-01-20',
           'mlmd_store_path':
@@ -187,10 +172,6 @@ class OverviewTest(parameterized.TestCase):
               'run_id',
               'benchmark',
               'num_runs',
-              'eval_batch_size',
-              'layer_size',
-              'num_layers',
-              'train_batch_size',
               'accuracy mean',
               'accuracy std',
               'accuracy_baseline mean',
@@ -212,22 +193,20 @@ class OverviewTest(parameterized.TestCase):
               'recall mean',
               'recall std',
           ],
-      }, {
+      },
+      {
           'testcase_name':
               'no aggregation 05-21-20',
           'mlmd_store_path':
               _MLMD_05_21_20_PATH,
-          'metric_aggregators': None,
+          'metric_aggregators':
+              None,
           'want_columns': [
               'run_id',
               'benchmark_fullname',
               'benchmark',
               'run',
               'num_runs',
-              'eval_batch_size',
-              'layer_size',
-              'num_layers',
-              'train_batch_size',
               'accuracy',
               'accuracy_baseline',
               'auc',
@@ -252,7 +231,7 @@ class OverviewTest(parameterized.TestCase):
               'kaggle_teamName',
               'kaggle_totalBytes',
               'kaggle_type',
-              'kaggle_url'
+              'kaggle_url',
           ],
       })
   def test_overview(self, mlmd_store_path, metric_aggregators, want_columns):

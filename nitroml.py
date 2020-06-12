@@ -17,7 +17,7 @@
 
 go/nitroml
 
-NitroML is ElatedZebra's framework for benchmarking AutoML workflows composed of
+NitroML is a framework for benchmarking AutoML workflows composed of
 TFX OSS components.
 
 NitroML enables AutoML teams to iterate more quickly on their custom machine
@@ -412,6 +412,8 @@ def run(benchmarks: List[Benchmark],
   Returns:
     The string list of benchmark names that were included in this run.
   """
+
+  runs_per_benchmark = FLAGS.runs_per_benchmark
 
 
   if not tfx_runner:

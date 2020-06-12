@@ -1,0 +1,35 @@
+# Documentation
+docs/build*
+
+# Compiled python modules.
+*.pyc
+
+# Bazel outputs.
+bazel-*
+*_pb2.py
+
+# Byte-compiled
+_pycache__/
+.cache/
+
+# Python egg metadata, regenerated from source files by setuptools.
+/*.egg-info
+.eggs/
+
+# PyPI distribution artifacts.
+build/
+dist/
+
+# Sublime project files
+*.sublime-project
+*.sublime-workspace
+
+# Tests
+.pytest_cache/
+.coverage
+
+# Pytype
+.pytype
+
+# Other
+*.DS_Store
