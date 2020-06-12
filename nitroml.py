@@ -17,7 +17,7 @@
 
 go/nitroml
 
-NitroML is a framework for benchmarking AutoML workflows composed of
+NitroML is ElatedZebra's framework for benchmarking AutoML workflows composed of
 TFX OSS components.
 
 NitroML enables AutoML teams to iterate more quickly on their custom machine

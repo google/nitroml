@@ -35,7 +35,7 @@ RUN_KEY = 'run'
 NUM_RUNS_KEY = 'num_runs'
 
 # Component constants
-_TRAINER = 'my_orchestrator.components.trainer.component.EstimatorTrainer'
+_TRAINER = 'google3.learning.elated_zebra.my_orchestrator.components.trainer.component.EstimatorTrainer'
 _TRAINER_PREFIX = 'EstimatorTrainer'
 _BENCHMARK_RESULT = 'NitroML.BenchmarkResult'
 _KAGGLE_RESULT = 'NitroML.KaggleSubmissionResult'
