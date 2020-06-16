@@ -466,4 +466,12 @@ def main(*args, **kwargs):
 
   del args, kwargs  # Unused
 
-  app.run(lambda _: run(_load_benchmarks()))
+  def _main(argv):
+    del argv  # Unused
+    run(_load_benchmarks())
+    # Explicitly returning None.
+    # Any other value than None or zero is considered “abnormal termination”.
+    # https://docs.python.org/3/library/sys.html#sys.exit
+    return None
+
+  app.run(_main)
