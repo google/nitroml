@@ -53,7 +53,7 @@ class AutoTransformSpec(component_spec.ComponentSpec):
 
 
 class AutoTransform(base_component.BaseComponent):
-  """A TFX custom component designed specifically for Ato Preprocessing for NitroML.
+  """A TFX custom component designed specifically for custom preprocessing.
 
   Similar to the orginal tfx.components.tranform.Transform, this component will load the prepocessing fn from the input module file.
   However, the signature of the tranforming_fn is as follows:
