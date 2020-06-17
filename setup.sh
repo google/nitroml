@@ -46,3 +46,4 @@ printf "\Copying DAG(s) in ~/airflow/dags\n"
 mkdir -p ~/airflow/dags
 cp simple_pipeline ~/airflow/dags/
 cp -r datasets ~/airflow/dags
+cp -r components ~/airflow/dags
