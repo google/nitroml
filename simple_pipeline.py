@@ -13,8 +13,8 @@ from tfx.components import Evaluator, SchemaGen, StatisticsGen, Trainer
 from tfx.components.base import base_component, executor_spec
 from tfx.components.trainer.executor import GenericExecutor
 from tfx.orchestration import metadata, pipeline
-from tfx.orchestration.airflow.airflow_dag_runner import (
-    AirflowDagRunner, AirflowPipelineConfig)
+from tfx.orchestration.airflow.airflow_dag_runner import (AirflowDagRunner,
+                                                          AirflowPipelineConfig)
 from tfx.proto import trainer_pb2
 
 from components import AutoTransform
