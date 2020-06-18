@@ -11,11 +11,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Text
 
 from absl import logging
+
+from datasets import data_utils, task
 from tfx.components.base import base_component
 from tfx.components.example_gen.csv_example_gen.component import CsvExampleGen
 from tfx.utils.dsl_utils import external_input
-
-from datasets import data_utils, task
 
 
 class Dataset(abc.ABC):

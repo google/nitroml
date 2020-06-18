@@ -3,9 +3,10 @@ The module file for the Transform component.
 """
 from typing import Any, Dict, Text
 
+from absl import logging
+
 import tensorflow as tf
 import tensorflow_transform as tft
-from absl import logging
 
 
 def _fill_in_missing(x):

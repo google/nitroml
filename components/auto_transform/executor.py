@@ -3,7 +3,8 @@
 import os
 from typing import Any, Dict, List, Mapping, Text
 
-import absl
+from absl import logging
+
 import tensorflow_transform as tft
 from tensorflow_transform.tf_metadata import schema_utils
 from tfx import types
@@ -16,7 +17,7 @@ from tfx.utils import import_utils, io_utils
 _CUSTOM_CONFIG = 'custom_config'
 
 
-class CustomExecutor(executor.Executor):
+class AutoTransformExecutor(executor.Executor):
   """We extend the Executor from the default transform executor and
   reimplement `Do` and `_GetPreprocessingFn` to allow a custom signature for `preprocessing_fn`.
   """
@@ -45,8 +46,6 @@ class CustomExecutor(executor.Executor):
       exec_properties: A dict of execution properties, including either one of:
         - module_file: The file path to a python module file, from which the
           'preprocessing_fn' function will be loaded.
-        - preprocessing_fn: The module path to a python function that
-          implements 'preprocessing_fn'.
 
     Returns:
       None
@@ -58,8 +57,7 @@ class CustomExecutor(executor.Executor):
         input_dict[executor.EXAMPLES_KEY], 'eval')
     schema_file = io_utils.get_only_uri_in_dir(
         artifact_utils.get_single_uri(input_dict[executor.SCHEMA_KEY]))
-
-    # # Check statistics file
+    # # TODO(nikhilmehta) Consider adding statistics file (if needed)
     # train_statistics_file = io_utils.get_only_uri_in_dir(
     #     artifact_utils.get_single_uri(input_dict[STATISTICS_KEY]))
 
@@ -71,7 +69,7 @@ class CustomExecutor(executor.Executor):
         output_dict[executor.TRANSFORMED_EXAMPLES_KEY], 'eval')
     temp_path = os.path.join(transform_output,
                              executor._TEMP_DIR_IN_TRANSFORM_OUTPUT)
-    absl.logging.debug('Using temp path %s for tft.beam', temp_path)
+    logging.debug('Using temp path %s for tft.beam', temp_path)
 
     def _GetCachePath(label, params_dict):
       if label not in params_dict:
@@ -82,8 +80,6 @@ class CustomExecutor(executor.Executor):
     label_inputs = {
         labels.COMPUTE_STATISTICS_LABEL:
             False,
-        # labels.COMPUTE_STATISTICS_LABEL:
-        # True,
         labels.SCHEMA_PATH_LABEL:
             schema_file,
         labels.EXAMPLES_DATA_FORMAT_LABEL:
@@ -101,8 +97,6 @@ class CustomExecutor(executor.Executor):
         ],
         labels.MODULE_FILE:
             exec_properties.get('module_file', None),
-        labels.PREPROCESSING_FN:
-            exec_properties.get('preprocessing_fn', None),
         # TODO(b/149754658): switch to True once the TFXIO integration is
         # complete.
         labels.USE_TFXIO_LABEL:
@@ -129,8 +123,7 @@ class CustomExecutor(executor.Executor):
       label_outputs[labels.CACHE_OUTPUT_PATH_LABEL] = cache_output
     status_file = 'status_file'  # Unused
     self.Transform(label_inputs, label_outputs, status_file)
-    absl.logging.debug('Cleaning up temp path %s on executor success',
-                       temp_path)
+    logging.debug('Cleaning up temp path %s on executor success', temp_path)
     io_utils.delete_dir(temp_path)
 
   def _GetPreprocessingFn(self, inputs: Mapping[Text, Any],
@@ -144,30 +137,18 @@ class CustomExecutor(executor.Executor):
 
     Returns:
       User defined function.
-
-    Raises:
-      ValueError: When neither or both of MODULE_FILE and PREPROCESSING_FN
-        are present in inputs.
     """
-    has_module_file = bool(
-        value_utils.GetSoleValue(inputs, labels.MODULE_FILE, strict=False))
 
-    if has_module_file:
-      # should have module file
-      preprocessing_fn = import_utils.import_func_from_source(
-          value_utils.GetSoleValue(inputs, labels.MODULE_FILE),
-          'preprocessing_fn')
+    preprocessing_fn = import_utils.import_func_from_source(
+        value_utils.GetSoleValue(inputs, labels.MODULE_FILE),
+        'preprocessing_fn')
 
-      # Note: Added custom_config here
-      lambda_fn = lambda x: preprocessing_fn(x, custom_config)
-      return lambda_fn
+    # Note: Added custom_config here
+    lambda_fn = lambda x: preprocessing_fn(x, custom_config)
+    return lambda_fn
 
-    else:
-      raise ValueError('MODULE_FILE and PREPROCESSING_FN have been '
-                       'supplied in inputs.')
-
-  # TODO(b/122478841): Refine this API in following cls.
-  # Note: This API is up to change.
+  # We override the following method.
+  # The method is adapted from https://github.com/tensorflow/tfx/blob/r0.21.4/tfx/components/transform/executor.py.
   def Transform(self, inputs: Mapping[Text, Any], outputs: Mapping[Text, Any],
                 status_file: Text) -> None:
     """Executes on request.
@@ -190,8 +171,6 @@ class CustomExecutor(executor.Executor):
           transform data.
         - labels.MODULE_FILE: Path to a Python module that contains the
           preprocessing_fn, optional.
-        - labels.PREPROCESSING_FN: Path to a Python function that implements
-          preprocessing_fn, optional.
         - labels.USE_TFXIO_LABEL: Whether use the TFXIO-based TFT APIs.
       outputs: A dictionary of labelled output values, including:
         - labels.PER_SET_STATS_OUTPUT_PATHS_LABEL: Paths to statistics output,
@@ -207,10 +186,8 @@ class CustomExecutor(executor.Executor):
     """
     del status_file  # unused
 
-    absl.logging.debug(
-        'Inputs to executor.Transform function: {}'.format(inputs))
-    absl.logging.debug(
-        'Outputs to executor.Transform function: {}'.format(outputs))
+    logging.debug('Inputs to executor.Transform function: {}'.format(inputs))
+    logging.debug('Outputs to executor.Transform function: {}'.format(outputs))
 
     compute_statistics = value_utils.GetSoleValue(
         inputs, labels.COMPUTE_STATISTICS_LABEL)
@@ -248,13 +225,13 @@ class CustomExecutor(executor.Executor):
         outputs, labels.PER_SET_STATS_OUTPUT_PATHS_LABEL)
     temp_path = value_utils.GetSoleValue(outputs, labels.TEMP_OUTPUT_LABEL)
 
-    absl.logging.debug('Analyze data patterns: %s',
-                       list(enumerate(analyze_data_paths)))
-    absl.logging.debug('Transform data patterns: %s',
-                       list(enumerate(transform_data_paths)))
-    absl.logging.debug('Transform materialization output paths: %s',
-                       list(enumerate(materialize_output_paths)))
-    absl.logging.debug('Transform output path: %s', transform_output_path)
+    logging.debug('Analyze data patterns: %s',
+                  list(enumerate(analyze_data_paths)))
+    logging.debug('Transform data patterns: %s',
+                  list(enumerate(transform_data_paths)))
+    logging.debug('Transform materialization output paths: %s',
+                  list(enumerate(materialize_output_paths)))
+    logging.debug('Transform output path: %s', transform_output_path)
 
     if len(analyze_data_paths) != len(analyze_paths_file_formats):
       raise ValueError(
@@ -310,12 +287,12 @@ class CustomExecutor(executor.Executor):
 
     if not compute_statistics and not materialize_output_paths:
       if analyze_input_columns:
-        absl.logging.warning(
+        logging.warning(
             'Not using the in-place Transform because the following features '
             'require analyzing: {}'.format(
                 tuple(c for c in analyze_input_columns)))
       else:
-        absl.logging.warning(
+        logging.warning(
             'Using the in-place Transform since compute_statistics=False, '
             'it does not materialize transformed data, and the configured '
             'preprocessing_fn appears to not require analyzing the data.')

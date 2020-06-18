@@ -4,15 +4,15 @@ The module file for Trainer component.
 import os
 from typing import Dict, List, NamedTuple, Text
 
+from absl import logging
+
 import tensorflow as tf
 import tensorflow_transform as tft
-from absl import logging
+from datasets import task
 from tensorflow_metadata.proto.v0 import schema_pb2
 from tensorflow_transform.tf_metadata import schema_utils
 from tfx.components.trainer.executor import TrainerFnArgs
 from tfx.utils import io_utils
-
-from datasets import task
 
 
 def _build_keras_model(feature_spec: Dict[Text, NamedTuple],
