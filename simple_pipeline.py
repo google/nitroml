@@ -6,19 +6,19 @@ import os
 import sys
 from typing import List
 
+from absl import logging
+
 import tensorflow_data_validation as tfdv
 import tensorflow_model_analysis as tfma
-from absl import logging
+from components import AutoTransform
+from datasets.dataset import OpenMLDataset
 from tfx.components import Evaluator, SchemaGen, StatisticsGen, Trainer
 from tfx.components.base import base_component, executor_spec
 from tfx.components.trainer.executor import GenericExecutor
 from tfx.orchestration import metadata, pipeline
-from tfx.orchestration.airflow.airflow_dag_runner import (
-    AirflowDagRunner, AirflowPipelineConfig)
+from tfx.orchestration.airflow.airflow_dag_runner import (AirflowDagRunner,
+                                                          AirflowPipelineConfig)
 from tfx.proto import trainer_pb2
-
-from components import AutoTransform
-from datasets.dataset import OpenMLDataset
 
 _HOME = os.environ['HOME']
 _PIPELINE_NAME = 'all_benchmarks'
