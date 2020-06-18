@@ -6,10 +6,13 @@ import os
 import sys
 from typing import List
 
-import tensorflow_model_analysis as tfma
 from absl import logging
-from tfx.components import (Evaluator, SchemaGen, StatisticsGen, Trainer,
-                            Transform)
+
+import tensorflow_data_validation as tfdv
+import tensorflow_model_analysis as tfma
+from components import AutoTransform
+from datasets.dataset import OpenMLDataset
+from tfx.components import Evaluator, SchemaGen, StatisticsGen, Trainer
 from tfx.components.base import base_component, executor_spec
 from tfx.components.trainer.executor import GenericExecutor
 from tfx.orchestration import metadata, pipeline
@@ -17,12 +20,10 @@ from tfx.orchestration.airflow.airflow_dag_runner import (AirflowDagRunner,
                                                           AirflowPipelineConfig)
 from tfx.proto import trainer_pb2
 
-from datasets.dataset import OpenMLDataset
-
 _HOME = os.environ['HOME']
-
 _PIPELINE_NAME = 'all_benchmarks'
 _WORKSPACE_ROOT = os.path.join(_HOME, 'nitroml')
+
 _TRANSFORM_MODULE_FILE = os.path.join(_WORKSPACE_ROOT, 'transform_utils.py')
 _TRAINER_MODULE_FILE = os.path.join(_WORKSPACE_ROOT, 'trainer_utils.py')
 _PIPELINE_ROOT = os.path.join(_HOME, 'pipeline')
@@ -60,6 +61,13 @@ def _create_benchmarks(datasets: object):
   all_example_gens = all_example_gens[:3]
   all_tasks = all_tasks[:3]
   all_names = all_names[:3]
+  # all_example_gens = all_example_gens[2:3]
+  # all_tasks = all_tasks[2:3]
+  # all_names = all_names[2:3]
+  # index = all_names.index('car')
+  # all_example_gens = all_example_gens[index:index + 1]
+  # all_tasks = all_tasks[index:index + 1]
+  # all_names = all_names[index:index + 1]
 
   logging.info(f'A Total of {len(all_example_gens)} benchmarks.')
 
@@ -67,22 +75,25 @@ def _create_benchmarks(datasets: object):
 
   for example_gen, task, dataset_name in zip(all_example_gens, all_tasks,
                                              all_names):
-    # example_gen = all_example_gens[0]
-    # task = all_tasks[0]
 
+    stats_options = tfdv.StatsOptions(label_feature=task.label_key)
     statistics_gen = StatisticsGen(
-        examples=example_gen.outputs['examples'], instance_name=dataset_name)
+        examples=example_gen.outputs['examples'],
+        stats_options=stats_options,
+        instance_name=dataset_name)
 
     schema_gen = SchemaGen(
         statistics=statistics_gen.outputs['statistics'],
         infer_feature_shape=False,
         instance_name=dataset_name)
 
-    transform = Transform(
+    transform_config = task.toJSON()
+    transform = AutoTransform(
         examples=example_gen.outputs['examples'],
         schema=schema_gen.outputs['schema'],
         module_file=_TRANSFORM_MODULE_FILE,
-        instance_name=dataset_name)
+        instance_name=dataset_name,
+        custom_config=transform_config)
 
     trainer_config = task.toJSON()
     trainer = Trainer(

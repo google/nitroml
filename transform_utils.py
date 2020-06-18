@@ -1,6 +1,10 @@
 """
 The module file for the Transform component.
 """
+from typing import Any, Dict, Text
+
+from absl import logging
+
 import tensorflow as tf
 import tensorflow_transform as tft
 
@@ -22,12 +26,30 @@ def _fill_in_missing(x):
       axis=1)
 
 
-def preprocessing_fn(inputs):
-  """tf.transform's callback function for preprocessing inputs.
+def preprocessing_fn(inputs: Dict[Text, Any],
+                     custom_config: Dict[Text, Any]) -> Dict[Text, Any]:
+  """tf.transform's callback fn for preprocessing inputs with custom signature.
+
   Args:
-    inputs: map from feature keys to raw not-yet-transformed features.
+    inputs: Map from string feature key to raw not-yet-transformed features.
+
+    Note: Transformations within the preprocessing_fn cannot be applied to the label feature for training or eval.
+    (See: https://www.tensorflow.org/tfx/guide/keras)
+
   Returns:
-    Map from string feature key to transformed feature operations.
+    outputs: Map from string feature key to transformed feature operations.
   """
-  outputs = inputs
+  outputs = inputs.copy()
+  logging.info(custom_config)
+
+  if not custom_config:
+    raise ValueError('Parameter `custom_config` required.')
+
+  label_key = custom_config['label_key']
+
+  for key in outputs:
+    outputs[key] = _fill_in_missing(outputs[key])
+
+  labels = outputs[label_key]
+  tft.vocabulary(labels, vocab_filename='label_vocab')
   return outputs

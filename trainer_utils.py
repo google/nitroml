@@ -4,15 +4,15 @@ The module file for Trainer component.
 import os
 from typing import Dict, List, NamedTuple, Text
 
+from absl import logging
+
 import tensorflow as tf
 import tensorflow_transform as tft
-from absl import logging
+from datasets import task
 from tensorflow_metadata.proto.v0 import schema_pb2
 from tensorflow_transform.tf_metadata import schema_utils
 from tfx.components.trainer.executor import TrainerFnArgs
 from tfx.utils import io_utils
-
-from datasets import task
 
 
 def _build_keras_model(feature_spec: Dict[Text, NamedTuple],
@@ -43,7 +43,8 @@ def _build_keras_model(feature_spec: Dict[Text, NamedTuple],
       feature = tf.feature_column.indicator_column(feature)
       categorical_columns.append(feature)
 
-    elif feature_type == tf.int64 or feature_type == tf.int32 or feature_type == tf.int32:
+    else:
+      # tf.int and tf.float
       feature = tf.feature_column.numeric_column(key)
       real_valued_columns.append(feature)
 
@@ -76,7 +77,8 @@ def _simple_classifier(wide_columns,
     if feature_type == tf.string:
       input_layers[key] = tf.keras.layers.Input(
           name=key, shape=(), dtype='string')
-    elif feature_type == tf.int64 or feature_type == tf.int32 or feature_type == tf.int32:
+    else:
+      # feature_type == tf.int64 or tf.float
       keras_tensor = tf.keras.layers.Input(name=key, shape=(), dtype=tf.float32)
       input_layers[key] = keras_tensor
 
@@ -103,7 +105,7 @@ def _simple_classifier(wide_columns,
     output = tf.keras.layers.Dense(head_size, activation='softmax')(output)
     model = tf.keras.Model(input_layers, output)
     model.compile(
-        loss='categorical_crossentropy',
+        loss='sparse_categorical_crossentropy',
         optimizer=tf.keras.optimizers.Adam(lr=0.001),
         metrics=[tf.keras.metrics.CategoricalAccuracy()])
 
@@ -133,7 +135,6 @@ def _gzip_reader_fn(filenames):
 
 def _input_fn(file_pattern: List[Text],
               tf_transform_output: tft.TFTransformOutput,
-              domains: Dict[Text, NamedTuple],
               label_key: Text,
               batch_size: int = 50) -> tf.data.Dataset:
   """Generates features and label for tuning/training.
@@ -141,6 +142,7 @@ def _input_fn(file_pattern: List[Text],
   Args:
     file_pattern: List of paths or patterns of input tfrecord files.
     tf_transform_output: A TFTransformOutput.
+    label_key: Label key of the dataset.
     batch_size: representing the number of consecutive elements of returned
       dataset to combine in a single batch
 
@@ -151,16 +153,17 @@ def _input_fn(file_pattern: List[Text],
   transformed_feature_spec = (
       tf_transform_output.transformed_feature_spec().copy())
 
-  output_domain = domains[label_key].value
+  logging.info(f'Transformed_Feature_SPEC: {transformed_feature_spec}')
+  label_dtype = transformed_feature_spec[label_key].dtype
+  output_domain = tf_transform_output.vocabulary_by_name('label_vocab')
+  logging.info(output_domain)
   initializer = tf.lookup.KeyValueTensorInitializer(
       keys=output_domain,
       values=tf.cast(tf.range(len(output_domain)), tf.int64),
       key_dtype=tf.string,
       value_dtype=tf.int64)
-
   table = tf.lookup.StaticHashTable(initializer, default_value=-1)
 
-  # check the available feature map
   dataset = tf.data.experimental.make_batched_features_dataset(
       file_pattern=file_pattern,
       batch_size=batch_size,
@@ -170,12 +173,13 @@ def _input_fn(file_pattern: List[Text],
 
   def map_fn(x, y, table=table):
 
-    for key in x:
-      # x[key] = tf.squeeze(tf.sparse.to_dense(x[key]))
-      x[key] = _fill_in_missing(x[key])
+    if table is not None:
 
-    y = table.lookup(tf.squeeze(tf.sparse.to_dense(y)))
-    y = tf.one_hot(y, table._initializer._keys.shape[0])
+      if label_dtype is not tf.string:
+        y = tf.as_string(y)
+
+      y = table.lookup(y)
+
     return (x, y)
 
   dataset = dataset.map(map_fn)
@@ -208,13 +212,11 @@ def run_fn(fn_args: TrainerFnArgs):
   train_dataset = _input_fn(
       fn_args.train_files,
       tf_transform_output,
-      domains=domains,
       label_key=label_key,
       batch_size=40)
   eval_dataset = _input_fn(
       fn_args.eval_files,
       tf_transform_output,
-      domains=domains,
       label_key=label_key,
       batch_size=40)
 
@@ -255,14 +257,6 @@ def run_fn(fn_args: TrainerFnArgs):
   model.save(fn_args.serving_model_dir, save_format='tf', signatures=signatures)
 
 
-def _transformed_name(key):
-  return key + '_xf'
-
-
-def _transformed_names(keys):
-  return [_transformed_name(key) for key in keys]
-
-
 def _get_serve_tf_examples_fn(model, tf_transform_output, label_key):
   """Returns a function that parses a serialized tf.Example and applies TFT."""
 
@@ -279,26 +273,6 @@ def _get_serve_tf_examples_fn(model, tf_transform_output, label_key):
     transformed_features = model.tft_layer(parsed_features)
     transformed_features.pop(label_key)
 
-    for key in transformed_features:
-      transformed_features[key] = _fill_in_missing(transformed_features[key])
-
     return model(transformed_features)
 
   return serve_tf_examples_fn
-
-
-def _fill_in_missing(x):
-  """Replace missing values in a SparseTensor.
-  Fills in missing values of `x` with '' or 0, and converts to a dense tensor.
-  Args:
-    x: A `SparseTensor` of rank 2.  Its dense shape should have size at most 1
-      in the second dimension.
-  Returns:
-    A rank 1 tensor where missing values of `x` have been filled in.
-  """
-  default_value = '' if x.dtype == tf.string else 0
-  return tf.squeeze(
-      tf.sparse.to_dense(
-          tf.SparseTensor(x.indices, x.values, [x.dense_shape[0], 1]),
-          default_value),
-      axis=1)

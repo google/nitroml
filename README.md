@@ -16,6 +16,7 @@ Steps to use Airflow to run the pipeline:
 - `cd` to nitroml dir.
 - Run `setup.sh` - This will install all the requirements (including tfx & airflow  dependencies)
 - Execute `chmod +x -R ~/airflow/dags/datasets`
+- Execute `chmod +x -R ~/airflow/dags/components`
 - start a tmux and activate the conda environment: Run: `airflow webserver -p 9090`
 - start another tmux and activate the conda environment: Run: `airflow scheduler`
 - In your browser, open `localhost:9090` to view the airflow console where we can trigger the pipeline.
