@@ -21,6 +21,7 @@
 
 import json
 import os
+import sys
 import tempfile
 
 from absl import flags
@@ -34,21 +35,29 @@ from ml_metadata.metadata_store import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 
 
-
 class TitanicBenchmarkTest(e2etest.TestCase):
 
   def setUp(self):
     super(TitanicBenchmarkTest, self).setUp()
+    flags.FLAGS(sys.argv)
+
     tempdir = tempfile.mkdtemp(dir=absltest.get_default_test_tmpdir())
-    pipeline_name = "nitroml_titanic_benchmark"
+    self._pipeline_name = "nitroml_titanic_benchmark"
     self._pipeline_root = os.path.join(tempdir, "nitroml", "titanic",
-                                       pipeline_name)
+                                       self._pipeline_name)
     self._metadata_path = os.path.join(tempdir, "nitroml", "titanic",
-                                       pipeline_name, "metadata.db")
+                                       self._pipeline_name, "metadata.db")
 
   def test(self):
+    metadata_config = metadata_store_pb2.ConnectionConfig(
+        sqlite=metadata_store_pb2.SqliteMetadataSourceConfig(
+            filename_uri=self._metadata_path))
 
-    nitroml.run([titanic_benchmark.TitanicBenchmark()])
+    nitroml.run([titanic_benchmark.TitanicBenchmark()],
+                pipeline_name=self._pipeline_name,
+                pipeline_root=self._pipeline_root,
+                metadata_connection_config=metadata_config,
+                beam_pipeline_args=['defaultWorkerLogLevel=ERROR'])
 
     self.assertComponentExecutionCount(7, self._metadata_path)
     self.assertComponentSucceeded("ImportExampleGen.TitanicBenchmark.benchmark",
@@ -68,9 +77,6 @@ class TitanicBenchmarkTest(e2etest.TestCase):
         self._metadata_path)
 
     # Load benchmark results.
-    metadata_config = metadata_store_pb2.ConnectionConfig(
-        sqlite=metadata_store_pb2.SqliteMetadataSourceConfig(
-            filename_uri=self._metadata_path))
     store = metadata_store.MetadataStore(metadata_config)
     df = results.overview(store)
 

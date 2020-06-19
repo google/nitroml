@@ -33,7 +33,9 @@ test cases.
 
 import abc
 import contextlib
+import os
 import re
+import tempfile
 from typing import List, Optional, Text, TypeVar
 
 from absl import app
@@ -42,6 +44,7 @@ from absl import logging
 
 from nitroml.components.publisher.component import BenchmarkResultPublisher
 from ml_metadata.proto import metadata_store_pb2
+import tensorflow as tf
 from tfx import components as tfx
 from tfx import types
 from tfx.components.base import base_component
@@ -50,7 +53,6 @@ from tfx.orchestration import tfx_runner as tfx_runner_lib
 from tfx.orchestration.beam import beam_dag_runner
 
 T = TypeVar("T")
-
 
 FLAGS = flags.FLAGS
 
@@ -186,10 +188,19 @@ class _ConcatenatedPipelineBuilder(object):
       A TFX Pipeline.
     """
 
+    # Set defaults.
     if not pipeline_name:
       pipeline_name = "nitroml"
     if not pipeline_root:
-      pipeline_root = "/tmp/nitroml_pipeline_root"
+      pipeline_root = tempfile.mkdtemp(dir=os.path.join('/tmp', pipeline_name))
+      logging.info(f"Creating tmp pipeline_root at {pipeline_root}")
+    if not metadata_connection_config:
+      metadata_connection_config = metadata_store_pb2.ConnectionConfig(
+          sqlite=metadata_store_pb2.SqliteMetadataSourceConfig(
+              filename_uri=os.path.join(pipeline_root, 'mlmd.sqlite')))
+
+    # Ensure that pipeline dirs are created.
+    _make_pipeline_dirs(pipeline_root, metadata_connection_config)
 
     dag = []
     logging.info("NitroML benchmarks:")
@@ -377,6 +388,15 @@ def _load_benchmarks() -> List[Benchmark]:
   return [subclass() for subclass in subclasses]  # pylint: disable=no-value-for-parameter
 
 
+def _make_pipeline_dirs(
+    pipeline_root: Text,
+    metadata_connection_config: metadata_store_pb2.ConnectionConfig) -> None:
+  tf.io.gfile.makedirs(pipeline_root)
+  if metadata_connection_config.HasField('sqlite'):
+    tf.io.gfile.makedirs(
+        os.path.dirname(metadata_connection_config.sqlite.filename_uri))
+
+
 def run(benchmarks: List[Benchmark],
         tfx_runner: Optional[tfx_runner_lib.TfxRunner] = None,
         pipeline_name: Optional[Text] = None,
@@ -414,7 +434,6 @@ def run(benchmarks: List[Benchmark],
   """
 
   runs_per_benchmark = FLAGS.runs_per_benchmark
-
 
   if not tfx_runner:
     logging.info("Setting TFX runner to OSS default: BeamDagRunner.")
