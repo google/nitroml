@@ -1,6 +1,9 @@
 # Documentation
 docs/build*
 
+# Logs
+*.log
+
 # Compiled python modules.
 *.pyc
 
@@ -23,6 +26,9 @@ dist/
 # Sublime project files
 *.sublime-project
 *.sublime-workspace
+
+# VSCode
+.vscode/
 
 # Tests
 .pytest_cache/
