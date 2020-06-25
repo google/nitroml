@@ -25,7 +25,7 @@ To run in open-source:
 
 import os
 
-from nitroml import nitroml
+import nitroml
 from nitroml.datasets import tfds_dataset
 import tensorflow_datasets as tfds
 

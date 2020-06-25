@@ -14,3 +14,13 @@
 # =============================================================================
 # Lint as: python3
 """Package nitroml."""
+
+from nitroml.nitroml import Benchmark
+from nitroml.nitroml import main
+from nitroml.nitroml import run
+
+__all__ = [
+    "Benchmark",
+    "main",
+    "run",
+]

@@ -26,7 +26,7 @@ import tempfile
 
 from absl import flags
 from absl.testing import absltest
-from nitroml import nitroml
+import nitroml
 from nitroml import results
 from nitroml.examples import titanic_benchmark
 from nitroml.testing import e2etest
