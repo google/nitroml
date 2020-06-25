@@ -43,6 +43,8 @@ from absl import flags
 from absl import logging
 from nitroml.components.publisher.component import BenchmarkResultPublisher
 import tensorflow as tf
+import tensorflow_model_analysis as tfma
+
 from ml_metadata.proto import metadata_store_pb2
 from tfx import components as tfx
 from tfx import types
@@ -158,7 +160,7 @@ class _ConcatenatedPipelineBuilder(object):
     self._pipelines = pipelines
 
   @property
-  def benchmark_names(self):
+  def benchmark_names(self) -> List[Text]:
     return [p.benchmark_name for p in self._pipelines]
 
   def build(self,
@@ -304,11 +306,14 @@ class Benchmark(abc.ABC):
       pipeline: List[base_component.BaseComponent],
       examples: types.Channel,
       model: types.Channel,
+      eval_config: tfma.EvalConfig = None,
   ) -> None:
     """Adds a benchmark subgraph to the benchmark suite's workflow DAG.
 
     Automatically appends a TFX Evaluator component to the given DAG in order
-    to benchmark the given `model` on `examples`.
+    to evaluate the given `model` on `examples`. The Evaluator uses TensorFlow
+    Model Analysis (TFMA) to compute the desired metrics, which are then stored
+    in MLMD.
 
     Args:
       pipeline: List of TFX components of the workflow DAG to benchmark.
@@ -317,6 +322,8 @@ class Benchmark(abc.ABC):
         'eval' key examples as the test dataset.
       model: A `standard_artifacts.Model` Channel, usually produced by a Trainer
         component. Input to the benchmark Evaluator.
+      eval_config: A TFMA `EvalConfig` for customizing the TFMA evaluation.
+        Required when `model` was produced from `tf.keras.Model#save`.
     """
 
     # Strip common parts of benchmark names from benchmark ID.
@@ -330,11 +337,11 @@ class Benchmark(abc.ABC):
     # the test set.
     # TODO(b/146611976): Include a Model-agnostic Evaluator which computes
     # metrics according to task type.
-    evaluator = tfx.Evaluator(examples, model)
+    evaluator = tfx.Evaluator(examples, model, eval_config=eval_config)
     self._result.pipelines.append(
         _BenchmarkPipeline(benchmark_name, pipeline, evaluator))
 
-  def id(self):
+  def id(self) -> Text:
     """The unique ID of this benchmark."""
 
     return f"{self.__class__.__qualname__}.benchmark"
@@ -369,7 +376,7 @@ class _SubBenchmark(Benchmark):
     # directly.
     raise RuntimeError("Sub-benchmarks are not intended to be called directly.")
 
-  def id(self):
+  def id(self) -> Text:
     return f"{self._parent.id()}.{self._name}"
 
 
@@ -469,7 +476,7 @@ def run(benchmarks: List[Benchmark],
   return pipeline_builder.benchmark_names
 
 
-def main(*args, **kwargs):
+def main(*args, **kwargs) -> None:
   """Runs all available Benchmarks.
 
   Usually this function is called without arguments, so the
