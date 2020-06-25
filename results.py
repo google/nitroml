@@ -18,10 +18,12 @@
 import ast
 import datetime
 import json
+import os
 import re
 from typing import Dict, Any, List, NamedTuple, Optional, Text
 
 import pandas as pd
+import tensorflow.compat.v2 as tf
 
 from ml_metadata.metadata_store import metadata_store
 from ml_metadata.proto import metadata_store_pb2
@@ -37,6 +39,7 @@ NUM_RUNS_KEY = 'num_runs'
 # Component constants
 _TRAINER = 'google3.learning.elated_zebra.my_orchestrator.components.trainer.component.EstimatorTrainer'
 _TRAINER_PREFIX = 'EstimatorTrainer'
+_EVALUATOR = 'google3.third_party.tfx.components.evaluator.component.Evaluator'
 _BENCHMARK_RESULT = 'NitroML.BenchmarkResult'
 _KAGGLE_RESULT = 'NitroML.KaggleSubmissionResult'
 _KAGGLE_PUBLISHER = 'nitroml.google.autokaggle.components.publisher.component.KagglePublisher'
@@ -48,6 +51,8 @@ _NAME = 'name'
 _PRODUCER_COMPONENT = 'producer_component'
 _STATE = 'state'
 _PIPELINE_NAME = 'pipeline_name'
+_PIPELINE_ROOT = 'pipeline_root'
+_RUN_ID = 'run_id'
 _COMPONENT_ID = 'component_id'
 _KAGGLE = 'kaggle'
 
@@ -261,6 +266,37 @@ def _get_kaggle_results(store: metadata_store.MetadataStore) -> _Result:
   property_names = property_names.difference(
       {_NAME, _PRODUCER_COMPONENT, _STATE, *_DEFAULT_COLUMNS})
   return _Result(properties=properties, property_names=sorted(property_names))
+
+
+def get_model_dir_map(store: metadata_store.MetadataStore) -> Dict[str, str]:
+  """Obtains a map of run_id to model_dir from the store."""
+
+  evaluator_execs = store.get_executions_by_type(_EVALUATOR)
+
+  def _go_up_2_levels(eval_model_dirs):
+    model_dir_set = set()
+    for eval_model_dir in eval_model_dirs:
+      model_dir_set.add(os.sep.join(eval_model_dir.split(os.sep)[:-2]))
+    return list(model_dir_set)
+
+  def _eval_execs_to_model_dir_map(eval_execs):
+    model_dir_map = {}
+    for eval_exec in eval_execs:
+      run_id = eval_exec.properties[_RUN_ID].string_value
+      pipeline_root = eval_exec.properties[_PIPELINE_ROOT].string_value
+      eval_component_id = eval_exec.properties[_COMPONENT_ID].string_value
+      eval_config_path = os.path.join(pipeline_root,
+                                      eval_component_id, 'evaluation',
+                                      str(eval_exec.id), 'eval_config.json')
+
+      with tf.io.gfile.GFile(eval_config_path, 'r') as f:
+        eval_config = json.load(f)
+
+      model_dir_map[run_id] = _go_up_2_levels(
+          eval_config['modelLocations'].values())
+    return model_dir_map
+
+  return _eval_execs_to_model_dir_map(evaluator_execs)
 
 
 def _make_dataframe(metrics_list: List[Dict[str, Any]],

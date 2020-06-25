@@ -27,7 +27,7 @@ import tensorflow as tf
 import tensorflow_model_analysis as tfma
 import tensorflow_transform as tft
 
-from from tensorflow_metadata.proto.v0 import schema_pb2
+from tensorflow_metadata.proto.v0 import schema_pb2
 from tfx.components.trainer import executor as trainer_executor
 
 FeatureColumn = Any
