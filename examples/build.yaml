@@ -1,0 +1,11 @@
+apiVersion: skaffold/v1beta13
+build:
+  artifacts:
+  - context: .
+    docker:
+      dockerfile: Dockerfile
+    image: gcr.io/nitroml-brain-xgcp/nitroml_benchmark
+  tagPolicy:
+    envTemplate:
+      template: '{{.IMAGE_NAME}}:latest'
+kind: Config

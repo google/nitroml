@@ -36,16 +36,18 @@ from tfx import components as tfx
 from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
+
 # pylint: enable=g-import-not-at-top
 
 
 class TitanicBenchmark(nitroml.Benchmark):
   r"""Demos a NitroML benchmark on the 'Titanic' dataset from OpenML."""
 
-  def benchmark(self):
+  def benchmark(self, **kwargs):
     # NOTE: For convenience, we fetch the OpenML task from the AutoTFX
     # tasks repository.
-    dataset = tfds_dataset.TFDSDataset(tfds.builder('titanic'))
+    data_dir = kwargs.get('data_dir', None)
+    dataset = tfds_dataset.TFDSDataset(tfds.builder('titanic', data_dir=data_dir))
 
     # Compute dataset statistics.
     statistics_gen = tfx.StatisticsGen(examples=dataset.examples)
@@ -58,20 +60,18 @@ class TitanicBenchmark(nitroml.Benchmark):
     transform = tfx.Transform(
         examples=dataset.examples,
         schema=schema_gen.outputs.schema,
-        module_file=os.path.join(
-            os.path.dirname(__file__), 'auto_transform.py'))
+        preprocessing_fn='auto_transform.preprocessing_fn')
 
     # Define a tf.estimator.Estimator-based trainer.
     trainer = tfx.Trainer(
-        module_file=os.path.join(
-            os.path.dirname(__file__), 'auto_estimator_trainer.py'),
+        run_fn='auto_estimator_trainer.run_fn',
         custom_executor_spec=executor_spec.ExecutorClassSpec(
             trainer_executor.GenericExecutor),
         transformed_examples=transform.outputs.transformed_examples,
         schema=schema_gen.outputs.schema,
         transform_graph=transform.outputs.transform_graph,
-        train_args=trainer_pb2.TrainArgs(num_steps=10000),
-        eval_args=trainer_pb2.EvalArgs(num_steps=5000))
+        train_args=trainer_pb2.TrainArgs(num_steps=1),
+        eval_args=trainer_pb2.EvalArgs(num_steps=1))
 
     # Collect the pipeline components to benchmark.
     pipeline = dataset.components + [
@@ -83,7 +83,6 @@ class TitanicBenchmark(nitroml.Benchmark):
     # SavedModel and 'eval' TF Examples.
     self.evaluate(
         pipeline, examples=dataset.examples, model=trainer.outputs.model)
-
 
 if __name__ == '__main__':
   nitroml.main()

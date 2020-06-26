@@ -37,5 +37,8 @@ dist/
 # Pytype
 .pytype
 
+## notebook
+**/.ipynb_checkpoints
+
 # Other
 *.DS_Store
