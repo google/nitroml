@@ -4,7 +4,7 @@ build:
   - context: .
     docker:
       dockerfile: Dockerfile
-    image: gcr.io/nitroml-brain-xgcp/nitroml_benchmark
+    image: gcr.io/nitroml-brain-xgcp/nitroml_benchmark4
   tagPolicy:
     envTemplate:
       template: '{{.IMAGE_NAME}}:latest'

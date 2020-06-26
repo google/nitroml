@@ -60,11 +60,11 @@ class TitanicBenchmark(nitroml.Benchmark):
     transform = tfx.Transform(
         examples=dataset.examples,
         schema=schema_gen.outputs.schema,
-        preprocessing_fn='auto_transform.preprocessing_fn')
+        preprocessing_fn='examples.auto_transform.preprocessing_fn')
 
     # Define a tf.estimator.Estimator-based trainer.
     trainer = tfx.Trainer(
-        run_fn='auto_estimator_trainer.run_fn',
+        run_fn='examples.auto_estimator_trainer.run_fn',
         custom_executor_spec=executor_spec.ExecutorClassSpec(
             trainer_executor.GenericExecutor),
         transformed_examples=transform.outputs.transformed_examples,
