@@ -13,11 +13,7 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Tests for learning.elated_zebra.nitroml.examples.google.basic_benchmark_test."""
-# NOTE: When using --test_strategy=local, this test needs to be run with the
-# --notest_loasd flag for Borgbox, i.e.
-# $ blaze test --test_strategy=local --notest_loasd :test_target
-# See https://yaqs.corp.google.com/eng/q/5892565461237760#a4780535983505408
+"""Tests for nitroml.examples.titanic_benchmark."""
 
 import json
 import os
@@ -28,7 +24,7 @@ from absl import flags
 from absl.testing import absltest
 import nitroml
 from nitroml import results
-from nitroml.examples import titanic_benchmark
+from . import titanic_benchmark
 from nitroml.testing import e2etest
 
 from ml_metadata.metadata_store import metadata_store

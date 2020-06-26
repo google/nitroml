@@ -18,12 +18,15 @@ r"""Demos a basic NitroML benchmark on the 'Titanic' dataset from OpenML.
 
 To run in open-source:
 
-  python -m titanic_benchmark.py
+  python examples/titanic_benchmark.py
 
 """  # pylint: disable=line-too-long
 # pyformat: enable
-
+# pylint: disable=g-import-not-at-top
 import os
+import sys
+# Required since Python binaries ignore relative paths when importing:
+sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
 from nitroml.datasets import tfds_dataset
@@ -33,6 +36,7 @@ from tfx import components as tfx
 from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
+# pylint: enable=g-import-not-at-top
 
 
 class TitanicBenchmark(nitroml.Benchmark):
