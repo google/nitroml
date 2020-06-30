@@ -29,7 +29,6 @@ import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 from absl import logging
-from tfx.orchestration.kubeflow import kubeflow_dag_runner
 from nitroml.datasets import tfds_dataset
 from examples import config
 from nitroml import nitroml
@@ -40,8 +39,6 @@ from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
 # pylint: enable=g-import-not-at-top
-
-USE_KUBEFLOW = True
 
 class TitanicBenchmark(nitroml.Benchmark):
   r"""Demos a NitroML benchmark on the 'Titanic' dataset from OpenML."""
@@ -86,21 +83,10 @@ class TitanicBenchmark(nitroml.Benchmark):
     self.evaluate(
         pipeline, examples=dataset.examples, model=trainer.outputs.model)
 
-def get_kubeflow_dag_runner():
-  
-  metadata_config = kubeflow_dag_runner.get_default_kubeflow_metadata_config()
-  tfx_image = os.environ.get('KUBEFLOW_TFX_IMAGE', None)
-  runner_config = kubeflow_dag_runner.KubeflowDagRunnerConfig(
-      kubeflow_metadata_config=metadata_config,
-      tfx_image=tfx_image
-  )
-
-  return kubeflow_dag_runner.KubeflowDagRunner(config=runner_config)
-
 if __name__ == '__main__':
-  logging.set_verbosity(logging.INFO)
-    
   if config.USE_KUBEFLOW:
-    nitroml.main(pipeline_name=config.PIPELINE_NAME, pipeline_root=config.PIPELINE_ROOT, data_dir=config.DOWNLOAD_DIR, tfx_runner=get_kubeflow_dag_runner())
+    # We need the string "KubeflowDagRunner" in this file to appease the validator used in `tfx create pipeline`.
+    # Validator: https://github.com/tensorflow/tfx/blob/v0.22.0/tfx/tools/cli/handler/base_handler.py#L105
+    nitroml.main(pipeline_name=config.PIPELINE_NAME, pipeline_root=config.PIPELINE_ROOT, data_dir=config.DOWNLOAD_DIR, tfx_runner=nitroml.get_default_kubeflow_dag_runner())
   else:
     nitroml.main()

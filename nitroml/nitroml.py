@@ -52,6 +52,8 @@ from tfx.components.base import base_component
 from tfx.orchestration import pipeline as pipeline_lib
 from tfx.orchestration import tfx_runner as tfx_runner_lib
 from tfx.orchestration.beam import beam_dag_runner
+from tfx.orchestration.kubeflow import kubeflow_dag_runner
+
 
 T = TypeVar("T")
 
@@ -475,6 +477,17 @@ def run(benchmarks: List[Benchmark],
   tfx_runner.run(benchmark_pipeline)
   return pipeline_builder.benchmark_names
 
+def get_default_kubeflow_dag_runner():
+  
+  metadata_config = kubeflow_dag_runner.get_default_kubeflow_metadata_config()
+  tfx_image = os.environ.get('KUBEFLOW_TFX_IMAGE', None)
+  runner_config = kubeflow_dag_runner.KubeflowDagRunnerConfig(
+      kubeflow_metadata_config=metadata_config,
+      tfx_image=tfx_image
+  )
+
+  return kubeflow_dag_runner.KubeflowDagRunner(config=runner_config)
+
 def main(*args, **kwargs) -> None:
   """Runs all available Benchmarks.
 
@@ -494,16 +507,12 @@ def main(*args, **kwargs) -> None:
     **kwargs: Keyword arguments arguments passed to nitroml.run.
   """
   
-  pipeline_name = kwargs.pop('pipeline_name', None)
-  pipeline_root = kwargs.pop('pipeline_root', None)
-  tfx_runner = kwargs.pop('tfx_runner', None)
-  
   del args  # Unused
   
   def _main(argv):
     del argv  # Unused
           
-    run(_load_benchmarks(), tfx_runner=tfx_runner, pipeline_name=pipeline_name, pipeline_root=pipeline_root, **kwargs)
+    run(_load_benchmarks(), **kwargs)
     # Explicitly returning None.
     # Any other value than None or zero is considered “abnormal termination”.
     # https://docs.python.org/3/library/sys.html#sys.exit

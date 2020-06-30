@@ -42,3 +42,8 @@ dist/
 
 # Other
 *.DS_Store
+
+# Dockerfile and build.yaml
+**/Dockerfile
+**/build.yaml
+*.tar.gz
