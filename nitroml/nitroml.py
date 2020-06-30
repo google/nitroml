@@ -477,7 +477,9 @@ def run(benchmarks: List[Benchmark],
   tfx_runner.run(benchmark_pipeline)
   return pipeline_builder.benchmark_names
 
-def get_default_kubeflow_dag_runner():
+def get_default_kubeflow_dag_runner() -> kubeflow_dag_runner.KubeflowDagRunner:
+  """Returns the default KubeflowDagRunner with the default kubeflow metadata config.
+  """
   
   metadata_config = kubeflow_dag_runner.get_default_kubeflow_metadata_config()
   tfx_image = os.environ.get('KUBEFLOW_TFX_IMAGE', None)
