@@ -21,7 +21,6 @@ To run in open-source:
   python examples/titanic_benchmark.py
 
 """  # pylint: disable=line-too-long
-
 # pyformat: enable
 # pylint: disable=g-import-not-at-top
 import os
@@ -32,14 +31,14 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 from absl import logging
 from tfx.orchestration.kubeflow import kubeflow_dag_runner
 from nitroml.datasets import tfds_dataset
-import nitroml
+from examples import config
+from nitroml import nitroml
 import tensorflow_datasets as tfds
 
 from tfx import components as tfx
 from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
-import config
 # pylint: enable=g-import-not-at-top
 
 USE_KUBEFLOW = True
