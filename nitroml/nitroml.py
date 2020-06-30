@@ -476,27 +476,6 @@ def run(benchmarks: List[Benchmark],
   tfx_runner.run(benchmark_pipeline)
   return pipeline_builder.benchmark_names
 
-def get_kubeflow_dag_runner():
-  
-  # TODO(nikhilmehta): Check what all we need from this template code.
-  # Metadata config. The defaults works work with the installation of
-  # KF Pipelines using Kubeflow. If installing KF Pipelines using the
-  # lightweight deployment option, you may need to override the defaults.
-  # If you use Kubeflow, metadata will be written to MySQL database inside
-  # Kubeflow cluster.
-  metadata_config = kubeflow_dag_runner.get_default_kubeflow_metadata_config()
-
-  # This pipeline automatically injects the Kubeflow TFX image if the
-  # environment variable 'KUBEFLOW_TFX_IMAGE' is defined. Currently, the tfx
-  # cli tool exports the environment variable to pass to the pipelines.
-  tfx_image = os.environ.get('KUBEFLOW_TFX_IMAGE', None)
-  runner_config = kubeflow_dag_runner.KubeflowDagRunnerConfig(
-      kubeflow_metadata_config=metadata_config,
-      tfx_image=tfx_image
-  )
-
-  return kubeflow_dag_runner.KubeflowDagRunner(config=runner_config)
-
 def main(*args, **kwargs) -> None:
   """Runs all available Benchmarks.
 
@@ -519,16 +498,12 @@ def main(*args, **kwargs) -> None:
   pipeline_name = kwargs.get('pipeline_name', None)
   pipeline_root = kwargs.get('pipeline_root', None)
   data_dir = kwargs.get('data_dir', None)
-  kubeflow = kwargs.get('kubeflow', False)
+  tfx_runner = kwargs.get('tfx_runner', None)
   del args, kwargs  # Unused
   
   def _main(argv):
     del argv  # Unused
-    
-    tfx_runner = None
-    if kubeflow:
-      tfx_runner=get_kubeflow_dag_runner()
-      
+          
     run(_load_benchmarks(), tfx_runner=tfx_runner, pipeline_name=pipeline_name, pipeline_root=pipeline_root, data_dir=data_dir)
     # Explicitly returning None.
     # Any other value than None or zero is considered “abnormal termination”.

@@ -14,13 +14,14 @@
 # =============================================================================
 # Lint as: python3
 # pyformat: disable
-r"""Demos a basic NitroML benchmark on the 'Titanic' dataset from OpenML.
+"""Demos a basic NitroML benchmark on the 'Titanic' dataset from OpenML.
 
 To run in open-source:
 
   python examples/titanic_benchmark.py
 
-"""  # pylint: disable=line-too-long
+"""  
+# pylint: disable=line-too-long
 # pyformat: enable
 # pylint: disable=g-import-not-at-top
 import os
@@ -28,17 +29,20 @@ import sys
 # Required since Python binaries ignore relative paths when importing:
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
-import nitroml
+from absl import logging
+from tfx.orchestration.kubeflow import kubeflow_dag_runner
 from nitroml.datasets import tfds_dataset
+import nitroml
 import tensorflow_datasets as tfds
 
 from tfx import components as tfx
 from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
-
+import config
 # pylint: enable=g-import-not-at-top
 
+USE_KUBEFLOW = True
 
 class TitanicBenchmark(nitroml.Benchmark):
   r"""Demos a NitroML benchmark on the 'Titanic' dataset from OpenML."""
@@ -84,5 +88,24 @@ class TitanicBenchmark(nitroml.Benchmark):
     self.evaluate(
         pipeline, examples=dataset.examples, model=trainer.outputs.model)
 
+def get_kubeflow_dag_runner():
+  
+  metadata_config = kubeflow_dag_runner.get_default_kubeflow_metadata_config()
+  tfx_image = os.environ.get('KUBEFLOW_TFX_IMAGE', None)
+  runner_config = kubeflow_dag_runner.KubeflowDagRunnerConfig(
+      kubeflow_metadata_config=metadata_config,
+      tfx_image=tfx_image
+  )
+
+  return kubeflow_dag_runner.KubeflowDagRunner(config=runner_config)
+
 if __name__ == '__main__':
-  nitroml.main()
+  logging.set_verbosity(logging.INFO)
+    
+  if USE_KUBEFLOW:
+    pipeline_root = os.path.join('gs://', config.GCS_BUCKET_NAME, config.PIPELINE_NAME)
+    download_dir = os.path.join('gs://', config.GCS_BUCKET_NAME, 'tensorflow-datasets')
+    tfx_runner = get_kubeflow_dag_runner()
+    nitroml.main(pipeline_name=config.PIPELINE_NAME, pipeline_root=pipeline_root, data_dir=download_dir, tfx_runner=tfx_runner)
+  else:
+    nitroml.main()
