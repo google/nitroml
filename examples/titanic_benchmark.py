@@ -40,13 +40,15 @@ from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
 # pylint: enable=g-import-not-at-top
 
+
 class TitanicBenchmark(nitroml.Benchmark):
   r"""Demos a NitroML benchmark on the 'Titanic' dataset from OpenML."""
 
   def benchmark(self, data_dir=None, **kwargs):
     # NOTE: For convenience, we fetch the OpenML task from the AutoTFX
     # tasks repository.
-    dataset = tfds_dataset.TFDSDataset(tfds.builder('titanic', data_dir=data_dir))
+    dataset = tfds_dataset.TFDSDataset(
+        tfds.builder('titanic', data_dir=data_dir))
 
     # Compute dataset statistics.
     statistics_gen = tfx.StatisticsGen(examples=dataset.examples)
@@ -83,10 +85,15 @@ class TitanicBenchmark(nitroml.Benchmark):
     self.evaluate(
         pipeline, examples=dataset.examples, model=trainer.outputs.model)
 
+
 if __name__ == '__main__':
   if config.USE_KUBEFLOW:
     # We need the string "KubeflowDagRunner" in this file to appease the validator used in `tfx create pipeline`.
     # Validator: https://github.com/tensorflow/tfx/blob/v0.22.0/tfx/tools/cli/handler/base_handler.py#L105
-    nitroml.main(pipeline_name=config.PIPELINE_NAME, pipeline_root=config.PIPELINE_ROOT, data_dir=config.DOWNLOAD_DIR, tfx_runner=nitroml.get_default_kubeflow_dag_runner())
+    nitroml.main(
+        pipeline_name=config.PIPELINE_NAME,
+        pipeline_root=config.PIPELINE_ROOT,
+        data_dir=config.DOWNLOAD_DIR,
+        tfx_runner=nitroml.get_default_kubeflow_dag_runner())
   else:
     nitroml.main()
