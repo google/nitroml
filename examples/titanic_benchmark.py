@@ -46,10 +46,9 @@ USE_KUBEFLOW = True
 class TitanicBenchmark(nitroml.Benchmark):
   r"""Demos a NitroML benchmark on the 'Titanic' dataset from OpenML."""
 
-  def benchmark(self, **kwargs):
+  def benchmark(self, data_dir=None, **kwargs):
     # NOTE: For convenience, we fetch the OpenML task from the AutoTFX
     # tasks repository.
-    data_dir = kwargs.get('data_dir', None)
     dataset = tfds_dataset.TFDSDataset(tfds.builder('titanic', data_dir=data_dir))
 
     # Compute dataset statistics.
@@ -101,10 +100,7 @@ def get_kubeflow_dag_runner():
 if __name__ == '__main__':
   logging.set_verbosity(logging.INFO)
     
-  if USE_KUBEFLOW:
-    pipeline_root = os.path.join('gs://', config.GCS_BUCKET_NAME, config.PIPELINE_NAME)
-    download_dir = os.path.join('gs://', config.GCS_BUCKET_NAME, 'tensorflow-datasets')
-    tfx_runner = get_kubeflow_dag_runner()
-    nitroml.main(pipeline_name=config.PIPELINE_NAME, pipeline_root=pipeline_root, data_dir=download_dir, tfx_runner=tfx_runner)
+  if config.USE_KUBEFLOW:
+    nitroml.main(pipeline_name=config.PIPELINE_NAME, pipeline_root=config.PIPELINE_ROOT, data_dir=config.DOWNLOAD_DIR, tfx_runner=get_kubeflow_dag_runner())
   else:
     nitroml.main()
