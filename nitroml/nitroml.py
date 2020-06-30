@@ -52,7 +52,6 @@ from tfx.components.base import base_component
 from tfx.orchestration import pipeline as pipeline_lib
 from tfx.orchestration import tfx_runner as tfx_runner_lib
 from tfx.orchestration.beam import beam_dag_runner
-from tfx.orchestration.kubeflow import kubeflow_dag_runner
 
 T = TypeVar("T")
 

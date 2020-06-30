@@ -14,14 +14,14 @@
 # =============================================================================
 # Lint as: python3
 # pyformat: disable
-"""Demos a basic NitroML benchmark on the 'Titanic' dataset from OpenML.
+r"""Demos a basic NitroML benchmark on the 'Titanic' dataset from OpenML.
 
 To run in open-source:
 
   python examples/titanic_benchmark.py
 
-"""  
-# pylint: disable=line-too-long
+"""  # pylint: disable=line-too-long
+
 # pyformat: enable
 # pylint: disable=g-import-not-at-top
 import os
@@ -74,8 +74,8 @@ class TitanicBenchmark(nitroml.Benchmark):
         transformed_examples=transform.outputs.transformed_examples,
         schema=schema_gen.outputs.schema,
         transform_graph=transform.outputs.transform_graph,
-        train_args=trainer_pb2.TrainArgs(num_steps=1),
-        eval_args=trainer_pb2.EvalArgs(num_steps=1))
+        train_args=trainer_pb2.TrainArgs(num_steps=10000),
+        eval_args=trainer_pb2.EvalArgs(num_steps=5000))
 
     # Collect the pipeline components to benchmark.
     pipeline = dataset.components + [
