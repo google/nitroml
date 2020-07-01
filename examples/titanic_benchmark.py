@@ -30,7 +30,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
 from nitroml.datasets import tfds_dataset
-from . import config
+from examples import config
 import tensorflow_datasets as tfds
 
 from tfx import components as tfx
