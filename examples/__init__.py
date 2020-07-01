@@ -13,4 +13,4 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Package examples."""
+"""Package nitroml.examples."""

@@ -13,7 +13,7 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Tests for examples.titanic_benchmark."""
+"""Tests for nitroml.examples.titanic_benchmark."""
 
 import json
 import os
