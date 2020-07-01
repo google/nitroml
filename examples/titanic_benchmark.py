@@ -30,6 +30,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
 from nitroml.datasets import tfds_dataset
+from . import config
 import tensorflow_datasets as tfds
 
 from tfx import components as tfx
@@ -42,10 +43,11 @@ from tfx.proto import trainer_pb2
 class TitanicBenchmark(nitroml.Benchmark):
   r"""Demos a NitroML benchmark on the 'Titanic' dataset from OpenML."""
 
-  def benchmark(self):
+  def benchmark(self, data_dir=None):
     # NOTE: For convenience, we fetch the OpenML task from the AutoTFX
     # tasks repository.
-    dataset = tfds_dataset.TFDSDataset(tfds.builder('titanic'))
+    dataset = tfds_dataset.TFDSDataset(
+        tfds.builder('titanic', data_dir=data_dir))
 
     # Compute dataset statistics.
     statistics_gen = tfx.StatisticsGen(examples=dataset.examples)
@@ -58,13 +60,11 @@ class TitanicBenchmark(nitroml.Benchmark):
     transform = tfx.Transform(
         examples=dataset.examples,
         schema=schema_gen.outputs.schema,
-        module_file=os.path.join(
-            os.path.dirname(__file__), 'auto_transform.py'))
+        preprocessing_fn='examples.auto_transform.preprocessing_fn')
 
     # Define a tf.estimator.Estimator-based trainer.
     trainer = tfx.Trainer(
-        module_file=os.path.join(
-            os.path.dirname(__file__), 'auto_estimator_trainer.py'),
+        run_fn='examples.auto_estimator_trainer.run_fn',
         custom_executor_spec=executor_spec.ExecutorClassSpec(
             trainer_executor.GenericExecutor),
         transformed_examples=transform.outputs.transformed_examples,
@@ -84,6 +84,15 @@ class TitanicBenchmark(nitroml.Benchmark):
     self.evaluate(
         pipeline, examples=dataset.examples, model=trainer.outputs.model)
 
-
 if __name__ == '__main__':
-  nitroml.main()
+  if config.USE_KUBEFLOW:
+    # We need the string "KubeflowDagRunner" in this file to appease the
+    # validator used in `tfx create pipeline`.
+    # Validator: https://github.com/tensorflow/tfx/blob/v0.22.0/tfx/tools/cli/handler/base_handler.py#L105
+    nitroml.main(
+        pipeline_name=config.PIPELINE_NAME,
+        pipeline_root=config.PIPELINE_ROOT,
+        data_dir=config.DOWNLOAD_DIR,
+        tfx_runner=nitroml.get_default_kubeflow_dag_runner())
+  else:
+    nitroml.main()

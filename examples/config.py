@@ -13,16 +13,15 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Package nitroml."""
+"""NitroML config.
 
-from nitroml.nitroml import Benchmark
-from nitroml.nitroml import get_default_kubeflow_dag_runner
-from nitroml.nitroml import main
-from nitroml.nitroml import run
+This file defines environments for nitroml.
+"""
+import os
 
-__all__ = [
-    "Benchmark",
-    "get_default_kubeflow_dag_runner",
-    "main",
-    "run",
-]
+USE_KUBEFLOW = True
+
+PIPELINE_NAME = 'nitroml_examples'
+GCS_BUCKET_NAME = 'artifacts.nitroml-brain-xgcp.appspot.com'
+PIPELINE_ROOT = os.path.join('gs://', GCS_BUCKET_NAME, PIPELINE_NAME)
+DOWNLOAD_DIR = os.path.join('gs://', GCS_BUCKET_NAME, 'tensorflow-datasets')

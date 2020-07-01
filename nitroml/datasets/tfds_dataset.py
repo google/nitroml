@@ -15,7 +15,6 @@
 # Lint as: python3
 r"""A dataset from a TFDS Dataset."""
 
-import os
 from typing import List, Text
 
 from absl import logging
@@ -58,7 +57,7 @@ class TFDSDataset(object):
       # Assume there is only one file per split.
       # Filename will be like `'fashion_mnist-test.tfrecord-00000-of-00001'`.
       assert len(value.filenames) == 1
-      pattern = os.path.join(self._dataset_builder.data_dir, value.filenames[0])
+      pattern = value.filenames[0]
       splits.append(example_gen_pb2.Input.Split(name=name, pattern=pattern))
 
     logging.info("Splits: %s", splits)

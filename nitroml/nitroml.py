@@ -52,6 +52,13 @@ from tfx.components.base import base_component
 from tfx.orchestration import pipeline as pipeline_lib
 from tfx.orchestration import tfx_runner as tfx_runner_lib
 from tfx.orchestration.beam import beam_dag_runner
+# pylint: disable=g-import-not-at-top
+try:
+  from tfx.orchestration.kubeflow import kubeflow_dag_runner  # type: ignore
+except ModuleNotFoundError:
+  pass
+# pylint: enable=g-import-not-at-top
+
 
 T = TypeVar("T")
 
@@ -408,6 +415,17 @@ def _load_benchmarks() -> List[Benchmark]:
   return [subclass() for subclass in subclasses]  # pylint: disable=no-value-for-parameter
 
 
+def get_default_kubeflow_dag_runner():
+  """Returns the default KubeflowDagRunner with its default metadata config."""
+
+  metadata_config = kubeflow_dag_runner.get_default_kubeflow_metadata_config()
+  tfx_image = os.environ.get("KUBEFLOW_TFX_IMAGE", None)
+  runner_config = kubeflow_dag_runner.KubeflowDagRunnerConfig(
+      kubeflow_metadata_config=metadata_config, tfx_image=tfx_image)
+
+  return kubeflow_dag_runner.KubeflowDagRunner(config=runner_config)
+
+
 def run(benchmarks: List[Benchmark],
         tfx_runner: Optional[tfx_runner_lib.TfxRunner] = None,
         pipeline_name: Optional[Text] = None,
@@ -495,11 +513,12 @@ def main(*args, **kwargs) -> None:
     **kwargs: Keyword arguments arguments passed to nitroml.run.
   """
 
-  del args, kwargs  # Unused
+  del args  # Unused
 
   def _main(argv):
     del argv  # Unused
-    run(_load_benchmarks())
+
+    run(_load_benchmarks(), **kwargs)
     # Explicitly returning None.
     # Any other value than None or zero is considered “abnormal termination”.
     # https://docs.python.org/3/library/sys.html#sys.exit
