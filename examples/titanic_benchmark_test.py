@@ -13,7 +13,7 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Tests for examples.titanic_benchmark."""
+"""Tests for nitroml.examples.titanic_benchmark."""
 
 import json
 import os
@@ -24,7 +24,7 @@ from absl import flags
 from absl.testing import absltest
 import nitroml
 from nitroml import results
-from . import titanic_benchmark
+from examples import titanic_benchmark
 from nitroml.testing import e2etest
 
 from ml_metadata.metadata_store import metadata_store
