@@ -15,7 +15,6 @@
 # Lint as: python3
 r"""A dataset from a TFDS Dataset."""
 
-import os
 from typing import List, Text
 
 from absl import logging

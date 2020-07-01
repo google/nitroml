@@ -28,10 +28,9 @@ import sys
 # Required since Python binaries ignore relative paths when importing:
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
-from absl import logging
+import nitroml
 from nitroml.datasets import tfds_dataset
 from examples import config
-from nitroml import nitroml
 import tensorflow_datasets as tfds
 
 from tfx import components as tfx
@@ -44,7 +43,7 @@ from tfx.proto import trainer_pb2
 class TitanicBenchmark(nitroml.Benchmark):
   r"""Demos a NitroML benchmark on the 'Titanic' dataset from OpenML."""
 
-  def benchmark(self, data_dir=None, **kwargs):
+  def benchmark(self, data_dir=None):
     # NOTE: For convenience, we fetch the OpenML task from the AutoTFX
     # tasks repository.
     dataset = tfds_dataset.TFDSDataset(
@@ -88,7 +87,8 @@ class TitanicBenchmark(nitroml.Benchmark):
 
 if __name__ == '__main__':
   if config.USE_KUBEFLOW:
-    # We need the string "KubeflowDagRunner" in this file to appease the validator used in `tfx create pipeline`.
+    # We need the string "KubeflowDagRunner" in this file to appease the
+    # validator used in `tfx create pipeline`.
     # Validator: https://github.com/tensorflow/tfx/blob/v0.22.0/tfx/tools/cli/handler/base_handler.py#L105
     nitroml.main(
         pipeline_name=config.PIPELINE_NAME,
