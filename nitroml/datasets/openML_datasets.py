@@ -15,23 +15,22 @@
 # Lint as: python3
 r"""The OpenML dataset provider."""
 
-import abc
 import datetime
 import functools
 import os
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Text
+from typing import List, Text, Dict, Any
 
 from absl import logging
 
 from tfx.components.base import base_component
 from tfx.components.example_gen.csv_example_gen.component import CsvExampleGen
 from tfx.utils.dsl_utils import external_input
-from nitroml.datasets import data_utils, task, dataset
+from nitroml.datasets import data_utils, task, base_dataset
 
 
-class OpenMLDataset(dataset.Dataset):
+class OpenMLDataset(base_dataset.BaseDataset):
   """The OpenMLDataset class which downloads the latest datasets provided by OpenML."""
 
   _OPENML_API_URL = 'https://www.openml.org/api/v1/json'
@@ -41,14 +40,15 @@ class OpenMLDataset(dataset.Dataset):
 
   def __init__(self,
                root_dir: Text = None,
-               force_download: bool = False,
+               use_cache: bool = True,
                max_threads: int = 1):
+    """OpenMLDataset Handler """
 
     data_dir = os.path.join(root_dir, 'openML_datasets')
     self._names = None
     super().__init__(data_dir, max_threads)
 
-    if (not force_download) and os.path.exists(data_dir):
+    if use_cache and os.path.exists(data_dir):
       logging.info('The directory %s exists. %d datasets found', data_dir,
                    len(os.listdir(data_dir)))
     else:
@@ -56,12 +56,15 @@ class OpenMLDataset(dataset.Dataset):
 
   @property
   def names(self) -> List[Text]:
+    """Return name of all OpenML datasets"""
+
     if self._names:
       return self._names
     else:
       return os.listdir(self.root_dir)
 
-  def _load_task(self, dataset_name='car'):
+  def _load_task(self, dataset_name='car') -> Dict[Text, Text]:
+    """Loads the task information for the argument dataset."""
 
     with open(os.path.join(self.root_dir, dataset_name, 'task/task.json'),
               'r') as fin:
@@ -70,6 +73,7 @@ class OpenMLDataset(dataset.Dataset):
     return data
 
   def _create_components(self) -> List[base_component.BaseComponent]:
+    """Creates and returns the list of components for OpenML datasets."""
 
     components = []
     names = []
@@ -84,7 +88,8 @@ class OpenMLDataset(dataset.Dataset):
     self._components = components
     return components
 
-  def _create_tasks(self) -> List[task.Task]:
+  def _create_tasks(self) -> List[Dict[Text, Text]]:
+    """Creates and returns the list of task properties for openML datasets."""
 
     tasks = []
     for dataset_name in os.listdir(self.root_dir):
@@ -94,6 +99,7 @@ class OpenMLDataset(dataset.Dataset):
     return tasks
 
   def _get_data(self):
+    """Downloads openML datasets using the OpenML API."""
 
     assert self.root_dir, 'Output_root_dir cannot be empty'
 
@@ -104,9 +110,6 @@ class OpenMLDataset(dataset.Dataset):
         data_utils.parse_dataset_filters(self._DATASET_FILTERS))
     logging.info(f'There are {len(datasets)} datasets.')
     datasets = self._latest_version_only(datasets)
-
-    #TODO(nikhilmehta): Remove the following line.
-    # datasets = datasets[:1]
 
     parallel_fns = [
         functools.partial(self._dump_dataset, dataset, self.root_dir)
@@ -153,8 +156,13 @@ class OpenMLDataset(dataset.Dataset):
     logging.info(
         f'Done! Succeeded={succeeded}, failed={len(failed)}, skipped={skipped}')
 
-  def _list_datasets(self, filters):
-    """Returns all `active` datasets from OpenML matching the `filters`."""
+  def _list_datasets(self, filters: Dict[Text, Text]) -> List[Text]:
+    """Returns the list of names of all `active` datasets from the OpenML repository matching the `filters`.
+
+    Args:
+      filters: Parsed filters for the OpenML API.
+    """
+
     url = f'{self._OPENML_API_URL}/data/list'
     for name, value in filters.items():
       url = f'{url}/{name}/{value}'
@@ -163,7 +171,7 @@ class OpenMLDataset(dataset.Dataset):
     resp = data_utils.get(url).json()
     return resp['data']['dataset']
 
-  def _latest_version_only(self, datasets):
+  def _latest_version_only(self, datasets) -> List[Text]:
     """Filters the datasets to only keep the latest versions.
     Args:
       datasets: Array of dataset objects
@@ -244,7 +252,7 @@ class OpenMLDataset(dataset.Dataset):
 
     return True
 
-  def get_csv(self, file_id):
+  def get_csv(self, file_id) -> Text:
     """Downloads the  OpenML dataset corresponding to the file with `file_id`.
     N.B.: The OpenML `file_id` does not correspond to the OpenML `dataset_id`.
     Args:
@@ -256,8 +264,8 @@ class OpenMLDataset(dataset.Dataset):
     resp = resp.text.replace(', ', ',').replace(' ,', ',')
     return resp
 
-  def _download_dataset(self, file_id, dataset_dir):
-    """Downloads the OpenML dataset in boqth CSV and tf.Example format.
+  def _download_dataset(self, file_id, dataset_dir) -> Dict[Text, Any]:
+    """Downloads the OpenML dataset in boqth CSV and tf.Example sformat.
     The columns are renamed to be valid python identifiers.
     Args:
       file_id: The OpenML file_id of the dataset to download.
@@ -265,7 +273,7 @@ class OpenMLDataset(dataset.Dataset):
     Returns:
       A dictionary of <original column name> -> <renamed column name>.
     """
-    # Download the dataset in CSV format.
+
     csv = self.get_csv(file_id)
 
     # Rename the columns in the CSV to be valid python identifiers. This ensures
@@ -274,39 +282,39 @@ class OpenMLDataset(dataset.Dataset):
     csv = csv.split('\n')
     columns = csv[0].split(',')
     column_rename_dict = data_utils.rename_columns(columns)
-    # column_rename_dict = qset_factory_util.ColumnRenameDict(columns)
     csv[0] = ','.join([column_rename_dict[column] for column in columns])
     csv = '\n'.join(csv)
-
-    # Create the dataset directory if necessary. We do this after downloading the
-    # CSV from OpenML so as not to create empty directories if the download fails.
 
     dataset_dir = os.path.join(dataset_dir, 'data')
     if not os.path.isdir(dataset_dir):
       os.makedirs(dataset_dir)
 
-    # Write the dataset in CSV format.
     csv_path = os.path.join(dataset_dir, 'dataset.csv')
-
     with open(csv_path, 'w') as fout:
       fout.write(csv)
-    return column_rename_dict
+      return column_rename_dict
 
-  def _get_data_qualities(self, dataset_id):
-    """Returns the qualities of the dataset with `dataset_id`."""
+  def _get_data_qualities(self, dataset_id) -> Dict[Text, Any]:
+    """Returns the qualities of the dataset as specified using the OpenML API with `dataset_id`."""
+
     url = f'{self._OPENML_API_URL}/data/qualities/{dataset_id}?api_key={self._API_KEY}'
     resp = data_utils.get(url).json()
     return resp['data_qualities']['quality']
 
-  def _get_dataset_description(self, dataset_id):
-    """Returns the dataset description of the dataset with `dataset_id`."""
+  def _get_dataset_description(self, dataset_id) -> Text:
+    """Returns the dataset description using the OpenML API.
+    Args:
+      `dataset_id`: The dataset id as required by the API.
+    """
+
     resp = data_utils.get(
         f'{self._OPENML_API_URL}/data/{dataset_id}?api_key={self._API_KEY}'
     ).json()
     return resp['data_set_description']
 
-  def _get_task_type(self, n_classes):
+  def _get_task_type(self, n_classes) -> Text:
     """ Get the task information from num_classes"""
+
     if n_classes == 2:
       return task.Task.BINARY_CLASSIFICATION
     elif n_classes > 2:

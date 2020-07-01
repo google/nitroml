@@ -14,29 +14,27 @@
 # =============================================================================
 # Lint as: python3
 """Tests for nitroml.datasets.openML_datasets.py."""
-import os
-import sys
-sys.path.insert(1, os.path.join(sys.path[0], '../..'))
 
 from absl.testing import absltest, parameterized
 
-from nitroml.datasets import openML_datasets, dataset
+from nitroml.datasets import openML_datasets
 
 
 class OpenMLDatasetsTest(parameterized.TestCase, absltest.TestCase):
+  """Test cases for datasets.openML_datasets provider."""
 
   @parameterized.named_parameters(
       {
           'testcase_name': 'openML_default',
           'data_dir': '/tmp/',
-          'force_download': False
+          'use_cache': False
       }, {
-          'testcase_name': 'openML_force_download',
+          'testcase_name': 'openML_use-cache',
           'data_dir': '/tmp/',
-          'force_download': True
+          'use_cache': True
       })
-  def test_examples(self, data_dir, force_download):
-    datasets = openML_datasets.OpenMLDataset(data_dir, force_download)
+  def test_examples(self, data_dir, use_cache):
+    datasets = openML_datasets.OpenMLDataset(data_dir, use_cache)
     self.assertEqual(len(datasets.tasks), len(datasets.components))
     self.assertLen(datasets.components, 72)
 

@@ -16,25 +16,16 @@
 r"""Abstract Dataset class used for manually downloading datasets."""
 
 import abc
-import datetime
-import functools
-import os
-import pickle
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Text
+from typing import List, Text, Dict
 
-from absl import logging
 from tfx.components.base import base_component
-from tfx.components.example_gen.csv_example_gen.component import CsvExampleGen
-from tfx.utils.dsl_utils import external_input
-
-from nitroml.datasets import data_utils, task
 
 
-class Dataset(abc.ABC):
+class BaseDataset(abc.ABC):
   """Dataset abstract class"""
 
   def __init__(self, data_dir: Text = '/tmp/', max_threads: int = 1):
+    """Base dataset class used as a superclass for downloading datasets not provided by tfds."""
 
     assert max_threads > 0
 
@@ -44,24 +35,32 @@ class Dataset(abc.ABC):
     self.max_threads = max_threads
     super().__init__()
 
-  @abc.abstractmethod
-  def _create_components(self) -> List[base_component.BaseComponent]:
-    pass
-
   @property
-  def components(self):
+  def components(self) -> List[base_component.BaseComponent]:
+    """Returns the components for tfx pipeline."""
+
     if self._components:
       return self._components
-    else:
-      return self._create_components()
 
-  @abc.abstractmethod
-  def _create_tasks(self) -> List[task.Task]:
-    pass
+    return self._create_components()
 
   @property
-  def tasks(self):
+  def tasks(self) -> List[Dict[Text, Text]]:
+    """Returns the list of task information for the openML datasets"""
+
     if self._tasks:
       return self._tasks
-    else:
-      return self._create_tasks()
+
+    return self._create_tasks()
+
+  @abc.abstractmethod
+  def _create_components(self) -> List[base_component.BaseComponent]:
+    """Create the components for the tfx pipeline."""
+
+    pass
+
+  @abc.abstractmethod
+  def _create_tasks(self) -> List[Dict[Text, Text]]:
+    """Loads the task information from disk."""
+
+  pass
