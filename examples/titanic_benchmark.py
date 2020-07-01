@@ -30,7 +30,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
 from nitroml.datasets import tfds_dataset
-from . import config
+from examples import config
 import tensorflow_datasets as tfds
 
 from tfx import components as tfx
@@ -60,11 +60,11 @@ class TitanicBenchmark(nitroml.Benchmark):
     transform = tfx.Transform(
         examples=dataset.examples,
         schema=schema_gen.outputs.schema,
-        preprocessing_fn='nitroml.examples.auto_transform.preprocessing_fn')
+        preprocessing_fn='examples.auto_transform.preprocessing_fn')
 
     # Define a tf.estimator.Estimator-based trainer.
     trainer = tfx.Trainer(
-        run_fn='nitroml.examples.auto_estimator_trainer.run_fn',
+        run_fn='examples.auto_estimator_trainer.run_fn',
         custom_executor_spec=executor_spec.ExecutorClassSpec(
             trainer_executor.GenericExecutor),
         transformed_examples=transform.outputs.transformed_examples,
