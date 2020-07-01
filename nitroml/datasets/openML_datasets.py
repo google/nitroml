@@ -198,6 +198,7 @@ class OpenMLDataset(base_dataset.BaseDataset):
     Returns:
       Whether the dataset was dumped.
     """
+
     dataset_id = dataset['did']
 
     # Get dataset file_id and target_name.
@@ -260,6 +261,7 @@ class OpenMLDataset(base_dataset.BaseDataset):
     Returns:
     The downloaded CSV.
     """
+
     resp = data_utils.get(f'{self._OPENML_FILE_API_URL}/get_csv/{file_id}')
     resp = resp.text.replace(', ', ',').replace(' ,', ',')
     return resp
@@ -295,7 +297,9 @@ class OpenMLDataset(base_dataset.BaseDataset):
       return column_rename_dict
 
   def _get_data_qualities(self, dataset_id) -> Dict[Text, Any]:
-    """Returns the qualities of the dataset as specified using the OpenML API with `dataset_id`."""
+    """Returns the qualities of the dataset as specified using the OpenML API
+    with `dataset_id`.
+    """
 
     url = f'{self._OPENML_API_URL}/data/qualities/{dataset_id}?api_key={self._API_KEY}'
     resp = data_utils.get(url).json()

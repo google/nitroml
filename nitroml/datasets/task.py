@@ -40,7 +40,7 @@ class Task(object):
     self._num_classes = num_classes
     self._description = description
     self._label_key = label_key
-  
+
   def __str__(self):
     return (
         f'Task: {self._type} \nClasses: {self._num_classes} \nDescription: {self._description}'
@@ -72,6 +72,7 @@ class Task(object):
 
   def to_dict(self):
     """ Convert task attributes to dictionary """
+
     return_dict = {}
     return_dict['description'] = self._description
     return_dict['type'] = self._type
