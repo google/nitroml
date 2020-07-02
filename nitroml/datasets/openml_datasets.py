@@ -20,57 +20,92 @@ import functools
 import os
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Text, Dict, Any
+from typing import List, Dict, Any
 
 from absl import logging
 
 from tfx.components.base import base_component
 from tfx.components.example_gen.csv_example_gen.component import CsvExampleGen
 from tfx.utils.dsl_utils import external_input
-from nitroml.datasets import data_utils, task, base_dataset
+from nitroml.datasets import data_utils, task
 
 
-class OpenMLDataset(base_dataset.BaseDataset):
-  """The OpenMLDataset class which downloads the latest datasets provided by OpenML."""
+class OpenMLCC18:
+  """The OpenML Dataset Handler.
+
+  The handler downloads the suite of CC18 datasets provided by OpenML and creates the ExampleGen components from the raw CSV files which can be used in a TFX pipeline.
+  """
 
   _OPENML_API_URL = 'https://www.openml.org/api/v1/json'
   _OPENML_FILE_API_URL = 'https://www.openml.org/data/v1'
   _DATASET_FILTERS = ['status=active', 'tag=OpenML-CC18']
+  # TODO(nikhilmehta): Replace the API_KEY with the AutoLX key.
   _API_KEY = 'b1514bb2761ecc4709ab26db50673a41'
 
   def __init__(self,
-               root_dir: Text = None,
+               root_dir: str = None,
                use_cache: bool = True,
                max_threads: int = 1):
-    """OpenMLDataset Handler """
 
-    data_dir = os.path.join(root_dir, 'openML_datasets')
+    assert max_threads > 0, "Number of threads should be greater than 0."
+
+    self._components = None
+    self._tasks = None
+    self.root_dir = os.path.join(root_dir, 'openML_datasets')
+    self.max_threads = max_threads
     self._names = None
-    super().__init__(data_dir, max_threads)
 
-    if use_cache and os.path.exists(data_dir):
-      logging.info('The directory %s exists. %d datasets found', data_dir,
-                   len(os.listdir(data_dir)))
+    if use_cache and os.path.exists(self.root_dir):
+      logging.info('The directory %s exists. %d datasets found', self.root_dir,
+                   len(os.listdir(self.root_dir)))
     else:
       self._get_data()
 
   @property
-  def names(self) -> List[Text]:
+  def names(self) -> List[str]:
     """Return name of all OpenML datasets"""
 
     if self._names:
       return self._names
-    else:
-      return os.listdir(self.root_dir)
 
-  def _load_task(self, dataset_name='car') -> Dict[Text, Text]:
+    return os.listdir(self.root_dir)
+
+  @property
+  def components(self) -> List[base_component.BaseComponent]:
+    """Returns the components for tfx pipeline."""
+
+    if self._components:
+      return self._components
+
+    return self._create_components()
+
+  @property
+  def tasks(self) -> List[task.Task]:
+    """Returns the list of task information for the openML datasets"""
+
+    if self._tasks:
+      return self._tasks
+
+    return self._create_tasks()
+
+  def _load_task(self, dataset_name) -> task.Task:
     """Loads the task information for the argument dataset."""
 
     with open(os.path.join(self.root_dir, dataset_name, 'task/task.json'),
               'r') as fin:
       data = json.load(fin)
+      return_task = task.Task(**data)
+    return return_task
 
-    return data
+  def _create_tasks(self) -> List[task.Task]:
+    """Creates and returns the list of task properties for openML datasets."""
+
+    tasks = []
+    for dataset_name in os.listdir(self.root_dir):
+      tasks.append(self._load_task(dataset_name))
+
+    self._tasks = tasks
+    return tasks
 
   def _create_components(self) -> List[base_component.BaseComponent]:
     """Creates and returns the list of components for OpenML datasets."""
@@ -87,16 +122,6 @@ class OpenMLDataset(base_dataset.BaseDataset):
     self._names = names
     self._components = components
     return components
-
-  def _create_tasks(self) -> List[Dict[Text, Text]]:
-    """Creates and returns the list of task properties for openML datasets."""
-
-    tasks = []
-    for dataset_name in os.listdir(self.root_dir):
-      tasks.append(self._load_task(dataset_name))
-
-    self._tasks = tasks
-    return tasks
 
   def _get_data(self):
     """Downloads openML datasets using the OpenML API."""
@@ -156,8 +181,8 @@ class OpenMLDataset(base_dataset.BaseDataset):
     logging.info(
         f'Done! Succeeded={succeeded}, failed={len(failed)}, skipped={skipped}')
 
-  def _list_datasets(self, filters: Dict[Text, Text]) -> List[Text]:
-    """Returns the list of names of all `active` datasets from the OpenML repository matching the `filters`.
+  def _list_datasets(self, filters: Dict[str, str]) -> List[str]:
+    """Returns the list of names of all `active` datasets.
 
     Args:
       filters: Parsed filters for the OpenML API.
@@ -171,8 +196,9 @@ class OpenMLDataset(base_dataset.BaseDataset):
     resp = data_utils.get(url).json()
     return resp['data']['dataset']
 
-  def _latest_version_only(self, datasets) -> List[Text]:
+  def _latest_version_only(self, datasets) -> List[str]:
     """Filters the datasets to only keep the latest versions.
+
     Args:
       datasets: Array of dataset objects
     Returns:
@@ -190,8 +216,9 @@ class OpenMLDataset(base_dataset.BaseDataset):
 
   def _dump_dataset(self, dataset, root_dir):
     """Dumps the `dataset` to root_dir.
-    The `dataset` is downloaded from OpenML as CSV, converted to tf.Example, and
-    written. A `task` object is created for the dataset and written to the same directory.
+
+    The `dataset` is downloaded from OpenML as CSV and written. A `task` object is created for the dataset and written to the same directory.
+
     Args:
       dataset: The OpenML dataset to dump to root_dir (as returned by `list_datasets`).
       root_dir: The root dir where to dump all dataset artifacts.
@@ -253,22 +280,26 @@ class OpenMLDataset(base_dataset.BaseDataset):
 
     return True
 
-  def get_csv(self, file_id) -> Text:
-    """Downloads the  OpenML dataset corresponding to the file with `file_id`.
-    N.B.: The OpenML `file_id` does not correspond to the OpenML `dataset_id`.
+  def get_csv(self, file_id) -> str:
+    """Downloads the  OpenML dataset corresponding to `file_id`.
+
+    Note: The OpenML `file_id` does not correspond to the OpenML `dataset_id`.
+
     Args:
       file_id: The id of the file to download from OpenML.
     Returns:
-    The downloaded CSV.
+      The downloaded CSV.
     """
 
     resp = data_utils.get(f'{self._OPENML_FILE_API_URL}/get_csv/{file_id}')
     resp = resp.text.replace(', ', ',').replace(' ,', ',')
     return resp
 
-  def _download_dataset(self, file_id, dataset_dir) -> Dict[Text, Any]:
-    """Downloads the OpenML dataset in boqth CSV and tf.Example sformat.
+  def _download_dataset(self, file_id, dataset_dir) -> Dict[str, Any]:
+    """Downloads the OpenML dataset in CSV format.
+
     The columns are renamed to be valid python identifiers.
+
     Args:
       file_id: The OpenML file_id of the dataset to download.
       dataset_dir: The directory where to write the downloaded dataset.
@@ -296,19 +327,22 @@ class OpenMLDataset(base_dataset.BaseDataset):
       fout.write(csv)
       return column_rename_dict
 
-  def _get_data_qualities(self, dataset_id) -> Dict[Text, Any]:
-    """Returns the qualities of the dataset as specified using the OpenML API
-    with `dataset_id`.
+  def _get_data_qualities(self, dataset_id) -> Dict[str, Any]:
+    """Returns the qualities of the dataset as specified in the OpenML API.
+
+    Args:
+      `dataset_id`: The dataset id.
     """
 
     url = f'{self._OPENML_API_URL}/data/qualities/{dataset_id}?api_key={self._API_KEY}'
     resp = data_utils.get(url).json()
     return resp['data_qualities']['quality']
 
-  def _get_dataset_description(self, dataset_id) -> Text:
+  def _get_dataset_description(self, dataset_id) -> str:
     """Returns the dataset description using the OpenML API.
+
     Args:
-      `dataset_id`: The dataset id as required by the API.
+      `dataset_id`: The dataset id.
     """
 
     resp = data_utils.get(
@@ -316,8 +350,12 @@ class OpenMLDataset(base_dataset.BaseDataset):
     ).json()
     return resp['data_set_description']
 
-  def _get_task_type(self, n_classes) -> Text:
-    """ Get the task information from num_classes"""
+  def _get_task_type(self, n_classes) -> str:
+    """Get the task information from num_classes
+
+    Args:
+      n_classes: Number of classes.
+    """
 
     if n_classes == 2:
       return task.Task.BINARY_CLASSIFICATION

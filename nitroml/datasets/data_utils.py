@@ -16,23 +16,23 @@
 """Utility module for datasets"""
 
 import re
-from typing import Dict, List, Text
+from typing import Dict, List
 
 import requests
 
 
-def get(url: Text) -> Text:
+def get(url: str, **kwargs) -> requests.Response:
   """Sends a GET request to the given `url`."""
 
-  resp = requests.get(url)
-  if resp.status_code != requests.codes.ok:
-    raise resp.raise_for_status()
+  resp = requests.get(url, **kwargs)
+  resp.raise_for_status()
   return resp
 
 
-def convert_to_valid_identifier(s: Text) -> Text:
-  """Converts the string `s` to a valid python identifier
-  Remove invalid characters, and remove leading characters until letter/underscore.
+def convert_to_valid_identifier(s: str) -> str:
+  """Converts the string `s` to a valid python identifier.
+
+  Removes invalid characters, and any leading characters until letter/underscore.
   """
 
   s = re.sub('[^0-9a-zA-Z_]', '', s)
@@ -40,20 +40,13 @@ def convert_to_valid_identifier(s: Text) -> Text:
   return s
 
 
-def rename_columns(columns: Dict[Text, Text]) -> Dict[Text, Text]:
-  """Returns a dict with keys as column_name and value as the new column_name
-  which is a valid python identifier.
-  """
+def rename_columns(columns: Dict[str, StopAsyncIteration]) -> Dict[str, str]:
+  """Returns dict[col_name] = new_col_name"""
 
   return {column: convert_to_valid_identifier(column) for column in columns}
 
 
-def parse_dataset_filters(filters: List[Text]) -> Dict[Text, Text]:
-  """Parse the dataset filters: Coverts string array of form ["key=value"] to dict[key]=value.
-  """
+def parse_dataset_filters(filters: List[str]) -> Dict[str, str]:
+  """Coverts string array of the form ["key=value"] to dict[key]=value."""
 
-  parsed = {}
-  for filter_ in filters:
-    key, value = filter_.split('=')
-    parsed[key] = value
-  return parsed
+  return dict(tuple(f.split('=')) for f in filters)
