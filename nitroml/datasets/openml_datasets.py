@@ -17,16 +17,17 @@ r"""The OpenML dataset provider."""
 
 import datetime
 import functools
-import os
 import json
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
+import tensorflow as tf
 from absl import logging
-
 from tfx.components.base import base_component
 from tfx.components.example_gen.csv_example_gen.component import CsvExampleGen
 from tfx.utils.dsl_utils import external_input
+
 from nitroml.datasets import data_utils, task
 
 
@@ -55,10 +56,15 @@ class OpenMLCC18:
     self.max_threads = max_threads
     self._names = None
 
-    if use_cache and os.path.exists(self.root_dir):
+    # if use_cache and os.path.exists(self.root_dir):
+    if use_cache and tf.io.gfile.exists(self.root_dir):
       logging.info('The directory %s exists. %d datasets found', self.root_dir,
-                   len(os.listdir(self.root_dir)))
+                   len(tf.io.gfile.listdir(self.root_dir)))
     else:
+
+      if tf.io.gfile.exists(self.root_dir):
+        tf.io.gfile.rmtree(self.root_dir)
+
       self._get_data()
 
   @property
@@ -91,17 +97,23 @@ class OpenMLCC18:
   def _load_task(self, dataset_name) -> task.Task:
     """Loads the task information for the argument dataset."""
 
-    with open(os.path.join(self.root_dir, dataset_name, 'task/task.json'),
-              'r') as fin:
+    # with open(os.path.join(self.root_dir, dataset_name, 'task/task.json'),
+    #           'r') as fin:
+
+    with tf.io.gfile.GFile(
+        os.path.join(self.root_dir, dataset_name, 'task/task.json'),
+        mode='r') as fin:
       data = json.load(fin)
       return_task = task.Task(**data)
+
     return return_task
 
   def _create_tasks(self) -> List[task.Task]:
     """Creates and returns the list of task properties for openML datasets."""
 
     tasks = []
-    for dataset_name in os.listdir(self.root_dir):
+    # for dataset_name in os.listdir(self.root_dir):
+    for dataset_name in tf.io.gfile.listdir(self.root_dir):
       tasks.append(self._load_task(dataset_name))
 
     self._tasks = tasks
@@ -112,10 +124,15 @@ class OpenMLCC18:
 
     components = []
     names = []
-    for dataset_name in os.listdir(self.root_dir):
-      dataset_dir = os.path.join(self.root_dir, f'{dataset_name}/data')
+    # for dataset_name in os.listdir(self.root_dir):
+    for dataset_name in tf.io.gfile.listdir(self.root_dir):
+      dataset_dir = os.path.join(self.root_dir, f'{dataset_name}', 'data')
+      # logging.info(dataset_dir)
+      # sys.exit()
       examples = external_input(dataset_dir)
-      example_gen = CsvExampleGen(input=examples, instance_name=dataset_name)
+      example_gen = CsvExampleGen(
+          input=examples,
+          instance_name=data_utils.convert_to_valid_identifier(dataset_name))
       components.append(example_gen)
       names.append(dataset_name)
 
@@ -128,13 +145,19 @@ class OpenMLCC18:
 
     assert self.root_dir, 'Output_root_dir cannot be empty'
 
-    if not os.path.isdir(self.root_dir):
-      os.mkdir(self.root_dir)
+    # if not os.path.isdir(self.root_dir):
+    # os.mkdir(self.root_dir)
+
+    if not tf.io.gfile.isdir(self.root_dir):
+      tf.io.gfile.mkdir(self.root_dir)
 
     datasets = self._list_datasets(
         data_utils.parse_dataset_filters(self._DATASET_FILTERS))
     logging.info(f'There are {len(datasets)} datasets.')
     datasets = self._latest_version_only(datasets)
+
+    # # TODO(nikhilmehta): Testing with one dataset:
+    # datasets = datasets[:1]
 
     parallel_fns = [
         functools.partial(self._dump_dataset, dataset, self.root_dir)
@@ -169,13 +192,13 @@ class OpenMLCC18:
 
         else:
           failed[tasks[future]['did']] = exec_info
-          logging.warn('Exception: ', exec_info)
+          logging.warning('Exception: %s', exec_info)
           logging.info(
               f'Succeeded={succeeded}, failed={len(failed)}, skipped={skipped}')
 
     for dataset in failed:
-      logging.warn(dataset)
-      logging.warn(failed[dataset])
+      logging.warning(dataset)
+      logging.warning(failed[dataset])
       logging.info('\n**********')
 
     logging.info(
@@ -268,11 +291,16 @@ class OpenMLCC18:
         description=description)
 
     task_dir = os.path.join(dataset_dir, 'task')
-    if not os.path.isdir(task_dir):
-      os.makedirs(task_dir)
+    # if not os.path.isdir(task_dir):
+    if not tf.io.gfile.isdir(task_dir):
+      tf.io.gfile.makedirs(task_dir)
 
     task_path = os.path.join(task_dir, 'task.json')
-    with open(task_path, 'w') as fout:
+
+    # with open(task_path, 'w') as fout:
+    #   json.dump(task_desc.to_dict(), fout)
+
+    with tf.io.gfile.GFile(task_path, mode='w') as fout:
       json.dump(task_desc.to_dict(), fout)
 
     logging.info(f'OpenML dataset with id={dataset_id}, name={dataset_name}, '
@@ -319,13 +347,18 @@ class OpenMLCC18:
     csv = '\n'.join(csv)
 
     dataset_dir = os.path.join(dataset_dir, 'data')
-    if not os.path.isdir(dataset_dir):
-      os.makedirs(dataset_dir)
+    # if not os.path.isdir(dataset_dir):
+    #   os.makedirs(dataset_dir)
+    if not tf.io.gfile.isdir(dataset_dir):
+      tf.io.gfile.makedirs(dataset_dir)
 
     csv_path = os.path.join(dataset_dir, 'dataset.csv')
-    with open(csv_path, 'w') as fout:
+    # with open(csv_path, 'w') as fout:
+    #   fout.write(csv)
+    with tf.io.gfile.GFile(csv_path, mode='w') as fout:
       fout.write(csv)
-      return column_rename_dict
+
+    return column_rename_dict
 
   def _get_data_qualities(self, dataset_id) -> Dict[str, Any]:
     """Returns the qualities of the dataset as specified in the OpenML API.

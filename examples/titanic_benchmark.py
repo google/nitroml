@@ -93,7 +93,7 @@ if __name__ == '__main__':
     nitroml.main(
         pipeline_name=config.PIPELINE_NAME,
         pipeline_root=config.PIPELINE_ROOT,
-        data_dir=config.DOWNLOAD_DIR,
+        data_dir=config.TF_DOWNLOAD_DIR,
         tfx_runner=nitroml.get_default_kubeflow_dag_runner())
   else:
     nitroml.main()

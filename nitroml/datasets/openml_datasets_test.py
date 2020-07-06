@@ -20,6 +20,7 @@ import tempfile
 from absl.testing import absltest, parameterized
 
 from nitroml.datasets import openml_datasets
+from examples import config
 
 
 class OpenMLDatasetsTest(parameterized.TestCase, absltest.TestCase):
@@ -28,6 +29,8 @@ class OpenMLDatasetsTest(parameterized.TestCase, absltest.TestCase):
   There are two test cases:
   1) Test Case 1: Downloads all 72 openML CC18 datasets. Running this test case may take a while.
   2) Test Case 2: Checks the cache, if data exists loads from the disk, else downloads all the datasets.
+  3) Test Case 3: Downloads all 72 openML CC18 datasets on google storage. Running this test case may take a while.
+  4) Test Case 4: Checks the cache, if data exists loads from the disk (google storage), else downloads all the datasets.
   """
 
   @parameterized.named_parameters(
@@ -39,7 +42,17 @@ class OpenMLDatasetsTest(parameterized.TestCase, absltest.TestCase):
           'testcase_name': 'openML_use-cache',
           'data_dir': tempfile.gettempdir(),
           'use_cache': True
-      })
+      },
+      # {
+      #     'testcase_name': 'openML_gs',
+      #     'data_dir': config.OTHER_DOWNLOAD_DIR,
+      #     'use_cache': False
+      # }, {
+      #     'testcase_name': 'openML_gs_use-cache',
+      #     'data_dir': config.OTHER_DOWNLOAD_DIR,
+      #     'use_cache': True
+      # }
+      )
   def test_examples(self, data_dir, use_cache):
     datasets = openml_datasets.OpenMLCC18(data_dir, use_cache)
     self.assertEqual(len(datasets.tasks), len(datasets.components))
