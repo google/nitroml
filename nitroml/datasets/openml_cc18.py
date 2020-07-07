@@ -21,7 +21,6 @@ import os
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
-import shutil
 
 from absl import logging
 
