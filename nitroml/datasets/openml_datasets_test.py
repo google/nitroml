@@ -73,29 +73,27 @@ class OpenMLDatasetsTest(parameterized.TestCase, absltest.TestCase):
       list_url = f'{list_url}/{name}/{value}'
 
     with open(
-        'nitroml/datasets/mock_data/openml_list.get.json',
-        'r',
+        'nitroml/datasets/testdata/openml_list.get.json', 'r',
         encoding='utf-8') as fin:
       mocker.get(list_url, json=json.load(fin), status_code=200)
 
     desc_url = f'{openml_datasets._OPENML_API_URL}/data/{dataset_id}'
     with open(
-        'nitroml/datasets/mock_data/openml_description.get.json',
+        'nitroml/datasets/testdata/openml_description.get.json',
         'r',
         encoding='utf-8') as fin:
       mocker.get(desc_url, json=json.load(fin), status_code=200)
 
     qual_url = f'{openml_datasets._OPENML_API_URL}/data/qualities/{dataset_id}'
     with open(
-        'nitroml/datasets/mock_data/openml_qual.get.json',
-        'r',
+        'nitroml/datasets/testdata/openml_qual.get.json', 'r',
         encoding='utf-8') as fin:
 
       mocker.get(qual_url, json=json.load(fin), status_code=200)
 
     csv_url = f'{openml_datasets._OPENML_FILE_API_URL}/get_csv/{dataset_id}'
     with open(
-        'nitroml/datasets/mock_data/dataset.txt', 'r', encoding='utf-8') as fin:
+        'nitroml/datasets/testdata/dataset.txt', 'r', encoding='utf-8') as fin:
       mocker.get(csv_url, text=fin.read())
 
 
