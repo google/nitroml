@@ -33,7 +33,9 @@ class Task(object):
                description: str = ''):
     super().__init__()
 
-    assert self._verify_task(task_type), 'Invalid task type'
+    if not self._verify_task(task_type):
+      raise ValueError('Invalid task type')
+
     self._type = task_type
     self._num_classes = num_classes
     self._description = description
@@ -47,14 +49,10 @@ class Task(object):
   def _verify_task(self, task_type: str = None) -> bool:
     """Verify if task_type is among valid tasks or not."""
 
-    if task_type == Task.BINARY_CLASSIFICATION:
-      return True
-    elif task_type == Task.CATEGORICAL_CLASSIFICATION:
-      return True
-    elif task_type == Task.REGRESSION:
-      return True
-
-    return False
+    return task_type in [
+        Task.BINARY_CLASSIFICATION, Task.CATEGORICAL_CLASSIFICATION,
+        Task.REGRESSION
+    ]
 
   @property
   def type(self):
