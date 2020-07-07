@@ -53,7 +53,7 @@ class OpenMLCC18:
     if (max_threads <= 0):
       raise ValueError("Number of threads should be greater than 0.")
 
-    if api_key is not None:
+    if api_key is None:
       api_key = os.getenv(_OPENML_API_KEY, '')
 
     if not mock_data and api_key == '':
