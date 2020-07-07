@@ -23,18 +23,19 @@ from absl.testing import absltest
 from absl.testing import parameterized
 import requests_mock
 
-from nitroml.datasets import openml_datasets
+import tensorflow as tf
+from nitroml.datasets import openml_cc18
 from nitroml.datasets import data_utils
 
 USE_MOCK_DATA = True
 
 
-class OpenMLDatasetsTest(parameterized.TestCase, absltest.TestCase):
+class OpenMLCC18Test(parameterized.TestCase, absltest.TestCase):
   """Test cases for datasets.openML_datasets provider.
 
   There are two test cases:
   1) Test Case 1: Downloads mock data for openML CC18 datasets.
-  2) Test Case 2: Checks the cache, if data exists loads from the disk, else downloads all the datasets.
+  2) Test Case 2: Checks the cache, if data exists loads from the disk, else downloads.
   """
 
   @parameterized.named_parameters(
@@ -56,44 +57,43 @@ class OpenMLDatasetsTest(parameterized.TestCase, absltest.TestCase):
     if mock_data:
       with requests_mock.Mocker() as mocker:
         self.register_mock_urls(mocker)
-        datasets = openml_datasets.OpenMLCC18(**test_args)
+        datasets = openml_cc18.OpenMLCC18(**test_args)
     else:
-      datasets = openml_datasets.OpenMLCC18(**test_args)
+      datasets = openml_cc18.OpenMLCC18(**test_args)
 
     self.assertNotEqual(len(datasets.components), 0)
     self.assertEqual(len(datasets.tasks), len(datasets.components))
 
   def register_mock_urls(self, mocker):
 
-    list_url = f'{openml_datasets._OPENML_API_URL}/data/list'
+    list_url = f'{openml_cc18._OPENML_API_URL}/data/list'
     dataset_id = 1
 
     for name, value in data_utils.parse_dataset_filters(
-        openml_datasets._DATASET_FILTERS).items():
+        openml_cc18._DATASET_FILTERS).items():
       list_url = f'{list_url}/{name}/{value}'
 
-    with open(
-        'nitroml/datasets/testdata/openml_list.get.json', 'r',
-        encoding='utf-8') as fin:
+    with tf.io.gfile.GFile(
+        'nitroml/datasets/testdata/openml_list.get.json', mode='r') as fin:
       mocker.get(list_url, json=json.load(fin), status_code=200)
 
-    desc_url = f'{openml_datasets._OPENML_API_URL}/data/{dataset_id}'
-    with open(
+    desc_url = f'{openml_cc18._OPENML_API_URL}/data/{dataset_id}'
+
+    with tf.io.gfile.GFile(
         'nitroml/datasets/testdata/openml_description.get.json',
-        'r',
-        encoding='utf-8') as fin:
+        mode='r') as fin:
       mocker.get(desc_url, json=json.load(fin), status_code=200)
 
-    qual_url = f'{openml_datasets._OPENML_API_URL}/data/qualities/{dataset_id}'
-    with open(
-        'nitroml/datasets/testdata/openml_qual.get.json', 'r',
-        encoding='utf-8') as fin:
+    qual_url = f'{openml_cc18._OPENML_API_URL}/data/qualities/{dataset_id}'
 
+    with tf.io.gfile.GFile(
+        'nitroml/datasets/testdata/openml_qual.get.json', mode='r') as fin:
       mocker.get(qual_url, json=json.load(fin), status_code=200)
 
-    csv_url = f'{openml_datasets._OPENML_FILE_API_URL}/get_csv/{dataset_id}'
-    with open(
-        'nitroml/datasets/testdata/dataset.txt', 'r', encoding='utf-8') as fin:
+    csv_url = f'{openml_cc18._OPENML_FILE_API_URL}/get_csv/{dataset_id}'
+
+    with tf.io.gfile.GFile(
+        'nitroml/datasets/testdata/dataset.txt', mode='r') as fin:
       mocker.get(csv_url, text=fin.read())
 
 

@@ -24,10 +24,7 @@ import requests
 def get(url: str, **kwargs) -> requests.Response:
   """Sends a GET request to the given `url`."""
 
-  params = kwargs.pop('params', {})
-  resp = requests.get(url, params, **kwargs)
-  print(resp.url)
-
+  resp = requests.get(url, **kwargs)
   resp.raise_for_status()
   return resp
 
