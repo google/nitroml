@@ -1,0 +1,73 @@
+{
+  "data_qualities": {
+    "quality": [
+      { "name": "AutoCorrelation", "value": "0.9990610328638497" },
+      {
+        "name": "CfsSubsetEval_DecisionStumpAUC",
+        "value": "0.9619120657405762"
+      },
+      {
+        "name": "CfsSubsetEval_DecisionStumpErrRate",
+        "value": "0.05913642052565707"
+      },
+      {
+        "name": "CfsSubsetEval_DecisionStumpKappa",
+        "value": "0.8811920214059075"
+      },
+      { "name": "CfsSubsetEval_NaiveBayesAUC", "value": "0.9619120657405762" },
+      {
+        "name": "CfsSubsetEval_NaiveBayesErrRate",
+        "value": "0.05913642052565707"
+      },
+      {
+        "name": "CfsSubsetEval_NaiveBayesKappa",
+        "value": "0.8811920214059075"
+      },
+      { "name": "MajorityClassPercentage", "value": "52.221526908635795" },
+      { "name": "MajorityClassSize", "value": "1669.0" },
+      { "name": "MaxAttributeEntropy", "value": "0.9956521852360185" },
+      { "name": "MaxKurtosisOfNumericAtts", "value": [] },
+      { "name": "MaxMeansOfNumericAtts", "value": [] },
+      { "name": "MaxMutualInformation", "value": "0.19826687955488" },
+      { "name": "MaxNominalAttDistinctValues", "value": "3.0" },
+      { "name": "MaxSkewnessOfNumericAtts", "value": [] },
+      { "name": "MaxStdDevOfNumericAtts", "value": [] },
+      { "name": "MeanAttributeEntropy", "value": "0.5901482912442314" },
+      { "name": "MeanKurtosisOfNumericAtts", "value": [] },
+      { "name": "MeanMeansOfNumericAtts", "value": [] },
+      { "name": "MeanMutualInformation", "value": "0.01915166562113" },
+      { "name": "MeanNoiseToSignalRatio", "value": "29.814462977732955" },
+      { "name": "MeanNominalAttDistinctValues", "value": "2.027027027027027" },
+      { "name": "MeanSkewnessOfNumericAtts", "value": [] },
+      { "name": "MeanStdDevOfNumericAtts", "value": [] },
+      { "name": "MinAttributeEntropy", "value": "0.004094030352641959" },
+      { "name": "MinKurtosisOfNumericAtts", "value": [] },
+      { "name": "MinMeansOfNumericAtts", "value": [] },
+      { "name": "MinMutualInformation", "value": "1.18053E-9" },
+      { "name": "MinNominalAttDistinctValues", "value": "2.0" },
+      { "name": "MinSkewnessOfNumericAtts", "value": [] },
+      { "name": "MinStdDevOfNumericAtts", "value": [] },
+      { "name": "MinorityClassPercentage", "value": "47.778473091364205" },
+      { "name": "MinorityClassSize", "value": "1527.0" },
+      { "name": "NaiveBayesAUC", "value": "0.9520419938608541" },
+      { "name": "NaiveBayesErrRate", "value": "0.12108886107634544" },
+      { "name": "NaiveBayesKappa", "value": "0.7569708778154078" },
+      { "name": "NumberOfBinaryFeatures", "value": "35.0" },
+      { "name": "NumberOfClasses", "value": "4.0" },
+      { "name": "NumberOfFeatures", "value": "37.0" },
+      { "name": "NumberOfInstances", "value": "3196.0" },
+      { "name": "NumberOfInstancesWithMissingValues", "value": "0.0" },
+      { "name": "NumberOfMissingValues", "value": "0.0" },
+      { "name": "NumberOfNumericFeatures", "value": "0.0" },
+      { "name": "NumberOfSymbolicFeatures", "value": "37.0" },
+      { "name": "PercentageOfBinaryFeatures", "value": "94.5945945945946" },
+      { "name": "PercentageOfInstancesWithMissingValues", "value": "0.0" },
+      { "name": "PercentageOfMissingValues", "value": "0.0" },
+      { "name": "PercentageOfNumericFeatures", "value": "0.0" },
+      { "name": "PercentageOfSymbolicFeatures", "value": "100.0" },
+      { "name": "Quartile1AttributeEntropy", "value": "0.28756000355035294" },
+      { "name": "Quartile1KurtosisOfNumericAtts", "value": [] },
+      { "name": "Quartile1MeansOfNumericAtts", "value": [] }
+    ]
+  }
+}

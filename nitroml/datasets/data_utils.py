@@ -21,7 +21,7 @@ from typing import Dict, List
 import requests
 
 
-def get(url: str, **kwargs) -> requests.Response:
+def get(url: str, test: bool = False, **kwargs) -> requests.Response:
   """Sends a GET request to the given `url`."""
 
   resp = requests.get(url, **kwargs)
@@ -40,7 +40,7 @@ def convert_to_valid_identifier(s: str) -> str:
   return s
 
 
-def rename_columns(columns: Dict[str, StopAsyncIteration]) -> Dict[str, str]:
+def rename_columns(columns: List[str]) -> Dict[str, str]:
   """Returns dict[col_name] = new_col_name"""
 
   return {column: convert_to_valid_identifier(column) for column in columns}
