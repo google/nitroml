@@ -27,9 +27,9 @@ class Task(object):
   REGRESSION = 'regression'
 
   def __init__(self,
-               task_type: str = None,
+               task_type: str,
+               label_key: str,
                num_classes: int = 0,
-               label_key: str = None,
                description: str = ''):
     super().__init__()
 

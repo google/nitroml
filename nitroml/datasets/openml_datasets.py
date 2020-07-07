@@ -29,6 +29,13 @@ from tfx.components.example_gen.csv_example_gen.component import CsvExampleGen
 from tfx.utils.dsl_utils import external_input
 from nitroml.datasets import data_utils, task
 
+_OPENML_API_URL = 'https://www.openml.org/api/v1/json'
+_OPENML_FILE_API_URL = 'https://www.openml.org/data/v1'
+_DATASET_FILTERS = ['status=active', 'tag=OpenML-CC18']
+_OPENML_API_KEY = 'OPENML_API_KEY'
+
+
+
 
 class OpenMLCC18:
   """The OpenML Dataset Handler.
@@ -36,30 +43,43 @@ class OpenMLCC18:
   The handler downloads the suite of CC18 datasets provided by OpenML and creates the ExampleGen components from the raw CSV files which can be used in a TFX pipeline.
   """
 
-  _OPENML_API_URL = 'https://www.openml.org/api/v1/json'
-  _OPENML_FILE_API_URL = 'https://www.openml.org/data/v1'
-  _DATASET_FILTERS = ['status=active', 'tag=OpenML-CC18']
-  # TODO(nikhilmehta): Replace the API_KEY with the AutoLX key.
-  _API_KEY = 'b1514bb2761ecc4709ab26db50673a41'
-
   def __init__(self,
-               root_dir: str = None,
+               root_dir: str,
+               api_key: str = os.getenv(_OPENML_API_KEY, ''),
                use_cache: bool = True,
-               max_threads: int = 1):
+               max_threads: int = 1,
+               mock_data: bool = False):
 
-    assert max_threads > 0, "Number of threads should be greater than 0."
+    if (max_threads <= 0):
+      raise ValueError("Number of threads should be greater than 0.")
+
+    if not mock_data and api_key == '':
+      raise ValueError("API_KEY cannot be ''")
 
     self._components = None
     self._tasks = None
     self.root_dir = os.path.join(root_dir, 'openML_datasets')
     self.max_threads = max_threads
+    self.api_key = api_key
     self._names = None
+    self.mock_data = mock_data
 
-    if use_cache and os.path.exists(self.root_dir):
-      logging.info('The directory %s exists. %d datasets found', self.root_dir,
-                   len(os.listdir(self.root_dir)))
-    else:
+    if not use_cache:
+
+      if os.path.exists(self.root_dir):
+        logging.info(
+            'The directory %s already exists. Removing it and downloading OpenMLCC18 again.',
+            self.root_dir)
+
       self._get_data()
+
+    else:
+
+      if os.path.exists(self.root_dir):
+        logging.info('The directory %s exists. %d datasets found',
+                     self.root_dir, len(os.listdir(self.root_dir)))
+      else:
+        self._get_data()
 
   @property
   def names(self) -> List[str]:
@@ -74,25 +94,27 @@ class OpenMLCC18:
   def components(self) -> List[base_component.BaseComponent]:
     """Returns the components for tfx pipeline."""
 
-    if self._components:
-      return self._components
+    if not self._components:
+      self._components = self._create_components()
 
-    return self._create_components()
+    return self._components
 
   @property
   def tasks(self) -> List[task.Task]:
     """Returns the list of task information for the openML datasets"""
 
-    if self._tasks:
-      return self._tasks
+    if not self._tasks:
+      self._tasks = self._create_tasks()
 
-    return self._create_tasks()
+    return self._tasks
 
   def _load_task(self, dataset_name) -> task.Task:
     """Loads the task information for the argument dataset."""
 
-    with open(os.path.join(self.root_dir, dataset_name, 'task/task.json'),
-              'r') as fin:
+    with open(
+        os.path.join(self.root_dir, dataset_name, 'task/task.json'),
+        'r',
+        encoding='utf-8') as fin:
       data = json.load(fin)
       return_task = task.Task(**data)
     return return_task
@@ -104,7 +126,6 @@ class OpenMLCC18:
     for dataset_name in os.listdir(self.root_dir):
       tasks.append(self._load_task(dataset_name))
 
-    self._tasks = tasks
     return tasks
 
   def _create_components(self) -> List[base_component.BaseComponent]:
@@ -120,7 +141,7 @@ class OpenMLCC18:
       names.append(dataset_name)
 
     self._names = names
-    self._components = components
+
     return components
 
   def _get_data(self):
@@ -129,10 +150,10 @@ class OpenMLCC18:
     assert self.root_dir, 'Output_root_dir cannot be empty'
 
     if not os.path.isdir(self.root_dir):
-      os.mkdir(self.root_dir)
+      os.makedirs(self.root_dir)
 
     datasets = self._list_datasets(
-        data_utils.parse_dataset_filters(self._DATASET_FILTERS))
+        data_utils.parse_dataset_filters(_DATASET_FILTERS))
     logging.info(f'There are {len(datasets)} datasets.')
     datasets = self._latest_version_only(datasets)
 
@@ -169,13 +190,13 @@ class OpenMLCC18:
 
         else:
           failed[tasks[future]['did']] = exec_info
-          logging.warn('Exception: ', exec_info)
+          logging.warning('Exception: %s', exec_info)
           logging.info(
               f'Succeeded={succeeded}, failed={len(failed)}, skipped={skipped}')
 
     for dataset in failed:
-      logging.warn(dataset)
-      logging.warn(failed[dataset])
+      logging.warning(
+          f'did: {dataset} failed with exception: {failed[dataset]}',)
       logging.info('\n**********')
 
     logging.info(
@@ -188,11 +209,11 @@ class OpenMLCC18:
       filters: Parsed filters for the OpenML API.
     """
 
-    url = f'{self._OPENML_API_URL}/data/list'
+    url = f'{_OPENML_API_URL}/data/list'
     for name, value in filters.items():
       url = f'{url}/{name}/{value}'
 
-    url = f'{url}?api_key={self._API_KEY}'
+    url = f'{url}?api_key={self.api_key}'
     resp = data_utils.get(url).json()
     return resp['data']['dataset']
 
@@ -238,7 +259,7 @@ class OpenMLCC18:
       logging.info(f'Skipping multi-label Dataset(id={dataset_id}).')
       return False
 
-    # Get the dataset n_classes.
+    # TODO(nikhilmehta): Check if we can avoid the following `qualities` API call since we only need `NumberOfClasses` which is also available in the data/list call. Qual data has other information which can be useful.
     qualities = self._get_data_qualities(dataset_id)
 
     for quality in qualities:
@@ -272,7 +293,7 @@ class OpenMLCC18:
       os.makedirs(task_dir)
 
     task_path = os.path.join(task_dir, 'task.json')
-    with open(task_path, 'w') as fout:
+    with open(task_path, 'w', encoding='utf-8') as fout:
       json.dump(task_desc.to_dict(), fout)
 
     logging.info(f'OpenML dataset with id={dataset_id}, name={dataset_name}, '
@@ -291,7 +312,7 @@ class OpenMLCC18:
       The downloaded CSV.
     """
 
-    resp = data_utils.get(f'{self._OPENML_FILE_API_URL}/get_csv/{file_id}')
+    resp = data_utils.get(f'{_OPENML_FILE_API_URL}/get_csv/{file_id}')
     resp = resp.text.replace(', ', ',').replace(' ,', ',')
     return resp
 
@@ -323,9 +344,10 @@ class OpenMLCC18:
       os.makedirs(dataset_dir)
 
     csv_path = os.path.join(dataset_dir, 'dataset.csv')
-    with open(csv_path, 'w') as fout:
+    with open(csv_path, 'w', encoding='utf-8') as fout:
       fout.write(csv)
-      return column_rename_dict
+
+    return column_rename_dict
 
   def _get_data_qualities(self, dataset_id) -> Dict[str, Any]:
     """Returns the qualities of the dataset as specified in the OpenML API.
@@ -334,7 +356,7 @@ class OpenMLCC18:
       `dataset_id`: The dataset id.
     """
 
-    url = f'{self._OPENML_API_URL}/data/qualities/{dataset_id}?api_key={self._API_KEY}'
+    url = f'{_OPENML_API_URL}/data/qualities/{dataset_id}?api_key={self.api_key}'
     resp = data_utils.get(url).json()
     return resp['data_qualities']['quality']
 
@@ -346,8 +368,7 @@ class OpenMLCC18:
     """
 
     resp = data_utils.get(
-        f'{self._OPENML_API_URL}/data/{dataset_id}?api_key={self._API_KEY}'
-    ).json()
+        f'{_OPENML_API_URL}/data/{dataset_id}?api_key={self.api_key}').json()
     return resp['data_set_description']
 
   def _get_task_type(self, n_classes) -> str:

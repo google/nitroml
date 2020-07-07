@@ -16,35 +16,94 @@
 """Tests for nitroml.datasets.openML_datasets.py."""
 
 import tempfile
+import json
+import os
+import shutil
 
-from absl.testing import absltest, parameterized
+from absl.testing import absltest
+from absl.testing import parameterized
+import requests_mock
 
 from nitroml.datasets import openml_datasets
+from nitroml.datasets import data_utils
+
+USE_MOCK_DATA = True
 
 
 class OpenMLDatasetsTest(parameterized.TestCase, absltest.TestCase):
   """Test cases for datasets.openML_datasets provider.
 
   There are two test cases:
-  1) Test Case 1: Downloads all 72 openML CC18 datasets. Running this test case may take a while.
+  1) Test Case 1: Downloads mock data for openML CC18 datasets.
   2) Test Case 2: Checks the cache, if data exists loads from the disk, else downloads all the datasets.
   """
 
   @parameterized.named_parameters(
       {
           'testcase_name': 'openML_default',
-          'data_dir': tempfile.gettempdir(),
-          'use_cache': False
+          'root_dir': os.path.join(tempfile.gettempdir(), 'openML_mock_data'),
+          'use_cache': False,
+          'mock_data': USE_MOCK_DATA
       }, {
           'testcase_name': 'openML_use-cache',
-          'data_dir': tempfile.gettempdir(),
-          'use_cache': True
+          'root_dir': os.path.join(tempfile.gettempdir(), 'openML_mock_data'),
+          'use_cache': True,
+          'mock_data': USE_MOCK_DATA
       })
-  def test_examples(self, data_dir, use_cache):
-    datasets = openml_datasets.OpenMLCC18(data_dir, use_cache)
+  def test_examples(self, **test_args):
+
+    mock_data = test_args.get('mock_data', True)
+
+    if mock_data:
+      with requests_mock.Mocker() as mocker:
+        self.register_mock_urls(mocker)
+        datasets = openml_datasets.OpenMLCC18(**test_args)
+    else:
+      datasets = openml_datasets.OpenMLCC18(**test_args)
+
+    self.assertNotEqual(len(datasets.components), 0)
     self.assertEqual(len(datasets.tasks), len(datasets.components))
-    self.assertLen(datasets.components, 72)
+
+  def register_mock_urls(self, mocker):
+
+    list_url = f'{openml_datasets._OPENML_API_URL}/data/list'
+    dataset_id = 1
+
+    for name, value in data_utils.parse_dataset_filters(
+        openml_datasets._DATASET_FILTERS).items():
+      list_url = f'{list_url}/{name}/{value}'
+
+    with open(
+        'nitroml/datasets/mock_data/openml_list.get.json',
+        'r',
+        encoding='utf-8') as fin:
+      mocker.get(list_url, json=json.load(fin), status_code=200)
+
+    desc_url = f'{openml_datasets._OPENML_API_URL}/data/{dataset_id}'
+    with open(
+        'nitroml/datasets/mock_data/openml_description.get.json',
+        'r',
+        encoding='utf-8') as fin:
+      mocker.get(desc_url, json=json.load(fin), status_code=200)
+
+    qual_url = f'{openml_datasets._OPENML_API_URL}/data/qualities/{dataset_id}'
+    with open(
+        'nitroml/datasets/mock_data/openml_qual.get.json',
+        'r',
+        encoding='utf-8') as fin:
+
+      mocker.get(qual_url, json=json.load(fin), status_code=200)
+
+    csv_url = f'{openml_datasets._OPENML_FILE_API_URL}/get_csv/{dataset_id}'
+    with open(
+        'nitroml/datasets/mock_data/dataset.txt', 'r', encoding='utf-8') as fin:
+      mocker.get(csv_url, text=fin.read())
 
 
 if __name__ == '__main__':
+
+  mock_dir = os.path.join(tempfile.gettempdir(), 'openML_mock_data')
+  if os.path.exists(mock_dir):
+    shutil.rmtree(mock_dir, ignore_errors=True)
+
   absltest.main()
