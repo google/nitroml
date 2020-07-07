@@ -21,6 +21,7 @@ import os
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
+import shutil
 
 from absl import logging
 
@@ -35,8 +36,6 @@ _DATASET_FILTERS = ['status=active', 'tag=OpenML-CC18']
 _OPENML_API_KEY = 'OPENML_API_KEY'
 
 
-
-
 class OpenMLCC18:
   """The OpenML Dataset Handler.
 
@@ -45,13 +44,16 @@ class OpenMLCC18:
 
   def __init__(self,
                root_dir: str,
-               api_key: str = os.getenv(_OPENML_API_KEY, ''),
+               api_key: str = '',
                use_cache: bool = True,
                max_threads: int = 1,
                mock_data: bool = False):
 
     if (max_threads <= 0):
       raise ValueError("Number of threads should be greater than 0.")
+
+    if not api_key:
+      api_key = os.getenv(_OPENML_API_KEY, '')
 
     if not mock_data and api_key == '':
       raise ValueError("API_KEY cannot be ''")
@@ -62,7 +64,6 @@ class OpenMLCC18:
     self.max_threads = max_threads
     self.api_key = api_key
     self._names = None
-    self.mock_data = mock_data
 
     if not use_cache:
 
@@ -70,6 +71,7 @@ class OpenMLCC18:
         logging.info(
             'The directory %s already exists. Removing it and downloading OpenMLCC18 again.',
             self.root_dir)
+        shutil.rmtree(self.root_dir, ignore_errors=True)
 
       self._get_data()
 
@@ -213,8 +215,11 @@ class OpenMLCC18:
     for name, value in filters.items():
       url = f'{url}/{name}/{value}'
 
-    url = f'{url}?api_key={self.api_key}'
-    resp = data_utils.get(url).json()
+    kwargs = {}
+    params = {'api_key': self.api_key}
+    kwargs['params'] = params
+
+    resp = data_utils.get(url, **kwargs).json()
     return resp['data']['dataset']
 
   def _latest_version_only(self, datasets) -> List[str]:
@@ -356,8 +361,13 @@ class OpenMLCC18:
       `dataset_id`: The dataset id.
     """
 
-    url = f'{_OPENML_API_URL}/data/qualities/{dataset_id}?api_key={self.api_key}'
-    resp = data_utils.get(url).json()
+    kwargs = {}
+    params = {'api_key': self.api_key}
+    kwargs['params'] = params
+
+    url = f'{_OPENML_API_URL}/data/qualities/{dataset_id}'
+    resp = data_utils.get(url, **kwargs).json()
+
     return resp['data_qualities']['quality']
 
   def _get_dataset_description(self, dataset_id) -> str:
@@ -367,8 +377,13 @@ class OpenMLCC18:
       `dataset_id`: The dataset id.
     """
 
-    resp = data_utils.get(
-        f'{_OPENML_API_URL}/data/{dataset_id}?api_key={self.api_key}').json()
+    kwargs = {}
+    params = {'api_key': self.api_key}
+    kwargs['params'] = params
+
+    resp = data_utils.get(f'{_OPENML_API_URL}/data/{dataset_id}',
+                          **kwargs).json()
+
     return resp['data_set_description']
 
   def _get_task_type(self, n_classes) -> str:

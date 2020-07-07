@@ -21,10 +21,13 @@ from typing import Dict, List
 import requests
 
 
-def get(url: str, test: bool = False, **kwargs) -> requests.Response:
+def get(url: str, **kwargs) -> requests.Response:
   """Sends a GET request to the given `url`."""
 
-  resp = requests.get(url, **kwargs)
+  params = kwargs.pop('params', {})
+  resp = requests.get(url, params, **kwargs)
+  print(resp.url)
+
   resp.raise_for_status()
   return resp
 

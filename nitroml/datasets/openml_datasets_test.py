@@ -18,7 +18,6 @@
 import tempfile
 import json
 import os
-import shutil
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -101,9 +100,4 @@ class OpenMLDatasetsTest(parameterized.TestCase, absltest.TestCase):
 
 
 if __name__ == '__main__':
-
-  mock_dir = os.path.join(tempfile.gettempdir(), 'openML_mock_data')
-  if os.path.exists(mock_dir):
-    shutil.rmtree(mock_dir, ignore_errors=True)
-
   absltest.main()
