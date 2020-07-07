@@ -113,7 +113,7 @@ class OpenMLCC18:
 
     return self._tasks
 
-  def _load_task(self, dataset_name) -> task.Task:
+  def _load_task(self, dataset_name: str) -> task.Task:
     """Loads the task information for the argument dataset."""
 
     with tf.io.gfile.GFile(
@@ -209,7 +209,7 @@ class OpenMLCC18:
     logging.info(
         f'Done! Succeeded={succeeded}, failed={len(failed)}, skipped={skipped}')
 
-  def _list_datasets(self, filters: Dict[str, str]) -> List[str]:
+  def _list_datasets(self, filters: Dict[str, str]) -> List[Any]:
     """Returns the list of names of all `active` datasets.
 
     Args:
@@ -224,7 +224,7 @@ class OpenMLCC18:
     resp = data_utils.get(url, params=params).json()
     return resp['data']['dataset']
 
-  def _latest_version_only(self, datasets) -> List[str]:
+  def _latest_version_only(self, datasets: List[Any]) -> List[Any]:
     """Filters the datasets to only keep the latest versions.
 
     Args:
@@ -242,7 +242,7 @@ class OpenMLCC18:
 
     return list(filtered.values())
 
-  def _dump_dataset(self, dataset, root_dir):
+  def _dump_dataset(self, dataset: Dict[str, str], root_dir: str):
     """Dumps the `dataset` to root_dir.
 
     The `dataset` is downloaded from OpenML as CSV and written. A `task` object
@@ -359,7 +359,7 @@ class OpenMLCC18:
 
     return column_rename_dict
 
-  def _get_data_qualities(self, dataset_id) -> Dict[str, Any]:
+  def _get_data_qualities(self, dataset_id: int) -> Dict[str, Any]:
     """Returns the qualities of the dataset as specified in the OpenML API.
 
     Args:
@@ -372,7 +372,7 @@ class OpenMLCC18:
 
     return resp['data_qualities']['quality']
 
-  def _get_dataset_description(self, dataset_id) -> str:
+  def _get_dataset_description(self, dataset_id: int) -> str:
     """Returns the dataset description using the OpenML API.
 
     Args:
@@ -385,7 +385,7 @@ class OpenMLCC18:
 
     return resp['data_set_description']
 
-  def _get_task_type(self, n_classes) -> str:
+  def _get_task_type(self, n_classes: int) -> str:
     """Get the task information from num_classes
 
     Args:
