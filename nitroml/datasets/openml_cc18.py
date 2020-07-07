@@ -23,8 +23,9 @@ from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
 from typing import Any, Dict, List
 
-import tensorflow as tf
 from absl import logging
+
+import tensorflow as tf
 from tfx.components.base import base_component
 from tfx.components.example_gen.csv_example_gen.component import CsvExampleGen
 from tfx.utils.dsl_utils import external_input
@@ -41,18 +42,22 @@ _OPENML_API_KEY = 'OPENML_API_KEY'
 class OpenMLCC18:
   """The OpenML Dataset Handler.
 
-  The handler downloads the suite of CC18 datasets provided by OpenML and creates the ExampleGen components from the raw CSV files which can be used in a TFX pipeline.
+  The handler downloads the suite of CC18 datasets provided by OpenML and creates
+  the ExampleGen components from the raw CSV files which can be used in a TFX pipeline.
   """
 
   def __init__(self,
                root_dir: str,
-               api_key: str = os.getenv(_OPENML_API_KEY, ''),
+               api_key: str = None,
                use_cache: bool = True,
                max_threads: int = 1,
                mock_data: bool = False):
 
     if (max_threads <= 0):
       raise ValueError("Number of threads should be greater than 0.")
+
+    if api_key is None:
+      api_key = os.getenv(_OPENML_API_KEY, '')
 
     if not mock_data and api_key == '':
       raise ValueError("API_KEY cannot be ''")
@@ -63,9 +68,16 @@ class OpenMLCC18:
     self.max_threads = max_threads
     self.api_key = api_key
     self._names = None
-    self.mock_data = mock_data
 
-    if not use_cache:
+    if use_cache:
+
+      if tf.io.gfile.exists(self.root_dir):
+        logging.info('The directory %s exists. %d datasets found',
+                     self.root_dir, len(tf.io.gfile.listdir(self.root_dir)))
+      else:
+        self._get_data()
+
+    else:
 
       if tf.io.gfile.exists(self.root_dir):
         logging.info(
@@ -76,14 +88,6 @@ class OpenMLCC18:
 
       self._get_data()
 
-    else:
-
-      if tf.io.gfile.exists(self.root_dir):
-        logging.info('The directory %s exists. %d datasets found',
-                     self.root_dir, len(tf.io.gfile.listdir(self.root_dir)))
-      else:
-        self._get_data()
-
   @property
   def names(self) -> List[str]:
     """Return name of all OpenML datasets"""
@@ -91,7 +95,7 @@ class OpenMLCC18:
     if self._names:
       return self._names
 
-    return os.listdir(self.root_dir)
+    return tf.io.gfile.listdir(self.root_dir)
 
   @property
   def components(self) -> List[base_component.BaseComponent]:
@@ -111,7 +115,7 @@ class OpenMLCC18:
 
     return self._tasks
 
-  def _load_task(self, dataset_name) -> task.Task:
+  def _load_task(self, dataset_name: str) -> task.Task:
     """Loads the task information for the argument dataset."""
 
     with tf.io.gfile.GFile(
@@ -126,7 +130,6 @@ class OpenMLCC18:
     """Creates and returns the list of task properties for openML datasets."""
 
     tasks = []
-    # for dataset_name in os.listdir(self.root_dir):
     for dataset_name in tf.io.gfile.listdir(self.root_dir):
       tasks.append(self._load_task(dataset_name))
 
@@ -137,11 +140,8 @@ class OpenMLCC18:
 
     components = []
     names = []
-    # for dataset_name in os.listdir(self.root_dir):
     for dataset_name in tf.io.gfile.listdir(self.root_dir):
-      dataset_dir = os.path.join(self.root_dir, f'{dataset_name}', 'data')
-      # logging.info(dataset_dir)
-      # sys.exit()
+      dataset_dir = os.path.join(self.root_dir, f'{dataset_name}/data')
       examples = external_input(dataset_dir)
       example_gen = CsvExampleGen(
           input=examples,
@@ -211,7 +211,7 @@ class OpenMLCC18:
     logging.info(
         f'Done! Succeeded={succeeded}, failed={len(failed)}, skipped={skipped}')
 
-  def _list_datasets(self, filters: Dict[str, str]) -> List[str]:
+  def _list_datasets(self, filters: Dict[str, str]) -> List[Any]:
     """Returns the list of names of all `active` datasets.
 
     Args:
@@ -222,11 +222,11 @@ class OpenMLCC18:
     for name, value in filters.items():
       url = f'{url}/{name}/{value}'
 
-    url = f'{url}?api_key={self.api_key}'
-    resp = data_utils.get(url).json()
+    params = {'api_key': self.api_key}
+    resp = data_utils.get(url, params=params).json()
     return resp['data']['dataset']
 
-  def _latest_version_only(self, datasets) -> List[str]:
+  def _latest_version_only(self, datasets: List[Any]) -> List[Any]:
     """Filters the datasets to only keep the latest versions.
 
     Args:
@@ -244,10 +244,11 @@ class OpenMLCC18:
 
     return list(filtered.values())
 
-  def _dump_dataset(self, dataset, root_dir):
+  def _dump_dataset(self, dataset: Dict[str, str], root_dir: str):
     """Dumps the `dataset` to root_dir.
 
-    The `dataset` is downloaded from OpenML as CSV and written. A `task` object is created for the dataset and written to the same directory.
+    The `dataset` is downloaded from OpenML as CSV and written. A `task` object
+    is created for the dataset and written to the same directory.
 
     Args:
       dataset: The OpenML dataset to dump to root_dir (as returned by `list_datasets`).
@@ -268,7 +269,9 @@ class OpenMLCC18:
       logging.info(f'Skipping multi-label Dataset(id={dataset_id}).')
       return False
 
-    # TODO(nikhilmehta): Check if we can avoid the following `qualities` API call since we only need `NumberOfClasses` which is also available in the data/list call. Qual data has other information which can be useful.
+    # TODO(nikhilmehta): Check if we can avoid the following `qualities` API
+    # call since we only need `NumberOfClasses` which is also available in the
+    # data/list call. Qual data has other information which can be useful.
     qualities = self._get_data_qualities(dataset_id)
 
     for quality in qualities:
@@ -298,7 +301,6 @@ class OpenMLCC18:
         description=description)
 
     task_dir = os.path.join(dataset_dir, 'task')
-    # if not os.path.isdir(task_dir):
     if not tf.io.gfile.isdir(task_dir):
       tf.io.gfile.makedirs(task_dir)
 
@@ -311,7 +313,7 @@ class OpenMLCC18:
 
     return True
 
-  def get_csv(self, file_id) -> str:
+  def get_csv(self, file_id: int) -> str:
     """Downloads the  OpenML dataset corresponding to `file_id`.
 
     Note: The OpenML `file_id` does not correspond to the OpenML `dataset_id`.
@@ -326,7 +328,7 @@ class OpenMLCC18:
     resp = resp.text.replace(', ', ',').replace(' ,', ',')
     return resp
 
-  def _download_dataset(self, file_id, dataset_dir) -> Dict[str, Any]:
+  def _download_dataset(self, file_id: int, dataset_dir: str) -> Dict[str, Any]:
     """Downloads the OpenML dataset in CSV format.
 
     The columns are renamed to be valid python identifiers.
@@ -350,40 +352,42 @@ class OpenMLCC18:
     csv = '\n'.join(csv)
 
     dataset_dir = os.path.join(dataset_dir, 'data')
-    # if not os.path.isdir(dataset_dir):
-    #   os.makedirs(dataset_dir)
     if not tf.io.gfile.isdir(dataset_dir):
       tf.io.gfile.makedirs(dataset_dir)
 
     csv_path = os.path.join(dataset_dir, 'dataset.csv')
-    with tf.io.gfile.GFile(csv_path, 'w') as fout:
+    with tf.io.gfile.GFile(csv_path, mode='w') as fout:
       fout.write(csv)
 
     return column_rename_dict
 
-  def _get_data_qualities(self, dataset_id) -> Dict[str, Any]:
+  def _get_data_qualities(self, dataset_id: int) -> Dict[str, Any]:
     """Returns the qualities of the dataset as specified in the OpenML API.
 
     Args:
       `dataset_id`: The dataset id.
     """
 
-    url = f'{_OPENML_API_URL}/data/qualities/{dataset_id}?api_key={self.api_key}'
-    resp = data_utils.get(url).json()
+    params = {'api_key': self.api_key}
+    url = f'{_OPENML_API_URL}/data/qualities/{dataset_id}'
+    resp = data_utils.get(url, params=params).json()
+
     return resp['data_qualities']['quality']
 
-  def _get_dataset_description(self, dataset_id) -> str:
+  def _get_dataset_description(self, dataset_id: int) -> str:
     """Returns the dataset description using the OpenML API.
 
     Args:
       `dataset_id`: The dataset id.
     """
 
+    params = {'api_key': self.api_key}
     resp = data_utils.get(
-        f'{_OPENML_API_URL}/data/{dataset_id}?api_key={self.api_key}').json()
+        f'{_OPENML_API_URL}/data/{dataset_id}', params=params).json()
+
     return resp['data_set_description']
 
-  def _get_task_type(self, n_classes) -> str:
+  def _get_task_type(self, n_classes: int) -> str:
     """Get the task information from num_classes
 
     Args:

@@ -21,7 +21,7 @@ from typing import Dict, List
 import requests
 
 
-def get(url: str, test: bool = False, **kwargs) -> requests.Response:
+def get(url: str, **kwargs) -> requests.Response:
   """Sends a GET request to the given `url`."""
 
   resp = requests.get(url, **kwargs)
