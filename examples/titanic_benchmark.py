@@ -48,6 +48,8 @@ class TitanicBenchmark(nitroml.Benchmark):
     # tasks repository.
     dataset = tfds_dataset.TFDSDataset(
         tfds.builder('titanic', data_dir=data_dir))
+    task = dataset.task.to_dict()
+    task.pop('description')
 
     # Compute dataset statistics.
     statistics_gen = tfx.StatisticsGen(examples=dataset.examples)
@@ -71,7 +73,8 @@ class TitanicBenchmark(nitroml.Benchmark):
         schema=schema_gen.outputs.schema,
         transform_graph=transform.outputs.transform_graph,
         train_args=trainer_pb2.TrainArgs(num_steps=10000),
-        eval_args=trainer_pb2.EvalArgs(num_steps=5000))
+        eval_args=trainer_pb2.EvalArgs(num_steps=5000),
+        custom_config=task)
 
     # Collect the pipeline components to benchmark.
     pipeline = dataset.components + [
@@ -91,7 +94,7 @@ if __name__ == '__main__':
     # validator used in `tfx create pipeline`.
     # Validator: https://github.com/tensorflow/tfx/blob/v0.22.0/tfx/tools/cli/handler/base_handler.py#L105
     nitroml.main(
-        pipeline_name=config.PIPELINE_NAME,
+        pipeline_name=config.PIPELINE_NAME + '_titanic',
         pipeline_root=config.PIPELINE_ROOT,
         data_dir=config.TF_DOWNLOAD_DIR,
         tfx_runner=nitroml.get_default_kubeflow_dag_runner())

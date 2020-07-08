@@ -25,6 +25,7 @@ from tfx import types
 from tfx.components.base import base_component
 from tfx.proto import example_gen_pb2
 from tfx.utils.dsl_utils import external_input
+from nitroml.datasets import task
 
 
 class TFDSDataset(object):
@@ -79,3 +80,20 @@ class TFDSDataset(object):
     """Returns train and eval labeled examples."""
 
     return self._example_gen.outputs.examples
+
+  @property
+  def task(self):
+
+    task_type = task.Task.BINARY_CLASSIFICATION
+    # TODO(nikhilmehta): Infer num_classes using vocab (after SchemaGen or TFT).
+    num_classes = 2
+    description = 'Titanic Binary classification dataset.'
+    label_key = self._dataset_builder.info.supervised_keys[1]
+
+    titanic_task = task.Task(
+        task_type=task_type,
+        num_classes=num_classes,
+        description=description,
+        label_key=label_key)
+
+    return titanic_task
