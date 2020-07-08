@@ -42,7 +42,6 @@ from absl import app
 from absl import flags
 from absl import logging
 from nitroml.components.publisher.component import BenchmarkResultPublisher
-from nitroml.google import my_orchestrator_runner
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
 from tfx import components as tfx
@@ -59,7 +58,6 @@ try:
 except ModuleNotFoundError:
   pass
 # pylint: enable=g-import-not-at-top
-
 
 T = TypeVar("T")
 
