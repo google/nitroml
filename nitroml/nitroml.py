@@ -42,16 +42,17 @@ from absl import app
 from absl import flags
 from absl import logging
 from nitroml.components.publisher.component import BenchmarkResultPublisher
+from nitroml.google import my_orchestrator_runner
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
-
-from ml_metadata.proto import metadata_store_pb2
 from tfx import components as tfx
 from tfx import types
 from tfx.components.base import base_component
 from tfx.orchestration import pipeline as pipeline_lib
 from tfx.orchestration import tfx_runner as tfx_runner_lib
 from tfx.orchestration.beam import beam_dag_runner
+
+from ml_metadata.proto import metadata_store_pb2
 # pylint: disable=g-import-not-at-top
 try:
   from tfx.orchestration.kubeflow import kubeflow_dag_runner  # type: ignore
