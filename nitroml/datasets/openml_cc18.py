@@ -15,23 +15,20 @@
 # Lint as: python3
 r"""The OpenML dataset provider."""
 
+from concurrent import futures
 import datetime
 import functools
 import json
 import os
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import as_completed
 from typing import Any, Dict, List
 
 from absl import logging
-
+from nitroml.datasets import data_utils
+from nitroml.datasets import task
 import tensorflow as tf
 from tfx.components.base import base_component
 from tfx.components.example_gen.csv_example_gen.component import CsvExampleGen
 from tfx.utils.dsl_utils import external_input
-
-from nitroml.datasets import data_utils
-from nitroml.datasets import task
 
 _OPENML_API_URL = 'https://www.openml.org/api/v1/json'
 _OPENML_FILE_API_URL = 'https://www.openml.org/data/v1'
@@ -42,8 +39,10 @@ _OPENML_API_KEY = 'OPENML_API_KEY'
 class OpenMLCC18:
   """The OpenML Dataset Handler.
 
-  The handler downloads the suite of CC18 datasets provided by OpenML and creates
-  the ExampleGen components from the raw CSV files which can be used in a TFX pipeline.
+  The handler downloads the suite of CC18 datasets provided by OpenML and
+  creates
+  the ExampleGen components from the raw CSV files which can be used in a TFX
+  pipeline.
   """
 
   def __init__(self,
@@ -53,13 +52,13 @@ class OpenMLCC18:
                max_threads: int = 1,
                mock_data: bool = False):
 
-    if (max_threads <= 0):
-      raise ValueError("Number of threads should be greater than 0.")
+    if max_threads <= 0:
+      raise ValueError('Number of threads should be greater than 0.')
 
     if api_key is None:
       api_key = os.getenv(_OPENML_API_KEY, '')
 
-    if not mock_data and api_key == '':
+    if not mock_data and not api_key:
       raise ValueError("API_KEY cannot be ''")
 
     self._components = []
@@ -90,7 +89,7 @@ class OpenMLCC18:
 
   @property
   def names(self) -> List[str]:
-    """Return name of all OpenML datasets"""
+    """Returns the names of all OpenML datasets."""
 
     if not self._names:
       self._names = [
@@ -111,7 +110,7 @@ class OpenMLCC18:
 
   @property
   def tasks(self) -> List[task.Task]:
-    """Returns the list of task information for the openML datasets"""
+    """Returns the list of task information for the openML datasets."""
 
     if not self._tasks:
       self._tasks = self._create_tasks()
@@ -161,7 +160,7 @@ class OpenMLCC18:
 
     datasets = self._list_datasets(
         data_utils.parse_dataset_filters(_DATASET_FILTERS))
-    logging.info(f'There are {len(datasets)} datasets.')
+    logging.info('There are %s datasets.', len(datasets))
     datasets = self._latest_version_only(datasets)
 
     parallel_fns = [
@@ -169,18 +168,18 @@ class OpenMLCC18:
         for dataset in datasets
     ]
 
-    logging.info(
-        f'Downloading {len(datasets)} datasets. This may take a while.')
+    logging.info('Downloading %s datasets. This may take a while.',
+                 len(datasets))
 
     succeeded, skipped = 0, 0
     failed = {}
 
-    with ThreadPoolExecutor(max_workers=self.max_threads) as pool:
+    with futures.ThreadPoolExecutor(max_workers=self.max_threads) as pool:
       tasks = {
           pool.submit(fn): datasets[ix] for ix, fn in enumerate(parallel_fns)
       }
 
-      for future in as_completed(tasks):
+      for future in futures.as_completed(tasks):
 
         exec_info = future.exception()
 
@@ -192,22 +191,21 @@ class OpenMLCC18:
           else:
             skipped += 1
 
-          logging.info(
-              f'Succeeded={succeeded}, failed={len(failed)}, skipped={skipped}')
+          logging.info('Succeeded=%s, failed=%s, skipped=%s', succeeded,
+                       len(failed), skipped)
 
         else:
           failed[tasks[future]['did']] = exec_info
           logging.warning('Exception: %s', exec_info)
-          logging.info(
-              f'Succeeded={succeeded}, failed={len(failed)}, skipped={skipped}')
+          logging.info('Succeeded=%s, failed=%s, skipped=%s', succeeded,
+                       len(failed), skipped)
 
     for dataset in failed:
-      logging.warning(
-          f'did: {dataset} failed with exception: {failed[dataset]}',)
+      logging.warning('%s failed with exception: %s', dataset, failed[dataset])
       logging.info('\n**********')
 
-    logging.info(
-        f'Done! Succeeded={succeeded}, failed={len(failed)}, skipped={skipped}')
+    logging.info('Done! Succeeded=%s, failed=%s, skipped=%s', succeeded,
+                 len(failed), skipped)
 
   def _list_datasets(self, filters: Dict[str, str]) -> List[Any]:
     """Returns the list of names of all `active` datasets.
@@ -229,6 +227,7 @@ class OpenMLCC18:
 
     Args:
       datasets: Array of dataset objects
+
     Returns:
       list of filtered datasets
     """
@@ -249,8 +248,10 @@ class OpenMLCC18:
     is created for the dataset and written to the same directory.
 
     Args:
-      dataset: The OpenML dataset to dump to root_dir (as returned by `list_datasets`).
+      dataset: The OpenML dataset to dump to root_dir (as returned by
+        `list_datasets`).
       root_dir: The root dir where to dump all dataset artifacts.
+
     Returns:
       Whether the dataset was dumped.
     """
@@ -264,7 +265,7 @@ class OpenMLCC18:
     target_name = description['default_target_attribute']
 
     if ',' in target_name:
-      logging.info(f'Skipping multi-label Dataset(id={dataset_id}).')
+      logging.info('Skipping multi-label Dataset(id=%s).', dataset_id)
       return False
 
     # TODO(nikhilmehta): Check if we can avoid the following `qualities` API
@@ -277,7 +278,7 @@ class OpenMLCC18:
         value = quality['value']
         n_classes = int(float(value)) if value else 0
     if n_classes == 1:
-      logging.warning(f'Skipping single-class Dataset(id={dataset_id}).')
+      logging.warning('Skipping single-class Dataset(id=%s).', dataset_id)
       return False
 
     dataset_name = dataset['name']
@@ -306,18 +307,20 @@ class OpenMLCC18:
     with tf.io.gfile.GFile(task_path, mode='w') as fout:
       json.dump(task_desc.to_dict(), fout)
 
-    logging.info(f'OpenML dataset with id={dataset_id}, name={dataset_name}, '
-                 f'on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.')
+    logging.info('OpenML dataset with id=%d, name=%s, on %s.', dataset_id,
+                 dataset_name,
+                 datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
     return True
 
-  def get_csv(self, file_id: int) -> str:
+  def get_csv(self, file_id: str) -> str:
     """Downloads the  OpenML dataset corresponding to `file_id`.
 
     Note: The OpenML `file_id` does not correspond to the OpenML `dataset_id`.
 
     Args:
       file_id: The id of the file to download from OpenML.
+
     Returns:
       The downloaded CSV.
     """
@@ -326,7 +329,7 @@ class OpenMLCC18:
     resp = resp.text.replace(', ', ',').replace(' ,', ',')
     return resp
 
-  def _download_dataset(self, file_id: int, dataset_dir: str) -> Dict[str, Any]:
+  def _download_dataset(self, file_id: str, dataset_dir: str) -> Dict[str, Any]:
     """Downloads the OpenML dataset in CSV format.
 
     The columns are renamed to be valid python identifiers.
@@ -334,6 +337,7 @@ class OpenMLCC18:
     Args:
       file_id: The OpenML file_id of the dataset to download.
       dataset_dir: The directory where to write the downloaded dataset.
+
     Returns:
       A dictionary of <original column name> -> <renamed column name>.
     """
@@ -341,8 +345,8 @@ class OpenMLCC18:
     csv = self.get_csv(file_id)
 
     # Rename the columns in the CSV to be valid python identifiers. This ensures
-    # the column names (and label in the problem_statement proto) are the same for
-    # both the CSV and the tf.Example datasets.
+    # the column names (and label in the problem_statement proto) are the same
+    # for both the CSV and the tf.Example datasets.
     csv = csv.split('\n')
     columns = csv[0].split(',')
     column_rename_dict = data_utils.rename_columns(columns)
@@ -359,11 +363,14 @@ class OpenMLCC18:
 
     return column_rename_dict
 
-  def _get_data_qualities(self, dataset_id: int) -> Dict[str, Any]:
+  def _get_data_qualities(self, dataset_id: str) -> List[Dict[str, str]]:
     """Returns the qualities of the dataset as specified in the OpenML API.
 
     Args:
-      `dataset_id`: The dataset id.
+      dataset_id: The dataset id.
+
+    Returns:
+      The qualities of the dataset as specified in the OpenML API.
     """
 
     params = {'api_key': self.api_key}
@@ -372,11 +379,14 @@ class OpenMLCC18:
 
     return resp['data_qualities']['quality']
 
-  def _get_dataset_description(self, dataset_id: int) -> str:
+  def _get_dataset_description(self, dataset_id: str) -> Dict[str, str]:
     """Returns the dataset description using the OpenML API.
 
     Args:
-      `dataset_id`: The dataset id.
+      dataset_id: The dataset id.
+
+    Returns:
+      Returns the dataset description using the OpenML API.
     """
 
     params = {'api_key': self.api_key}
@@ -386,10 +396,13 @@ class OpenMLCC18:
     return resp['data_set_description']
 
   def _get_task_type(self, n_classes: int) -> str:
-    """Get the task information from num_classes
+    """Get the task information from num_classes.
 
     Args:
       n_classes: Number of classes.
+
+    Returns:
+      The task type enum.
     """
 
     if n_classes == 2:

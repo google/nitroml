@@ -87,7 +87,6 @@ class TitanicBenchmark(nitroml.Benchmark):
     self.evaluate(
         pipeline, examples=dataset.examples, model=trainer.outputs.model)
 
-
 if __name__ == '__main__':
   if config.USE_KUBEFLOW:
     # We need the string "KubeflowDagRunner" in this file to appease the

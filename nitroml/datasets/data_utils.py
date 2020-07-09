@@ -13,7 +13,7 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Utility module for datasets"""
+"""Utility module for datasets."""
 
 import re
 from typing import Dict, List
@@ -32,7 +32,15 @@ def get(url: str, **kwargs) -> requests.Response:
 def convert_to_valid_identifier(s: str) -> str:
   """Converts the string `s` to a valid python identifier.
 
-  Removes invalid characters, and any leading characters until letter/underscore.
+  Removes invalid characters, and any leading characters until
+  letter/underscore.
+
+  Args:
+    s: input string.
+
+  Returns:
+    `si` with invalid characters removed, and any leading characters until
+    letter/underscore.
   """
 
   s = re.sub('[^0-9a-zA-Z_]', '', s)
@@ -41,7 +49,7 @@ def convert_to_valid_identifier(s: str) -> str:
 
 
 def rename_columns(columns: List[str]) -> Dict[str, str]:
-  """Returns dict[col_name] = new_col_name"""
+  """Returns dict[col_name] = new_col_name."""
 
   return {column: convert_to_valid_identifier(column) for column in columns}
 

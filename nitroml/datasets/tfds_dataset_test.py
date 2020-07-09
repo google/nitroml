@@ -15,6 +15,8 @@
 # Lint as: python3
 """Tests for nitroml.datasets.tfds_dataset.py."""
 
+import os
+
 from absl.testing import absltest
 from absl.testing import parameterized
 from nitroml.datasets import tfds_dataset
@@ -40,7 +42,9 @@ class TFDSDatasetTest(parameterized.TestCase, absltest.TestCase):
               'fashion_mnist'
       })
   def test_examples(self, dataset_fn, want_name):
-    with tfds.testing.mock_data(num_examples=5):
+    with tfds.testing.mock_data(
+        num_examples=5,
+        data_dir=os.path.join(os.path.dirname(__file__), 'testdata')):
       dataset = dataset_fn()
       self.assertEqual(want_name, dataset.name)
       self.assertIsNotNone(dataset.examples)

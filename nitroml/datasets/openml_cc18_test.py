@@ -15,20 +15,16 @@
 # Lint as: python3
 """Tests for nitroml.datasets.openML_datasets.py."""
 
-import tempfile
 import json
 import os
+import tempfile
 
 from absl.testing import absltest
 from absl.testing import parameterized
+from nitroml.datasets import data_utils
+from nitroml.datasets import openml_cc18
 import requests_mock
 import tensorflow as tf
-
-import tensorflow as tf
-from nitroml.datasets import openml_cc18
-from nitroml.datasets import data_utils
-
-USE_MOCK_DATA = True
 
 
 class OpenMLCC18Test(parameterized.TestCase, absltest.TestCase):
@@ -36,7 +32,8 @@ class OpenMLCC18Test(parameterized.TestCase, absltest.TestCase):
 
   There are two test cases:
   1) Test Case 1: Downloads mock data for openML CC18 datasets.
-  2) Test Case 2: Checks the cache, if data exists loads from the disk, else downloads.
+  2) Test Case 2: Checks the cache, if data exists loads from the disk, else
+  downloads.
   """
 
   @parameterized.named_parameters(
@@ -44,36 +41,18 @@ class OpenMLCC18Test(parameterized.TestCase, absltest.TestCase):
           'testcase_name': 'openML_default',
           'root_dir': os.path.join(tempfile.gettempdir(), 'openML_mock_data'),
           'use_cache': False,
-          'mock_data': USE_MOCK_DATA
-      },
-      {
+      }, {
           'testcase_name': 'openML_use-cache',
           'root_dir': os.path.join(tempfile.gettempdir(), 'openML_mock_data'),
           'use_cache': True,
-          'mock_data': USE_MOCK_DATA
-      },
-      # {
-      #     'testcase_name': 'openML_gs',
-      #     'data_dir': config.OTHER_DOWNLOAD_DIR,
-      #     'use_cache': False
-      # }, {
-      #     'testcase_name': 'openML_gs_use-cache',
-      #     'data_dir': config.OTHER_DOWNLOAD_DIR,
-      #     'use_cache': True
-      # }
-  )
-  def test_examples(self, **test_args):
+      })
+  def test_examples(self, root_dir, use_cache):
 
-    mock_data = test_args.get('mock_data', True)
+    with requests_mock.Mocker() as mocker:
+      self.register_mock_urls(mocker)
+      datasets = openml_cc18.OpenMLCC18(root_dir, use_cache, mock_data=True)
 
-    if mock_data:
-      with requests_mock.Mocker() as mocker:
-        self.register_mock_urls(mocker)
-        datasets = openml_cc18.OpenMLCC18(**test_args)
-    else:
-      datasets = openml_cc18.OpenMLCC18(**test_args)
-
-    self.assertNotEqual(len(datasets.components), 0)
+    self.assertNotEmpty(datasets.components)
     self.assertEqual(len(datasets.tasks), len(datasets.components))
 
   def register_mock_urls(self, mocker):
@@ -86,27 +65,29 @@ class OpenMLCC18Test(parameterized.TestCase, absltest.TestCase):
       list_url = f'{list_url}/{name}/{value}'
 
     with tf.io.gfile.GFile(
-        'nitroml/datasets/testdata/openml_list.get.json', mode='r') as fin:
+        _filename_path('openml_list.get.json'), mode='r') as fin:
       mocker.get(list_url, json=json.load(fin), status_code=200)
 
     desc_url = f'{openml_cc18._OPENML_API_URL}/data/{dataset_id}'
 
     with tf.io.gfile.GFile(
-        'nitroml/datasets/testdata/openml_description.get.json',
-        mode='r') as fin:
+        _filename_path('openml_description.get.json'), mode='r') as fin:
       mocker.get(desc_url, json=json.load(fin), status_code=200)
 
     qual_url = f'{openml_cc18._OPENML_API_URL}/data/qualities/{dataset_id}'
 
     with tf.io.gfile.GFile(
-        'nitroml/datasets/testdata/openml_qual.get.json', mode='r') as fin:
+        _filename_path('openml_qual.get.json'), mode='r') as fin:
       mocker.get(qual_url, json=json.load(fin), status_code=200)
 
     csv_url = f'{openml_cc18._OPENML_FILE_API_URL}/get_csv/{dataset_id}'
 
-    with tf.io.gfile.GFile(
-        'nitroml/datasets/testdata/dataset.txt', mode='r') as fin:
+    with tf.io.gfile.GFile(_filename_path('dataset.txt'), mode='r') as fin:
       mocker.get(csv_url, text=fin.read())
+
+
+def _filename_path(filename: str) -> str:
+  return os.path.join(os.path.dirname(__file__), 'testdata', filename)
 
 
 if __name__ == '__main__':

@@ -15,13 +15,12 @@
 # Lint as: python3
 r"""Task class to identify the type of problem."""
 
-import json
 
-
-class Task(object):
+class Task:
   r"""Task class to track the task associated with the benchmark."""
 
-  # Note: We may have to clear the saved task objects if we change these constants.
+  # Note: We may have to clear the saved task objects if we change these
+  # constants.
   BINARY_CLASSIFICATION = 'binary_classification'
   CATEGORICAL_CLASSIFICATION = 'categorical_classification'
   REGRESSION = 'regression'
@@ -42,9 +41,8 @@ class Task(object):
     self._label_key = label_key
 
   def __str__(self):
-    return (
-        f'Task: {self._type} \nClasses: {self._num_classes} \nDescription: {self._description}'
-    )
+    return (f'Task: {self._type} \nClasses: {self._num_classes} \n'
+            f'Description: {self._description}')
 
   def _verify_task(self, task_type: str = None) -> bool:
     """Verify if task_type is among valid tasks or not."""

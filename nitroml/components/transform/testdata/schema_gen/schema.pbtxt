@@ -1,0 +1,14 @@
+feature: {
+  name: "review"
+  type: BYTES
+  shape: {}
+  presence: { min_fraction: 1 }
+}
+feature: {
+  name: "label"
+  type: INT
+  shape: {
+    dim: { size: 1 }
+  }
+  presence: { min_fraction: 1 }
+}

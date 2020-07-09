@@ -39,7 +39,7 @@ NUM_RUNS_KEY = 'num_runs'
 # Component constants
 _TRAINER = 'google3.learning.elated_zebra.my_orchestrator.components.trainer.component.EstimatorTrainer'
 _TRAINER_PREFIX = 'EstimatorTrainer'
-_EVALUATOR = 'google3.third_party.tfx.components.evaluator.component.Evaluator'
+_EVALUATOR = 'tfx.components.evaluator.component.Evaluator'
 _BENCHMARK_RESULT = 'NitroML.BenchmarkResult'
 _KAGGLE_RESULT = 'NitroML.KaggleSubmissionResult'
 _KAGGLE_PUBLISHER = 'nitroml.google.autokaggle.components.publisher.component.KagglePublisher'
@@ -122,7 +122,7 @@ def _parse_hparams(hp_prop: str) -> Dict[str, Any]:
   """
   # Deserialize the hparams. Execution properties are currently serialized in
   # TFX using __str__. See for details:
-  # http://google3/third_party/tfx/orchestration/metadata.py?q=function:_update_execution_proto
+  # http://google3/third_party/py/tfx/orchestration/metadata.py?q=function:_update_execution_proto
   # TODO(b/151084437): Move deserialization code to TFX.
   hp_strings = ast.literal_eval(hp_prop)
   hparams = {}
@@ -155,7 +155,7 @@ def _get_hparams(store: metadata_store.MetadataStore) -> _Result:
     result_key = run_id + trainer_id
     hparams[BENCHMARK_KEY] = trainer_id[1:]  # Removing '.' prefix
     # BeamDagRunner uses iso format timestamp. See for details:
-    # http://google3/third_party/tfx/orchestration/beam/beam_dag_runner.py
+    # http://google3/third_party/py/tfx/orchestration/beam/beam_dag_runner.py
     try:
       hparams[STARTED_AT] = datetime.datetime.fromtimestamp(int(run_id))
     except ValueError:
@@ -220,7 +220,7 @@ def _get_benchmark_results(store: metadata_store.MetadataStore) -> _Result:
     run_info = artifact_to_run_info[artifact_id]
     evals[RUN_ID_KEY] = run_info.run_id
     # BeamDagRunner uses iso format timestamp. See for details:
-    # http://google3/third_party/tfx/orchestration/beam/beam_dag_runner.py
+    # http://google3/third_party/py/tfx/orchestration/beam/beam_dag_runner.py
     try:
       evals[STARTED_AT] = datetime.datetime.fromtimestamp(int(run_info.run_id))
     except ValueError:
