@@ -27,7 +27,7 @@ from nitroml import results
 from examples import titanic_benchmark
 from nitroml.testing import e2etest
 
-from ml_metadata.metadata_store import metadata_store
+from ml_metadata import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 
 FLAGS = flags.FLAGS

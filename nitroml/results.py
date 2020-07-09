@@ -25,7 +25,7 @@ from typing import Dict, Any, List, NamedTuple, Optional, Text
 import pandas as pd
 import tensorflow.compat.v2 as tf
 
-from ml_metadata.metadata_store import metadata_store
+from ml_metadata import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 
 # Column name constants

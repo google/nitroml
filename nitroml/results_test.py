@@ -23,7 +23,7 @@ from absl.testing import absltest
 from absl.testing import parameterized
 
 from nitroml import results
-from ml_metadata.metadata_store import metadata_store
+from ml_metadata import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 
 _MLMD_03_31_20_PATH = os.path.join(
