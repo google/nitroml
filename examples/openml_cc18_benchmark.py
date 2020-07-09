@@ -49,7 +49,8 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
     # TODO(nikhilmehta): create subbenchmarks using all 72 datasets
     datasets = openml_cc18.OpenMLCC18(data_dir)
 
-    for ix in [4, 11, 12]:
+    # List of datasets that do not incur OOM - [4,11]
+    for ix in range(20, 26):
 
       name = datasets.names[ix]
 
