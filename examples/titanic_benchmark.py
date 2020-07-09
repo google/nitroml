@@ -30,6 +30,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
 from nitroml.datasets import tfds_dataset
+from nitroml.components.transform import component
 from examples import config
 import tensorflow_datasets as tfds
 
@@ -59,7 +60,7 @@ class TitanicBenchmark(nitroml.Benchmark):
         statistics=statistics_gen.outputs.statistics, infer_feature_shape=True)
 
     # Apply global transformations and compute vocabularies.
-    transform = tfx.Transform(
+    transform = component.Transform(
         examples=dataset.examples,
         schema=schema_gen.outputs.schema,
         preprocessing_fn='examples.auto_transform.preprocessing_fn')
@@ -86,6 +87,7 @@ class TitanicBenchmark(nitroml.Benchmark):
     # SavedModel and 'eval' TF Examples.
     self.evaluate(
         pipeline, examples=dataset.examples, model=trainer.outputs.model)
+
 
 if __name__ == '__main__':
   if config.USE_KUBEFLOW:

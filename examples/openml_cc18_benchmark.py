@@ -35,8 +35,9 @@ from tfx import components as tfx
 from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
-from nitroml.datasets import openml_cc18
 from examples import config
+from nitroml.components.transform import component
+from nitroml.datasets import openml_cc18
 from nitroml import nitroml
 from nitroml.datasets import tfds_dataset
 
@@ -44,13 +45,18 @@ from nitroml.datasets import tfds_dataset
 class OpenMLCC18Benchmark(nitroml.Benchmark):
   r"""Demos a NitroML benchmark on the 'OpenML' classification datasets."""
 
-  def benchmark(self, data_dir=None):
+  def benchmark(self, mock_data=False, data_dir=None):
 
     # TODO(nikhilmehta): create subbenchmarks using all 72 datasets
-    datasets = openml_cc18.OpenMLCC18(data_dir)
+    datasets = openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data)
+
+    if mock_data:
+      dataset_indices = [0]
+    else:
+      dataset_indices = range(20, 40)
 
     # List of datasets that do not incur OOM - [4,11]
-    for ix in range(20, 26):
+    for ix in dataset_indices:
 
       name = datasets.names[ix]
 
@@ -68,7 +74,7 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
             statistics=statistics_gen.outputs.statistics,
             infer_feature_shape=True)
 
-        transform = tfx.Transform(
+        transform = component.Transform(
             examples=example_gen.outputs['examples'],
             schema=schema_gen.outputs.schema,
             preprocessing_fn='examples.auto_transform.preprocessing_fn')
@@ -81,8 +87,8 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
             transformed_examples=transform.outputs.transformed_examples,
             schema=schema_gen.outputs.schema,
             transform_graph=transform.outputs.transform_graph,
-            train_args=trainer_pb2.TrainArgs(num_steps=1),
-            eval_args=trainer_pb2.EvalArgs(num_steps=1),
+            train_args=trainer_pb2.TrainArgs(num_steps=10),
+            eval_args=trainer_pb2.EvalArgs(num_steps=10),
             custom_config=task_dict)
 
         # Collect the pipeline components to benchmark.

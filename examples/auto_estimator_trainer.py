@@ -54,8 +54,6 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
       - hyperparameters: An optional kerastuner.HyperParameters config.
   """
 
-  logging.info(fn_args._data)
-
   autodata_adapter = EstimatorAdapter(
       transform_graph_dir=fn_args.transform_output,
       label_key=fn_args.label_key,
