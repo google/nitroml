@@ -45,7 +45,7 @@ from nitroml.datasets import tfds_dataset
 class OpenMLCC18Benchmark(nitroml.Benchmark):
   r"""Demos a NitroML benchmark on the 'OpenML' classification datasets."""
 
-  def benchmark(self, mock_data=False, data_dir=None):
+  def benchmark(self, mock_data: bool = False, data_dir: str = None):
 
     # TODO(nikhilmehta): create subbenchmarks using all 72 datasets
     datasets = openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data)
