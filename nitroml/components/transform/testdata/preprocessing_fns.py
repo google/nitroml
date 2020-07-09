@@ -15,26 +15,13 @@
 # Lint as: python3
 """Sample module containing preprocessing_fns which will not work in OSS TFX."""
 
-import tensorflow.compat.v2 as tf
-import tensorflow_transform as tft
-
 _VOCAB_SIZE = 20000
 
 
 def preprocessing_fn_vanilla(inputs):
   """Preprocess input columns into transformed columns."""
-  review = inputs['review']
 
-  review_tokens = tf.compat.v1.string_split(review, '.,!?() ')
-  review_indices = tft.compute_and_apply_vocabulary(
-      review_tokens, top_k=_VOCAB_SIZE)
-  # Add one for the oov bucket created by compute_and_apply_vocabulary.
-  review_bow_indices, review_weight = tft.tfidf(review_indices, _VOCAB_SIZE + 1)
-  return {
-      'review': review_bow_indices,
-      'review_weight': review_weight,
-      'label': inputs['label']
-  }
+  return inputs
 
 
 def preprocessing_fn_richer(inputs, schema, custom_config):

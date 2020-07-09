@@ -392,7 +392,7 @@ class GetHparamsTest(absltest.TestCase):
     exec_type.properties[results._COMPONENT_ID] = metadata_store_pb2.STRING
     return self.store.put_execution_type(exec_type)
 
-  def _put_execution(self, run_id: str, trainer_name: str, hparam: str) -> int:
+  def _put_execution(self, run_id: str, trainer_name: str, hparam: str):
     execution = metadata_store_pb2.Execution()
     execution.properties[results._HPARAMS].string_value = hparam
     execution.properties[results.RUN_ID_KEY].string_value = run_id
