@@ -84,10 +84,10 @@ class TFDSDataset(object):
   @property
   def task(self):
 
-    task_type = task.Task.BINARY_CLASSIFICATION
-    # TODO(nikhilmehta): Infer num_classes using vocab (after SchemaGen or TFT).
+    # TODO(#28): Infer num_classes using vocab (after SchemaGen or TFT).
     num_classes = 2
-    description = 'Titanic Binary classification dataset.'
+    task_type = task.Task.BINARY_CLASSIFICATION
+    description = self._dataset_builder.info.description
     label_key = self._dataset_builder.info.supervised_keys[1]
 
     titanic_task = task.Task(

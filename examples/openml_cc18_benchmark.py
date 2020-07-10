@@ -14,7 +14,7 @@
 # =============================================================================
 # Lint as: python3
 # pyformat: disable
-r"""Demos a basic NitroML benchmark on the 'Titanic' dataset from OpenML.
+r"""Demos a basic NitroML benchmark on 'OpenMLCC18' datasets from OpenML.
 
 To run in open-source:
 
@@ -57,25 +57,22 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
 
     # List of datasets that do not incur OOM - [4,11]
     for ix in dataset_indices:
-
       name = datasets.names[ix]
-
       with self.sub_benchmark(name):
-
         example_gen = datasets.components[ix]
         task = datasets.tasks[ix]
         task_dict = task.to_dict()
         task_dict.pop('description')
 
         statistics_gen = tfx.StatisticsGen(
-            examples=example_gen.outputs['examples'])
+            examples=example_gen.outputs.examples)
 
         schema_gen = tfx.SchemaGen(
             statistics=statistics_gen.outputs.statistics,
             infer_feature_shape=True)
 
         transform = component.Transform(
-            examples=example_gen.outputs['examples'],
+            examples=example_gen.outputs.examples,
             schema=schema_gen.outputs.schema,
             preprocessing_fn='examples.auto_transform.preprocessing_fn')
 

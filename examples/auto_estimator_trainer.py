@@ -130,12 +130,14 @@ class EstimatorAdapter():
       transform_graph_dir: Path to the TensorFlow Transform graph artifacts.
     """
 
+    # TODO(#29): Regression tasks (self._num_classes==0)
+    if num_classes < 2:
+      raise ValueError('Classification should have num_classes >= 2.')
+
     # Parse transform.
     self._tf_transform_output = tft.TFTransformOutput(transform_graph_dir)
-
     # Parse schema.
     self._dataset_schema = self._tf_transform_output.transformed_metadata.schema
-
     self._label_key = label_key
     self._num_classes = num_classes
 
@@ -156,7 +158,7 @@ class EstimatorAdapter():
   def head(self) -> tf.estimator.Head:
     """Returns the Estimator Head for this task."""
 
-    # TODO(nikhilmehta): Regression tasks (self._num_classes==0)
+    # TODO(#29): Regression tasks (self._num_classes==0)
     if self._num_classes > 2:
       return tf.estimator.MultiClassHead(self._num_classes)
     else:
