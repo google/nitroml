@@ -18,8 +18,8 @@ r"""A dataset from a TFDS Dataset."""
 from typing import List, Text
 
 from absl import logging
+from nitroml.datasets import task
 import tensorflow_datasets as tfds
-
 from tfx import components as tfx
 from tfx import types
 from tfx.components.base import base_component
@@ -79,3 +79,22 @@ class TFDSDataset(object):
     """Returns train and eval labeled examples."""
 
     return self._example_gen.outputs.examples
+
+  @property
+  def task(self) -> task.Task:
+    """Returns the Task for this dataset."""
+
+    # TODO(github.com/googleinterns/nitroml/issues/29): Infer num_classes using
+    # vocab (after SchemaGen or TFT).
+    num_classes = 2
+    task_type = task.Task.BINARY_CLASSIFICATION
+    description = self._dataset_builder.info.description
+    label_key = self._dataset_builder.info.supervised_keys[1]
+
+    titanic_task = task.Task(
+        task_type=task_type,
+        num_classes=num_classes,
+        description=description,
+        label_key=label_key)
+
+    return titanic_task

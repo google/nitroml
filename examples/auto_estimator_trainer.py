@@ -55,7 +55,9 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
   """
 
   autodata_adapter = EstimatorAdapter(
-      transform_graph_dir=fn_args.transform_output)
+      transform_graph_dir=fn_args.transform_output,
+      label_key=fn_args.label_key,
+      num_classes=fn_args.num_classes)
 
   run_config = tf.estimator.RunConfig(
       model_dir=fn_args.serving_model_dir,
@@ -120,25 +122,37 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
 class EstimatorAdapter():
   """Creates feature columns and specs from TFX artifacts."""
 
-  def __init__(self, transform_graph_dir: Text):
+  def __init__(self, transform_graph_dir: str, label_key: str,
+               num_classes: int):
     """Initializes the EstimatorAdapter from TFX artifacts.
 
     Args:
       transform_graph_dir: Path to the TensorFlow Transform graph artifacts.
+      label_key: String label key.
+      num_classes: Number of classes.
+
+    Raises:
+      ValueError: When `num_classes` < 2.
     """
+
+    # TODO(github.com/googleinterns/nitroml/issues/29): Regression tasks
+    # (self._num_classes==0).
+    if num_classes < 2:
+      raise ValueError('Classification should have num_classes >= 2.')
 
     # Parse transform.
     self._tf_transform_output = tft.TFTransformOutput(transform_graph_dir)
-
     # Parse schema.
     self._dataset_schema = self._tf_transform_output.transformed_metadata.schema
+    self._label_key = label_key
+    self._num_classes = num_classes
 
   @property
   def raw_label_keys(self) -> List[Text]:
     """The raw label key as defined in the ProblemStatement."""
 
-    # TODO(weill): Make this label configurable.
-    return ['survived']
+    # TODO(nikhilmehta): Change the task object to allow label_key to be a list.
+    return [self._label_key]
 
   @property
   def transformed_label_keys(self) -> List[Text]:
@@ -150,7 +164,12 @@ class EstimatorAdapter():
   def head(self) -> tf.estimator.Head:
     """Returns the Estimator Head for this task."""
 
-    return tf.estimator.BinaryClassHead()
+    # TODO(github.com/googleinterns/nitroml/issues/29): Regression tasks
+    # (self._num_classes==0)
+    if self._num_classes > 2:
+      return tf.estimator.MultiClassHead(self._num_classes)
+    else:
+      return tf.estimator.BinaryClassHead()
 
   def get_numeric_feature_columns(self,
                                   include_integer_columns: bool = True

@@ -61,12 +61,12 @@ class OpenMLCC18:
     if not mock_data and not api_key:
       raise ValueError("API_KEY cannot be ''")
 
-    self._components = None
-    self._tasks = None
+    self._components = []
+    self._tasks = []
+    self._names = []
     self.root_dir = os.path.join(root_dir, 'openML_datasets')
     self.max_threads = max_threads
     self.api_key = api_key
-    self._names = None
 
     if use_cache:
 
@@ -91,10 +91,13 @@ class OpenMLCC18:
   def names(self) -> List[str]:
     """Returns the names of all OpenML datasets."""
 
-    if self._names:
-      return self._names
+    if not self._names:
+      self._names = [
+          data_utils.convert_to_valid_identifier(name)
+          for name in tf.io.gfile.listdir(self.root_dir)
+      ]
 
-    return tf.io.gfile.listdir(self.root_dir)
+    return self._names
 
   @property
   def components(self) -> List[base_component.BaseComponent]:
@@ -138,17 +141,12 @@ class OpenMLCC18:
     """Creates and returns the list of components for OpenML datasets."""
 
     components = []
-    names = []
-    for dataset_name in tf.io.gfile.listdir(self.root_dir):
-      dataset_dir = os.path.join(self.root_dir, f'{dataset_name}/data')
-      examples = external_input(dataset_dir)
-      example_gen = CsvExampleGen(
-          input=examples,
-          instance_name=data_utils.convert_to_valid_identifier(dataset_name))
-      components.append(example_gen)
-      names.append(dataset_name)
 
-    self._names = names
+    for dataset_name in tf.io.gfile.listdir(self.root_dir):
+      dataset_dir = os.path.join(self.root_dir, f'{dataset_name}', 'data')
+      examples = external_input(dataset_dir)
+      example_gen = CsvExampleGen(input=examples)
+      components.append(example_gen)
 
     return components
 
@@ -360,7 +358,7 @@ class OpenMLCC18:
       tf.io.gfile.makedirs(dataset_dir)
 
     csv_path = os.path.join(dataset_dir, 'dataset.csv')
-    with tf.io.gfile.GFile(csv_path, 'w') as fout:
+    with tf.io.gfile.GFile(csv_path, mode='w') as fout:
       fout.write(csv)
 
     return column_rename_dict

@@ -15,16 +15,14 @@
 # Lint as: python3
 """Tests for nitroml.datasets.openML_datasets.py."""
 
-import json
 import os
 import tempfile
 
 from absl.testing import absltest
 from absl.testing import parameterized
-from nitroml.datasets import data_utils
 from nitroml.datasets import openml_cc18
+from nitroml.datasets import testing_utils
 import requests_mock
-import tensorflow as tf
 
 
 class OpenMLCC18Test(parameterized.TestCase, absltest.TestCase):
@@ -49,45 +47,11 @@ class OpenMLCC18Test(parameterized.TestCase, absltest.TestCase):
   def test_examples(self, root_dir, use_cache):
 
     with requests_mock.Mocker() as mocker:
-      self.register_mock_urls(mocker)
+      testing_utils.register_mock_urls(mocker)
       datasets = openml_cc18.OpenMLCC18(root_dir, use_cache, mock_data=True)
 
     self.assertNotEmpty(datasets.components)
     self.assertEqual(len(datasets.tasks), len(datasets.components))
-
-  def register_mock_urls(self, mocker):
-
-    list_url = f'{openml_cc18._OPENML_API_URL}/data/list'
-    dataset_id = 1
-
-    for name, value in data_utils.parse_dataset_filters(
-        openml_cc18._DATASET_FILTERS).items():
-      list_url = f'{list_url}/{name}/{value}'
-
-    with tf.io.gfile.GFile(
-        _filename_path('openml_list.get.json'), mode='r') as fin:
-      mocker.get(list_url, json=json.load(fin), status_code=200)
-
-    desc_url = f'{openml_cc18._OPENML_API_URL}/data/{dataset_id}'
-
-    with tf.io.gfile.GFile(
-        _filename_path('openml_description.get.json'), mode='r') as fin:
-      mocker.get(desc_url, json=json.load(fin), status_code=200)
-
-    qual_url = f'{openml_cc18._OPENML_API_URL}/data/qualities/{dataset_id}'
-
-    with tf.io.gfile.GFile(
-        _filename_path('openml_qual.get.json'), mode='r') as fin:
-      mocker.get(qual_url, json=json.load(fin), status_code=200)
-
-    csv_url = f'{openml_cc18._OPENML_FILE_API_URL}/get_csv/{dataset_id}'
-
-    with tf.io.gfile.GFile(_filename_path('dataset.txt'), mode='r') as fin:
-      mocker.get(csv_url, text=fin.read())
-
-
-def _filename_path(filename: str) -> str:
-  return os.path.join(os.path.dirname(__file__), 'testdata', filename)
 
 
 if __name__ == '__main__':
