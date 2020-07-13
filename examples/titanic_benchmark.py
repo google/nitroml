@@ -44,7 +44,7 @@ from tfx.proto import trainer_pb2
 class TitanicBenchmark(nitroml.Benchmark):
   r"""Demos a NitroML benchmark on the 'Titanic' dataset from OpenML."""
 
-  def benchmark(self, data_dir: str = None):
+  def benchmark(self, data_dir: str = None, enable_tuning: bool = False):
     # NOTE: For convenience, we fetch the OpenML task from the AutoTFX
     # tasks repository.
     dataset = tfds_dataset.TFDSDataset(
@@ -65,6 +65,21 @@ class TitanicBenchmark(nitroml.Benchmark):
         schema=schema_gen.outputs.schema,
         preprocessing_fn='examples.auto_transform.preprocessing_fn')
 
+    if enable_tuning:
+      tuner = tfx.Tuner(
+          tuner_fn='examples.auto_tuner.tuner_fn',
+          examples=transform.outputs.transformed_examples,
+          transform_graph=transform.outputs.transform_graph,
+          train_args=trainer_pb2.TrainArgs(num_steps=20),
+          eval_args=trainer_pb2.TrainArgs(num_steps=1))
+
+    # hparams_importer = ImporterNode(
+    #     instance_name='import_hparams',
+    #     # This can be Tuner's output file or manually edited file. The file contains
+    #     # text format of hyperparameters (kerastuner.HyperParameters.get_config())
+    #     source_uri='path/to/best_hyperparameters.txt',
+    #     artifact_type=HyperParameters)
+
     # Define a tf.estimator.Estimator-based trainer.
     trainer = tfx.Trainer(
         run_fn='examples.auto_estimator_trainer.run_fn',
@@ -75,7 +90,9 @@ class TitanicBenchmark(nitroml.Benchmark):
         transform_graph=transform.outputs.transform_graph,
         train_args=trainer_pb2.TrainArgs(num_steps=10000),
         eval_args=trainer_pb2.EvalArgs(num_steps=5000),
-        custom_config=task)
+        custom_config=task,
+        hyperparameters=(tuner.outputs.best_hyperparameters
+                         if enable_tuning else None))
 
     # Collect the pipeline components to benchmark.
     pipeline = dataset.components + [

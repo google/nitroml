@@ -27,8 +27,10 @@ import tensorflow as tf
 import tensorflow_model_analysis as tfma
 import tensorflow_transform as tft
 from tfx.components.trainer import executor as trainer_executor
-
+from tfx.components.tuner.component import TunerFnResult
+from tfx.components.trainer.fn_args_utils import FnArgs
 from tensorflow_metadata.proto.v0 import schema_pb2
+import kerastuner
 
 FeatureColumn = Any
 
@@ -106,7 +108,7 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
 
   # Export an eval savedmodel for TFMA. If distributed training, it must only
   # be written by the chief worker, as would be done for serving savedmodel.
-  if run_config.is_chief:
+  if run_config.is_chief:   
     logging.info('Exporting eval_savedmodel for TFMA.')
     tfma.export.export_eval_savedmodel(
         estimator=estimator,
@@ -455,3 +457,47 @@ def _get_feature_dim(schema: schema_pb2.Schema, feature_name: Text) -> int:
     if feature.name == feature_name:
       return feature.shape.dim[0].size
   raise ValueError('Feature not found: {}'.format(feature_name))
+
+
+def tuner_fn(fn_args: FnArgs) -> TunerFnResult:
+  """Build the tuner_fn
+
+  Args:
+    fn_args: Holds args as name/value pairs.
+      - working_dir: working dir for tuning.
+      - train_files: List of file paths containing training tf.Example data.
+      - eval_files: List of file paths containing eval tf.Example data.
+      - train_steps: number of train steps.
+      - eval_steps: number of eval steps.
+      - schema_path: optional schema of the input data.
+      - transform_graph_path: optional transform graph produced by TFT.
+  Returns:
+    A namedtuple contains the following:
+      - tuner: A BaseTuner that will be used for tuning.
+      - fit_kwargs: Args to pass to tuner's run_trial function for fitting the
+                    model , e.g., the training and validation dataset. Required
+                    args depend on the above tuner's implementation.
+  """
+  # RandomSearch is a subclass of kerastuner.Tuner which inherits from
+  # BaseTuner.
+  tuner = kerastuner.RandomSearch(
+      _build_keras_model,
+      max_trials=6,
+      hyperparameters=_get_hyperparameters(),
+      allow_new_entries=False,
+      objective=kerastuner.Objective('val_sparse_categorical_accuracy', 'max'),
+      directory=fn_args.working_dir,
+      project_name='iris_tuning')
+
+  transform_graph = tft.TFTransformOutput(fn_args.transform_graph_path)
+  train_dataset = _input_fn(fn_args.train_files, transform_graph)
+  eval_dataset = _input_fn(fn_args.eval_files, transform_graph)
+
+  return TunerFnResult(
+      tuner=tuner,
+      fit_kwargs={
+          'x': train_dataset,
+          'validation_data': eval_dataset,
+          'steps_per_epoch': fn_args.train_steps,
+          'validation_steps': fn_args.eval_steps
+      })
