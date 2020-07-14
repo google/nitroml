@@ -31,8 +31,10 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 import nitroml
 from nitroml.components.transform import component
 from nitroml.datasets import tfds_dataset
+from examples import auto_keras_trainer
 from examples import config
 import tensorflow_datasets as tfds
+import tensorflow_model_analysis as tfma
 
 from tfx import components as tfx
 from tfx.components.base import executor_spec
@@ -44,13 +46,13 @@ from tfx.proto import trainer_pb2
 class TitanicBenchmark(nitroml.Benchmark):
   r"""Demos a NitroML benchmark on the 'Titanic' dataset from OpenML."""
 
-  def benchmark(self, data_dir: str = None):
+  def benchmark(self, data_dir: str = None, use_keras: bool = True):
     # NOTE: For convenience, we fetch the OpenML task from the AutoTFX
     # tasks repository.
     dataset = tfds_dataset.TFDSDataset(
         tfds.builder('titanic', data_dir=data_dir))
-    task = dataset.task.to_dict()
-    task.pop('description')
+    task_dict = dataset.task.to_dict()
+    task_dict.pop('description')
 
     # Compute dataset statistics.
     statistics_gen = tfx.StatisticsGen(examples=dataset.examples)
@@ -65,28 +67,35 @@ class TitanicBenchmark(nitroml.Benchmark):
         schema=schema_gen.outputs.schema,
         preprocessing_fn='examples.auto_transform.preprocessing_fn')
 
-    # Define a tf.estimator.Estimator-based trainer.
+    run_fn = 'examples.auto_keras_trainer.run_fn' if use_keras else 'examples.auto_estimator_trainer.run_fn'
+
     trainer = tfx.Trainer(
-        run_fn='examples.auto_estimator_trainer.run_fn',
+        run_fn=run_fn,
         custom_executor_spec=executor_spec.ExecutorClassSpec(
             trainer_executor.GenericExecutor),
         transformed_examples=transform.outputs.transformed_examples,
         schema=schema_gen.outputs.schema,
         transform_graph=transform.outputs.transform_graph,
-        train_args=trainer_pb2.TrainArgs(num_steps=10000),
-        eval_args=trainer_pb2.EvalArgs(num_steps=5000),
-        custom_config=task)
+        train_args=trainer_pb2.TrainArgs(num_steps=1),
+        eval_args=trainer_pb2.EvalArgs(num_steps=1),
+        custom_config=task_dict)
 
     # Collect the pipeline components to benchmark.
     pipeline = dataset.components + [
         statistics_gen, schema_gen, transform, trainer
     ]
 
+    eval_config = auto_keras_trainer.get_eval_config(
+        dataset.task) if use_keras else None
+
     # Finally, call evaluate() on the workflow DAG outputs. This will
     # automatically append Evaluators to compute metrics from the given
     # SavedModel and 'eval' TF Examples.
     self.evaluate(
-        pipeline, examples=dataset.examples, model=trainer.outputs.model)
+        pipeline,
+        examples=dataset.examples,
+        model=trainer.outputs.model,
+        eval_config=eval_config)
 
 
 if __name__ == '__main__':
