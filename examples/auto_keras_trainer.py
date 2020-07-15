@@ -54,9 +54,6 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
       - hyperparameters: An optional kerastuner.HyperParameters config.
   """
 
-  logging.info(fn_args.__dict__)
-  logging.info('******************')
-
   data_provider = DataProvider(
       transform_graph_dir=fn_args.transform_output,
       label_key=fn_args.label_key,
@@ -82,7 +79,6 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
   model.compile(
       loss=data_provider.loss,
       optimizer=tf.keras.optimizers.Adam(lr=0.001),
-      # )
       metrics=data_provider.metrics)
   model.summary()
 
