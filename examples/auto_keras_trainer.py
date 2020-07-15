@@ -34,6 +34,7 @@ from nitroml.datasets import task
 FeatureColumn = Any
 
 
+# TODO(nikhilmehta): Use hyperparameters.
 def run_fn(fn_args: trainer_executor.TrainerFnArgs):
   """Train a DNN Keras Model based on given args.
 
@@ -61,7 +62,6 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
 
   model = _keras_model_builder(data_provider)
 
-  # Create TrainSpec
   train_spec = tf.estimator.TrainSpec(
       input_fn=data_provider.get_input_fn(
           file_pattern=fn_args.train_files,
@@ -70,12 +70,10 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
           shuffle=True),
       max_steps=fn_args.train_steps)
 
-  # Create EvalSpec
   serving_receiver_fn = data_provider.get_serving_input_receiver_fn()
   exporters = [
       tf.estimator.FinalExporter('serving_model_dir', serving_receiver_fn),
   ]
-
   eval_spec = tf.estimator.EvalSpec(
       input_fn=data_provider.get_input_fn(
           file_pattern=fn_args.eval_files,
@@ -89,14 +87,12 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
       start_delay_secs=1,
       throttle_secs=5)
 
-  # Create RunConfig
   run_config = tf.estimator.RunConfig(
       model_dir=fn_args.serving_model_dir,
       save_checkpoints_steps=999,
       keep_checkpoint_max=3)
 
   estimator = tf.keras.estimator.model_to_estimator(model, config=run_config)
-  # Train/Tune the model
   logging.info('Training model...')
   tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
   logging.info('Training complete.')
