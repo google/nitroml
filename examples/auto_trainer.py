@@ -34,6 +34,7 @@ from nitroml.datasets import task
 FeatureColumn = Any
 
 
+# TODO(nikhilmehta): Use hyperparameters.
 def run_fn(fn_args: trainer_executor.TrainerFnArgs):
   """Train a DNN Keras Model based on given args.
 
@@ -54,14 +55,14 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
       - hyperparameters: An optional kerastuner.HyperParameters config.
   """
 
-  data_provider = DataProvider(
+  # TODO(weill): Replace with AutoDataProvider.
+  data_provider = KerasDataProvider(
       transform_graph_dir=fn_args.transform_output,
       label_key=fn_args.label_key,
       num_classes=fn_args.num_classes)
 
   model = _keras_model_builder(data_provider)
 
-  # Create TrainSpec
   train_spec = tf.estimator.TrainSpec(
       input_fn=data_provider.get_input_fn(
           file_pattern=fn_args.train_files,
@@ -70,12 +71,10 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
           shuffle=True),
       max_steps=fn_args.train_steps)
 
-  # Create EvalSpec
   serving_receiver_fn = data_provider.get_serving_input_receiver_fn()
   exporters = [
       tf.estimator.FinalExporter('serving_model_dir', serving_receiver_fn),
   ]
-
   eval_spec = tf.estimator.EvalSpec(
       input_fn=data_provider.get_input_fn(
           file_pattern=fn_args.eval_files,
@@ -89,14 +88,12 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
       start_delay_secs=1,
       throttle_secs=5)
 
-  # Create RunConfig
   run_config = tf.estimator.RunConfig(
       model_dir=fn_args.serving_model_dir,
       save_checkpoints_steps=999,
       keep_checkpoint_max=3)
 
   estimator = tf.keras.estimator.model_to_estimator(model, config=run_config)
-  # Train/Tune the model
   logging.info('Training model...')
   tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
   logging.info('Training complete.')
@@ -116,7 +113,8 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
                  'this is not the chief worker.')
 
 
-class DataProvider():
+# TODO(weill): Replace with AutoData
+class KerasDataProvider():
   """Creates feature columns and specs from TFX artifacts."""
 
   SPARSE_CATEGORICAL_CE = 'sparse_categorical_crossentropy'
@@ -161,6 +159,7 @@ class DataProvider():
 
     return self.raw_label_keys
 
+  # TODO(nikhilmehta): Consider seperating "head" and "loss" from the adapter.
   @property
   def head_size(self) -> int:
     """Returns the head size for this task"""
@@ -496,7 +495,7 @@ def _get_feature_dim(schema: schema_pb2.Schema, feature_name: Text) -> int:
   raise ValueError('Feature not found: {}'.format(feature_name))
 
 
-def _keras_model_builder(data_provider: DataProvider) -> tf.keras.Model:
+def _keras_model_builder(data_provider: KerasDataProvider) -> tf.keras.Model:
 
   feature_columns = data_provider.get_numeric_feature_columns(
   ) + data_provider.get_embedding_feature_columns()

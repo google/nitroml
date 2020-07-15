@@ -66,7 +66,7 @@ class TitanicBenchmark(nitroml.Benchmark):
         preprocessing_fn='examples.auto_transform.preprocessing_fn')
 
     trainer = tfx.Trainer(
-        run_fn='examples.auto_keras_trainer.run_fn'
+        run_fn='examples.auto_trainer.run_fn'
         if use_keras else 'examples.auto_estimator_trainer.run_fn',
         custom_executor_spec=executor_spec.ExecutorClassSpec(
             trainer_executor.GenericExecutor),
