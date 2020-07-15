@@ -28,6 +28,7 @@ import sys
 # Required since Python binaries ignore relative paths when importing:
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
+from absl import logging
 import nitroml
 from nitroml.components.transform import component
 from nitroml.datasets import openml_cc18
@@ -52,11 +53,14 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
     if mock_data:
       dataset_indices = [0]
     else:
-      dataset_indices = range(20, 40)
+      # To test on Kubeflow, use the following datasets (1 Categorical, 2 Binary).
+      # dataset_indices = [21, 23, 25]
+      dataset_indices = range(21, 40)
 
     # List of datasets that do not incur OOM - [4,11]
     for ix in dataset_indices:
       name = datasets.names[ix]
+
       with self.sub_benchmark(name):
         example_gen = datasets.components[ix]
         task = datasets.tasks[ix]

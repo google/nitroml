@@ -35,7 +35,7 @@ FeatureColumn = Any
 
 
 def run_fn(fn_args: trainer_executor.TrainerFnArgs):
-  """Train a DNNEstimator based on given args.
+  """Train a DNN Keras Model based on given args.
 
   Args:
     fn_args: Holds args used to train the model as name/value pairs.
@@ -59,67 +59,61 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
       label_key=fn_args.label_key,
       num_classes=fn_args.num_classes)
 
-  feature_columns = data_provider.get_numeric_feature_columns(
-  ) + data_provider.get_embedding_feature_columns()
-  input_layers = data_provider.get_input_layers()
+  model = _keras_model_builder(data_provider)
 
-  # All input_layers must be consumed for the Keras Model to work.
-  assert len(feature_columns) >= len(input_layers)
+  # Create TrainSpec
+  train_spec = tf.estimator.TrainSpec(
+      input_fn=data_provider.get_input_fn(
+          file_pattern=fn_args.train_files,
+          batch_size=64,
+          num_epochs=None,
+          shuffle=True),
+      max_steps=fn_args.train_steps)
 
-  x = tf.keras.layers.DenseFeatures(feature_columns)(input_layers)
-  for numnodes in [128, 128]:
-    x = tf.keras.layers.Dense(numnodes)(x)
-  output = tf.keras.layers.Dense(
-      data_provider.head_size,
-      activation=data_provider.head_activation,
-      name='output')(
-          x)
+  # Create EvalSpec
+  serving_receiver_fn = data_provider.get_serving_input_receiver_fn()
+  exporters = [
+      tf.estimator.FinalExporter('serving_model_dir', serving_receiver_fn),
+  ]
 
-  model = tf.keras.Model(input_layers, output)
-  model.compile(
-      loss=data_provider.loss,
-      optimizer=tf.keras.optimizers.Adam(lr=0.001),
-      metrics=data_provider.metrics)
-  model.summary()
+  eval_spec = tf.estimator.EvalSpec(
+      input_fn=data_provider.get_input_fn(
+          file_pattern=fn_args.eval_files,
+          batch_size=64,
+          num_epochs=1,
+          shuffle=False),
+      steps=fn_args.eval_steps,
+      exporters=exporters,
+      # Since eval runs in parallel, we can begin evaluation as soon as new
+      # checkpoints are written.
+      start_delay_secs=1,
+      throttle_secs=5)
 
-  # This log path might change in the future.
-  log_dir = os.path.join(os.path.dirname(fn_args.serving_model_dir), 'logs')
-  tensorboard_callback = tf.keras.callbacks.TensorBoard(
-      log_dir=log_dir, update_freq='batch')
+  # Create RunConfig
+  run_config = tf.estimator.RunConfig(
+      model_dir=fn_args.serving_model_dir,
+      save_checkpoints_steps=999,
+      keep_checkpoint_max=3)
 
-  train_dataset = data_provider.get_dataset(
-      file_pattern=fn_args.train_files,
-      batch_size=128,
-      num_epochs=None,
-      shuffle=True)
-  eval_dataset = data_provider.get_dataset(
-      file_pattern=fn_args.eval_files,
-      batch_size=128,
-      num_epochs=1,
-      shuffle=False)
+  estimator = tf.keras.estimator.model_to_estimator(model, config=run_config)
+  # Train/Tune the model
+  logging.info('Training model...')
+  tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
+  logging.info('Training complete.')
 
-  model.fit(
-      train_dataset,
-      steps_per_epoch=fn_args.train_steps,
-      epochs=1,
-      validation_data=eval_dataset,
-      validation_steps=fn_args.eval_steps,
-      verbose=2,
-      callbacks=[tensorboard_callback])
+  # Export an eval savedmodel for TFMA. If distributed training, it must only
+  # be written by the chief worker, as would be done for serving savedmodel.
+  if run_config.is_chief:
+    logging.info('Exporting eval_savedmodel for TFMA.')
+    tfma.export.export_eval_savedmodel(
+        estimator=estimator,
+        export_dir_base=fn_args.eval_model_dir,
+        eval_input_receiver_fn=data_provider.get_eval_input_receiver_fn())
 
-  estimator = tf.keras.estimator.model_to_estimator(model)
-
-  tfma.export.export_eval_savedmodel(
-      estimator=estimator,
-      export_dir_base=fn_args.eval_model_dir,
-      eval_input_receiver_fn=data_provider.get_eval_input_receiver_fn())
-
-  signatures = {
-      'serving_default':
-          data_provider.get_serve_tf_examples_fn(model).get_concrete_function(
-              tf.TensorSpec(shape=[None], dtype=tf.string, name='examples')),
-  }
-  model.save(fn_args.serving_model_dir, save_format='tf', signatures=signatures)
+    logging.info('Exported eval_savedmodel to %s.', fn_args.eval_model_dir)
+  else:
+    logging.info('eval_savedmodel export for TFMA is skipped because '
+                 'this is not the chief worker.')
 
 
 class DataProvider():
@@ -183,7 +177,7 @@ class DataProvider():
     """Returns the keras loss_fn for this task"""
 
     if self._num_classes > 2:
-      return self.CATEGORICAL_CE
+      return self.SPARSE_CATEGORICAL_CE
     else:
       return self.BINARY_CE
 
@@ -207,8 +201,8 @@ class DataProvider():
       ]
     else:
       return [
-          tf.keras.metrics.CategoricalAccuracy(name="accuracy"),
-          tf.keras.metrics.CategoricalCrossentropy(name="average_loss")
+          tf.keras.metrics.SparseCategoricalAccuracy(name="accuracy"),
+          tf.keras.metrics.SparseCategoricalCrossentropy(name="average_loss")
       ]
 
   def get_input_layers(self) -> Dict[Text, tf.keras.layers.Input]:
@@ -320,103 +314,34 @@ class DataProvider():
         self.get_sparse_categorical_feature_columns(include_integer_columns)
     ]
 
-  def get_dataset(self,
-                  file_pattern: Text,
-                  batch_size: int,
-                  num_epochs: Optional[int] = None,
-                  shuffle: Optional[bool] = True,
-                  shuffle_buffer_size: int = 10000,
-                  shuffle_seed: Optional[int] = None,
-                  prefetch_buffer_size: Optional[int] = None,
-                  reader_num_threads: Optional[int] = None,
-                  parser_num_threads: Optional[int] = None,
-                  sloppy_ordering: bool = False,
-                  drop_final_batch: bool = False) -> tf.data.Dataset:
-    """Returns an input_fn that returns a `tf.data.Dataset` from Examples.
-
-    Args:
-      file_pattern: List of files or patterns of file paths containing Example
-        records. See tf.io.gfile.glob for pattern rules.
-      batch_size: An int representing the number of records to combine in a
-        single batch.
-      num_epochs: Integer specifying the number of times to read through the
-        dataset. If None, cycles through the dataset forever. Defaults to None.
-      shuffle: A boolean, indicates whether the input should be shuffled.
-        Defaults to True.
-      shuffle_buffer_size: Buffer size of the ShuffleDataset. A large capacity
-        ensures better shuffling but would increase memory usage and startup
-        time.
-      shuffle_seed: Randomization seed to use for shuffling.
-      prefetch_buffer_size: Number of feature batches to prefetch in order to
-        improve performance. Recommended value is the number of batches consumed
-        per training step. Defaults to auto-tune.
-      reader_num_threads: Number of threads used to read Example records. If >1,
-        the results will be interleaved. Defaults to 1.
-      parser_num_threads: Number of threads to use for parsing Example tensors
-        into a dictionary of Feature tensors. Defaults to 2.
-      sloppy_ordering: If True, reading performance will be improved at the cost
-        of non-deterministic ordering. If False, the order of elements produced
-        is deterministic prior to shuffling (elements are still randomized if
-        shuffle=True. Note that if the seed is set, then order of elements after
-        shuffling is deterministic). Defaults to False.
-      drop_final_batch: If True, and the batch size does not evenly divide the
-        input dataset size, the final smaller batch will be dropped. Defaults to
-        False.
+  def get_serving_input_receiver_fn(
+      self) -> Callable[[], tf.estimator.export.ServingInputReceiver]:
+    """Returns the serving_input_receiver_fn used when exporting a SavedModel.
 
     Returns:
-      Returns an input_fn that returns a `tf.data.Dataset`.
+      An serving_input_receiver_fn. Its returned ServingInputReceiver takes as
+      input a batch of raw (i.e. untransformed) serialized tensorflow.Examples.
+      The model can be used for serving or for batch inference.
     """
 
-    # Since we're not applying the transform graph here, we're using Transform
-    # materialization.
-    feature_spec = self._tf_transform_output.transformed_feature_spec().copy()
+    raw_feature_spec = self._tf_transform_output.raw_feature_spec()
+    for key in self.raw_label_keys:
+      raw_feature_spec.pop(key)
 
-    def _pop_labels(features):
-      label_keys = self.transformed_label_keys
-      labels = []
-      for key in label_keys:
-        labels.append(features.pop(key))
+    def _input_fn() -> tf.estimator.export.ServingInputReceiver:
+      raw_input_fn = tf.estimator.export.build_parsing_serving_input_receiver_fn(
+          raw_feature_spec, default_batch_size=None)
+      serving_input_receiver = raw_input_fn()
 
-      return features, tf.concat(labels, axis=1)
+      transformed_features = self._tf_transform_output.transform_raw_features(
+          serving_input_receiver.features)
 
-    def _gzip_reader_fn(files):
-      return tf.data.TFRecordDataset(files, compression_type='GZIP')
+      transformed_features.pop(self.raw_label_keys[0])
 
-    dataset = tf.data.experimental.make_batched_features_dataset(
-        file_pattern,
-        batch_size,
-        feature_spec,
-        reader=_gzip_reader_fn,
-        num_epochs=num_epochs,
-        shuffle=shuffle,
-        shuffle_buffer_size=shuffle_buffer_size,
-        shuffle_seed=shuffle_seed,
-        prefetch_buffer_size=prefetch_buffer_size,
-        reader_num_threads=reader_num_threads,
-        parser_num_threads=parser_num_threads,
-        sloppy_ordering=sloppy_ordering,
-        drop_final_batch=drop_final_batch)
+      return tf.estimator.export.ServingInputReceiver(
+          transformed_features, serving_input_receiver.receiver_tensors)
 
-    return dataset.map(_pop_labels)
-
-  def get_serve_tf_examples_fn(self, model: tf.keras.Model):
-    """Returns a function that parses a serialized tf.Example and applies TFT."""
-
-    model.tft_layer = self._tf_transform_output.transform_features_layer()
-
-    @tf.function
-    def serve_tf_examples_fn(serialized_tf_examples):
-      """Returns the output to be used in the serving signature."""
-
-      feature_spec = self._tf_transform_output.raw_feature_spec()
-      feature_spec.pop(self.transformed_label_keys[0])
-      parsed_features = tf.io.parse_example(serialized_tf_examples,
-                                            feature_spec)
-      transformed_features = model.tft_layer(parsed_features)
-
-      return model(transformed_features)
-
-    return serve_tf_examples_fn
+    return _input_fn
 
   def get_eval_input_receiver_fn(
       self) -> Callable[[], tfma.export.EvalInputReceiver]:
@@ -465,6 +390,87 @@ class DataProvider():
 
     return _input_fn
 
+  def get_input_fn(
+      self,
+      file_pattern: Text,
+      batch_size: int,
+      num_epochs: Optional[int] = None,
+      shuffle: Optional[bool] = True,
+      shuffle_buffer_size: int = 10000,
+      shuffle_seed: Optional[int] = None,
+      prefetch_buffer_size: Optional[int] = None,
+      reader_num_threads: Optional[int] = None,
+      parser_num_threads: Optional[int] = None,
+      sloppy_ordering: bool = False,
+      drop_final_batch: bool = False) -> Callable[[], tf.data.Dataset]:
+    """Returns an input_fn that returns a `tf.data.Dataset` from Examples.
+
+    Args:
+      file_pattern: List of files or patterns of file paths containing Example
+        records. See tf.io.gfile.glob for pattern rules.
+      batch_size: An int representing the number of records to combine in a
+        single batch.
+      num_epochs: Integer specifying the number of times to read through the
+        dataset. If None, cycles through the dataset forever. Defaults to None.
+      shuffle: A boolean, indicates whether the input should be shuffled.
+        Defaults to True.
+      shuffle_buffer_size: Buffer size of the ShuffleDataset. A large capacity
+        ensures better shuffling but would increase memory usage and startup
+        time.
+      shuffle_seed: Randomization seed to use for shuffling.
+      prefetch_buffer_size: Number of feature batches to prefetch in order to
+        improve performance. Recommended value is the number of batches consumed
+        per training step. Defaults to auto-tune.
+      reader_num_threads: Number of threads used to read Example records. If >1,
+        the results will be interleaved. Defaults to 1.
+      parser_num_threads: Number of threads to use for parsing Example tensors
+        into a dictionary of Feature tensors. Defaults to 2.
+      sloppy_ordering: If True, reading performance will be improved at the cost
+        of non-deterministic ordering. If False, the order of elements produced
+        is deterministic prior to shuffling (elements are still randomized if
+        shuffle=True. Note that if the seed is set, then order of elements after
+        shuffling is deterministic). Defaults to False.
+      drop_final_batch: If True, and the batch size does not evenly divide the
+        input dataset size, the final smaller batch will be dropped. Defaults to
+        False.
+
+    Returns:
+      Returns an input_fn that returns a `tf.data.Dataset`.
+    """
+
+    # Since we're not applying the transform graph here, we're using Transform
+    # materialization.
+    feature_spec = self._tf_transform_output.transformed_feature_spec().copy()
+
+    def _pop_labels(features):
+      label_keys = self.transformed_label_keys
+      labels = []
+      for key in label_keys:
+        labels.append(features.pop(key))
+      return features, tf.concat(labels, axis=1)
+
+    def _gzip_reader_fn(files):
+      return tf.data.TFRecordDataset(files, compression_type='GZIP')
+
+    def _input_fn() -> tf.data.Dataset:
+      dataset = tf.data.experimental.make_batched_features_dataset(
+          file_pattern,
+          batch_size,
+          feature_spec,
+          reader=_gzip_reader_fn,
+          num_epochs=num_epochs,
+          shuffle=shuffle,
+          shuffle_buffer_size=shuffle_buffer_size,
+          shuffle_seed=shuffle_seed,
+          prefetch_buffer_size=prefetch_buffer_size,
+          reader_num_threads=reader_num_threads,
+          parser_num_threads=parser_num_threads,
+          sloppy_ordering=sloppy_ordering,
+          drop_final_batch=drop_final_batch)
+      return dataset.map(_pop_labels)
+
+    return _input_fn
+
 
 def _get_feature_storage_type(schema: schema_pb2.Schema,
                               feature_name: Text) -> tf.dtypes.DType:
@@ -488,3 +494,31 @@ def _get_feature_dim(schema: schema_pb2.Schema, feature_name: Text) -> int:
     if feature.name == feature_name:
       return feature.shape.dim[0].size
   raise ValueError('Feature not found: {}'.format(feature_name))
+
+
+def _keras_model_builder(data_provider: DataProvider) -> tf.keras.Model:
+
+  feature_columns = data_provider.get_numeric_feature_columns(
+  ) + data_provider.get_embedding_feature_columns()
+  input_layers = data_provider.get_input_layers()
+
+  # All input_layers must be consumed for the Keras Model to work.
+  assert len(feature_columns) >= len(input_layers)
+
+  x = tf.keras.layers.DenseFeatures(feature_columns)(input_layers)
+  for numnodes in [128, 128]:
+    x = tf.keras.layers.Dense(numnodes)(x)
+  output = tf.keras.layers.Dense(
+      data_provider.head_size,
+      activation=data_provider.head_activation,
+      name='output')(
+          x)
+
+  model = tf.keras.Model(input_layers, output)
+  model.compile(
+      loss=data_provider.loss,
+      optimizer=tf.keras.optimizers.Adam(lr=0.001),
+      metrics=data_provider.metrics)
+  model.summary()
+
+  return model
