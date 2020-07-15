@@ -13,7 +13,7 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""An Keras trainer that trains on any tabular dataset.
+"""Auto Keras trainer that trains on any tabular dataset.
 
 The consumed artifacts include:
  * Dataset schema.
