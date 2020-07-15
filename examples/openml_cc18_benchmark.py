@@ -32,7 +32,6 @@ import nitroml
 from nitroml.components.transform import component
 from nitroml.datasets import openml_cc18
 from examples import config
-from examples import auto_keras_trainer
 from tfx import components as tfx
 from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor

@@ -31,10 +31,8 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 import nitroml
 from nitroml.components.transform import component
 from nitroml.datasets import tfds_dataset
-from examples import auto_keras_trainer
 from examples import config
 import tensorflow_datasets as tfds
-import tensorflow_model_analysis as tfma
 
 from tfx import components as tfx
 from tfx.components.base import executor_spec
@@ -75,8 +73,8 @@ class TitanicBenchmark(nitroml.Benchmark):
         transformed_examples=transform.outputs.transformed_examples,
         schema=schema_gen.outputs.schema,
         transform_graph=transform.outputs.transform_graph,
-        train_args=trainer_pb2.TrainArgs(num_steps=1),
-        eval_args=trainer_pb2.EvalArgs(num_steps=1),
+        train_args=trainer_pb2.TrainArgs(num_steps=10000),
+        eval_args=trainer_pb2.EvalArgs(num_steps=5000),
         custom_config=task_dict)
 
     # Collect the pipeline components to benchmark.
