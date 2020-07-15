@@ -28,6 +28,7 @@ import sys
 # Required since Python binaries ignore relative paths when importing:
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
+from absl import logging
 import nitroml
 from nitroml.components.transform import component
 from nitroml.datasets import openml_cc18
@@ -41,7 +42,10 @@ from tfx.proto import trainer_pb2
 class OpenMLCC18Benchmark(nitroml.Benchmark):
   r"""Demos a NitroML benchmark on the 'OpenML-CC18' classification datasets."""
 
-  def benchmark(self, mock_data: bool = False, data_dir: str = None):
+  def benchmark(self,
+                mock_data: bool = False,
+                data_dir: str = None,
+                use_keras: bool = True):
 
     # TODO(nikhilmehta): create subbenchmarks using all 72 datasets
     datasets = openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data)
@@ -49,11 +53,14 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
     if mock_data:
       dataset_indices = [0]
     else:
-      dataset_indices = range(20, 40)
+      # To test on Kubeflow, use the following datasets (1 Categorical, 2 Binary).
+      # dataset_indices = [21, 23, 25]
+      dataset_indices = range(21, 40)
 
     # List of datasets that do not incur OOM - [4,11]
     for ix in dataset_indices:
       name = datasets.names[ix]
+
       with self.sub_benchmark(name):
         example_gen = datasets.components[ix]
         task = datasets.tasks[ix]
@@ -72,16 +79,16 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
             schema=schema_gen.outputs.schema,
             preprocessing_fn='examples.auto_transform.preprocessing_fn')
 
-        # Define a tf.estimator.Estimator-based trainer.
         trainer = tfx.Trainer(
-            run_fn='examples.auto_estimator_trainer.run_fn',
+            run_fn='examples.auto_keras_trainer.run_fn'
+            if use_keras else 'examples.auto_estimator_trainer.run_fn',
             custom_executor_spec=executor_spec.ExecutorClassSpec(
                 trainer_executor.GenericExecutor),
             transformed_examples=transform.outputs.transformed_examples,
             schema=schema_gen.outputs.schema,
             transform_graph=transform.outputs.transform_graph,
-            train_args=trainer_pb2.TrainArgs(num_steps=10),
-            eval_args=trainer_pb2.EvalArgs(num_steps=10),
+            train_args=trainer_pb2.TrainArgs(num_steps=1),
+            eval_args=trainer_pb2.EvalArgs(num_steps=1),
             custom_config=task_dict)
 
         # Collect the pipeline components to benchmark.
