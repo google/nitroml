@@ -119,7 +119,6 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
           data_provider.get_serve_tf_examples_fn(model).get_concrete_function(
               tf.TensorSpec(shape=[None], dtype=tf.string, name='examples')),
   }
-
   model.save(fn_args.serving_model_dir, save_format='tf', signatures=signatures)
 
 
@@ -414,7 +413,6 @@ class DataProvider():
       parsed_features = tf.io.parse_example(serialized_tf_examples,
                                             feature_spec)
       transformed_features = model.tft_layer(parsed_features)
-      transformed_features.pop(self.transformed_label_keys[0])
 
       return model(transformed_features)
 
