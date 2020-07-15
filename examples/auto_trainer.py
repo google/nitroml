@@ -55,7 +55,8 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
       - hyperparameters: An optional kerastuner.HyperParameters config.
   """
 
-  data_provider = DataProvider(
+  # TODO(weill): Replace with AutoDataProvider.
+  data_provider = KerasDataProvider(
       transform_graph_dir=fn_args.transform_output,
       label_key=fn_args.label_key,
       num_classes=fn_args.num_classes)
@@ -112,7 +113,8 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
                  'this is not the chief worker.')
 
 
-class DataProvider():
+# TODO(weill): Replace with AutoData
+class KerasDataProvider():
   """Creates feature columns and specs from TFX artifacts."""
 
   SPARSE_CATEGORICAL_CE = 'sparse_categorical_crossentropy'
@@ -157,6 +159,7 @@ class DataProvider():
 
     return self.raw_label_keys
 
+  # TODO(nikhilmehta): Consider seperating "head" and "loss" from the adapter.
   @property
   def head_size(self) -> int:
     """Returns the head size for this task"""
@@ -492,7 +495,7 @@ def _get_feature_dim(schema: schema_pb2.Schema, feature_name: Text) -> int:
   raise ValueError('Feature not found: {}'.format(feature_name))
 
 
-def _keras_model_builder(data_provider: DataProvider) -> tf.keras.Model:
+def _keras_model_builder(data_provider: KerasDataProvider) -> tf.keras.Model:
 
   feature_columns = data_provider.get_numeric_feature_columns(
   ) + data_provider.get_embedding_feature_columns()
