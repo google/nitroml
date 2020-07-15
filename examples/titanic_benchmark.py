@@ -67,10 +67,9 @@ class TitanicBenchmark(nitroml.Benchmark):
         schema=schema_gen.outputs.schema,
         preprocessing_fn='examples.auto_transform.preprocessing_fn')
 
-    run_fn = 'examples.auto_keras_trainer.run_fn' if use_keras else 'examples.auto_estimator_trainer.run_fn'
-
     trainer = tfx.Trainer(
-        run_fn=run_fn,
+        run_fn='examples.auto_keras_trainer.run_fn'
+        if use_keras else 'examples.auto_estimator_trainer.run_fn',
         custom_executor_spec=executor_spec.ExecutorClassSpec(
             trainer_executor.GenericExecutor),
         transformed_examples=transform.outputs.transformed_examples,
@@ -85,17 +84,11 @@ class TitanicBenchmark(nitroml.Benchmark):
         statistics_gen, schema_gen, transform, trainer
     ]
 
-    eval_config = auto_keras_trainer.get_eval_config(
-        dataset.task) if use_keras else None
-
     # Finally, call evaluate() on the workflow DAG outputs. This will
     # automatically append Evaluators to compute metrics from the given
     # SavedModel and 'eval' TF Examples.
     self.evaluate(
-        pipeline,
-        examples=dataset.examples,
-        model=trainer.outputs.model,
-        eval_config=eval_config)
+        pipeline, examples=dataset.examples, model=trainer.outputs.model)
 
 
 if __name__ == '__main__':

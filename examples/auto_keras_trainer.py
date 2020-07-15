@@ -54,8 +54,6 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
       - hyperparameters: An optional kerastuner.HyperParameters config.
   """
 
-  # model_hparams = get_hparams()
-
   logging.info(fn_args.__dict__)
   logging.info('******************')
 
@@ -72,7 +70,7 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
   assert len(feature_columns) >= len(input_layers)
 
   x = tf.keras.layers.DenseFeatures(feature_columns)(input_layers)
-  for numnodes in [64, 64]:
+  for numnodes in [128, 128]:
     x = tf.keras.layers.Dense(numnodes)(x)
   output = tf.keras.layers.Dense(
       data_provider.head_size,
@@ -84,7 +82,7 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
   model.compile(
       loss=data_provider.loss,
       optimizer=tf.keras.optimizers.Adam(lr=0.001),
-      # optimizer=tf.keras.optimizers.Adam(lr=fn_args.learning_rate),
+      # )
       metrics=data_provider.metrics)
   model.summary()
 
@@ -113,27 +111,20 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
       verbose=2,
       callbacks=[tensorboard_callback])
 
+  estimator = tf.keras.estimator.model_to_estimator(model)
+
+  tfma.export.export_eval_savedmodel(
+      estimator=estimator,
+      export_dir_base=fn_args.eval_model_dir,
+      eval_input_receiver_fn=data_provider.get_eval_input_receiver_fn())
+
   signatures = {
       'serving_default':
           data_provider.get_serve_tf_examples_fn(model).get_concrete_function(
               tf.TensorSpec(shape=[None], dtype=tf.string, name='examples')),
   }
 
-  # tfma.export.export_eval_savedmodel(
-  #     estimator=tf.keras.estimator.model_to_estimator(model),
-  #     export_dir_base=fn_args.eval_model_dir,
-  #     eval_input_receiver_fn=autodata_adapter.get_eval_input_receiver_fn())
-
   model.save(fn_args.serving_model_dir, save_format='tf', signatures=signatures)
-
-  # estimator = tf.keras.estimator.model_to_estimator(model)
-
-  # tfma.export.export_eval_savedmodel(
-  #     estimator=estimator,
-  #     export_dir_base=fn_args.serving_model_dir,
-  #     eval_input_receiver_fn=data_provider.get_serve_tf_examples_fn(
-  #         model).get_concrete_function(
-  #             tf.TensorSpec(shape=[None], dtype=tf.string, name='examples')))
 
 
 class DataProvider():
@@ -216,10 +207,14 @@ class DataProvider():
     if self._num_classes == 2:
       return [
           tf.keras.metrics.BinaryAccuracy(name="accuracy"),
+          tf.keras.metrics.BinaryCrossentropy(name="average_loss"),
           tf.keras.metrics.AUC()
       ]
     else:
-      return [tf.keras.metrics.CategoricalAccuracy(name="accuracy")]
+      return [
+          tf.keras.metrics.CategoricalAccuracy(name="accuracy"),
+          tf.keras.metrics.CategoricalCrossentropy(name="average_loss")
+      ]
 
   def get_input_layers(self) -> Dict[Text, tf.keras.layers.Input]:
     """Returns input layers for a Keras Model."""
@@ -386,6 +381,7 @@ class DataProvider():
       labels = []
       for key in label_keys:
         labels.append(features.pop(key))
+
       return features, tf.concat(labels, axis=1)
 
     def _gzip_reader_fn(files):
@@ -405,6 +401,7 @@ class DataProvider():
         parser_num_threads=parser_num_threads,
         sloppy_ordering=sloppy_ordering,
         drop_final_batch=drop_final_batch)
+
     return dataset.map(_pop_labels)
 
   def get_serve_tf_examples_fn(self, model: tf.keras.Model):
@@ -421,6 +418,8 @@ class DataProvider():
       parsed_features = tf.io.parse_example(serialized_tf_examples,
                                             feature_spec)
       transformed_features = model.tft_layer(parsed_features)
+      transformed_features.pop(self.transformed_label_keys[0])
+
       return model(transformed_features)
 
     return serve_tf_examples_fn
@@ -466,10 +465,9 @@ class DataProvider():
           labels.append(features.pop(key))
         return tf.concat(labels, axis=1)
 
+      labels = _pop_labels(features)
       return tfma.export.EvalInputReceiver(
-          features=features,
-          receiver_tensors=receiver_tensors,
-          labels=_pop_labels(transformed_features))
+          features=features, receiver_tensors=receiver_tensors, labels=labels)
 
     return _input_fn
 
@@ -496,61 +494,3 @@ def _get_feature_dim(schema: schema_pb2.Schema, feature_name: Text) -> int:
     if feature.name == feature_name:
       return feature.shape.dim[0].size
   raise ValueError('Feature not found: {}'.format(feature_name))
-
-
-def get_eval_config(dataset_task: task.Task) -> tfma.EvalConfig:
-  """Get the eval_config for TFMA required for keras models.
-
-    Args:
-      dataset_task: The task associated with the dataset.
-
-    Returns:
-      eval_config: The tfma eval config consumed by tfx.Evaluator.
-  """
-
-  logging.info(dataset_task.to_dict())
-
-  metrics = [
-      tfma.MetricConfig(
-          class_name='ExampleCount',
-          config='"name": "post_export_metrics/example_count"')
-  ]
-
-  if dataset_task.type == task.Task.BINARY_CLASSIFICATION:
-    metrics.append(
-        tfma.MetricConfig(
-            class_name='BinaryCrossentropy', config='"name": "average_loss"'))
-  elif dataset_task.type == task.Task.CATEGORICAL_CLASSIFICATION:
-    metrics.append(
-        tfma.MetricConfig(
-            class_name='CategoricalCrossentropy',
-            config='"name": "average_loss"'))
-  else:
-    metrics.append(
-        tfma.MetricConfig(
-            class_name='MeanSquaredError', config='"name": "average_loss"'))
-
-  eval_config = tfma.EvalConfig(
-      model_specs=[
-          # This assumes a serving model with signature 'serving_default'. If
-          # using estimator based EvalSavedModel, add signature_name: 'eval' and
-          # remove the label_key.
-          tfma.ModelSpec(label_key=dataset_task.label_key)
-      ],
-      metrics_specs=[
-          tfma.MetricsSpec(
-              # The metrics added here are in addition to those saved with the
-              # model (assuming either a keras model or EvalSavedModel is used).
-              # Any metrics added into the saved model (for example using
-              # model.compile(..., metrics=[...]), etc) will be computed
-              # automatically.
-              # To add validation thresholds for metrics saved with the model,
-              # add them keyed by metric name to the thresholds map.
-              metrics=metrics)
-      ],
-      slicing_specs=[
-          # An empty slice spec means the overall slice, i.e. the whole dataset.
-          tfma.SlicingSpec()
-      ])
-
-  return eval_config
