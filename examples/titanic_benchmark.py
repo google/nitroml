@@ -44,13 +44,11 @@ from tfx.proto import trainer_pb2
 class TitanicBenchmark(nitroml.Benchmark):
   r"""Demos a NitroML benchmark on the 'Titanic' dataset from OpenML."""
 
-  def benchmark(self, data_dir: str = None):
+  def benchmark(self, data_dir: str = None, use_keras: bool = True):
     # NOTE: For convenience, we fetch the OpenML task from the AutoTFX
     # tasks repository.
     dataset = tfds_dataset.TFDSDataset(
         tfds.builder('titanic', data_dir=data_dir))
-    task = dataset.task.to_dict()
-    task.pop('description')
 
     # Compute dataset statistics.
     statistics_gen = tfx.StatisticsGen(examples=dataset.examples)
@@ -65,9 +63,10 @@ class TitanicBenchmark(nitroml.Benchmark):
         schema=schema_gen.outputs.schema,
         preprocessing_fn='examples.auto_transform.preprocessing_fn')
 
-    # Define a tf.estimator.Estimator-based trainer.
+    # Define a Trainer to train our model on the given task.
     trainer = tfx.Trainer(
-        run_fn='examples.auto_estimator_trainer.run_fn',
+        run_fn='examples.auto_trainer.run_fn'
+        if use_keras else 'examples.auto_estimator_trainer.run_fn',
         custom_executor_spec=executor_spec.ExecutorClassSpec(
             trainer_executor.GenericExecutor),
         transformed_examples=transform.outputs.transformed_examples,
@@ -75,7 +74,7 @@ class TitanicBenchmark(nitroml.Benchmark):
         transform_graph=transform.outputs.transform_graph,
         train_args=trainer_pb2.TrainArgs(num_steps=10000),
         eval_args=trainer_pb2.EvalArgs(num_steps=5000),
-        custom_config=task)
+        custom_config=dataset.task.to_dict())
 
     # Collect the pipeline components to benchmark.
     pipeline = dataset.components + [

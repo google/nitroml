@@ -27,8 +27,17 @@ class TitanicBenchmarkTest(e2etest.TestCase):
   def setUp(self):
     super(TitanicBenchmarkTest, self).setUp("nitroml_titanic_benchmark")
 
-  def test(self):
-    self.run_benchmarks([titanic_benchmark.TitanicBenchmark()])
+  @e2etest.parameterized.named_parameters(
+      {
+          "testcase_name": "keras_trainer",
+          "use_keras": True,
+      }, {
+          "testcase_name": "estimator_trainer",
+          "use_keras": False,
+      })
+  def test(self, use_keras):
+    self.run_benchmarks([titanic_benchmark.TitanicBenchmark()],
+                        use_keras=use_keras)
 
     self.assertComponentExecutionCount(7)
     self.assertComponentSucceeded("ImportExampleGen.TitanicBenchmark.benchmark")

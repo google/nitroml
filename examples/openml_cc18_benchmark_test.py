@@ -34,13 +34,22 @@ class OpenMLCC18BenchmarkTest(e2etest.TestCase):
   def setUp(self):
     super(OpenMLCC18BenchmarkTest, self).setUp('nitroml_openml_cc_18_benchmark')
 
-  def test(self):
+  @e2etest.parameterized.named_parameters(
+      {
+          'testcase_name': 'keras_trainer',
+          'use_keras': True,
+      }, {
+          'testcase_name': 'estimator_trainer',
+          'use_keras': False,
+      })
+  def test(self, use_keras):
     with requests_mock.Mocker() as mocker:
       testing_utils.register_mock_urls(mocker)
       self.run_benchmarks(
           [openml_cc18_benchmark.OpenMLCC18Benchmark()],
           data_dir=os.path.join(self.pipeline_root, 'openML_mock_data'),
           mock_data=True,
+          use_keras=use_keras,
       )
 
     instance_name = '.'.join(['OpenMLCC18Benchmark', 'benchmark', 'mockdata'])

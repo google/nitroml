@@ -30,6 +30,8 @@ from typing import List, Text
 
 from absl import flags
 from absl.testing import absltest
+from absl.testing import parameterized
+
 import nitroml
 import tensorflow as tf
 from tfx.components.base import base_component
@@ -44,7 +46,7 @@ FLAGS = flags.FLAGS
 main = absltest.main
 
 
-class TestCase(absltest.TestCase):
+class TestCase(parameterized.TestCase, absltest.TestCase):
   """Base class for end-to-end NitroML benchmark tests."""
 
   def setUp(self, pipeline_name: Text):
