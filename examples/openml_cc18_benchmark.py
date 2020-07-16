@@ -28,7 +28,6 @@ import sys
 # Required since Python binaries ignore relative paths when importing:
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
-from absl import logging
 import nitroml
 from nitroml.components.transform import component
 from nitroml.datasets import openml_cc18
@@ -64,9 +63,6 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
 
       with self.sub_benchmark(name):
         example_gen = datasets.components[ix]
-        task = datasets.tasks[ix]
-        task_dict = task.to_dict()
-        task_dict.pop('description')
 
         statistics_gen = tfx.StatisticsGen(
             examples=example_gen.outputs.examples)
@@ -89,9 +85,10 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
               transform_graph=transform.outputs.transform_graph,
               train_args=trainer_pb2.TrainArgs(num_steps=10),
               eval_args=trainer_pb2.EvalArgs(num_steps=5),
-              custom_config=task_dict)
+              custom_config=datasets.tasks[ix].to_dict())
           pipeline.append(tuner)
 
+        # Define a Trainer to train our model on the given task.
         trainer = tfx.Trainer(
             run_fn='examples.auto_trainer.run_fn'
             if use_keras else 'examples.auto_estimator_trainer.run_fn',
@@ -100,11 +97,11 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
             transformed_examples=transform.outputs.transformed_examples,
             schema=schema_gen.outputs.schema,
             transform_graph=transform.outputs.transform_graph,
-            train_args=trainer_pb2.TrainArgs(num_steps=1),
-            eval_args=trainer_pb2.EvalArgs(num_steps=1),
+            train_args=trainer_pb2.TrainArgs(num_steps=10),
+            eval_args=trainer_pb2.EvalArgs(num_steps=10),
             hyperparameters=tuner.outputs['best_hyperparameters']
             if enable_tuning else None,
-            custom_config=task_dict)
+            custom_config=datasets.tasks[ix].to_dict())
 
         pipeline.append(trainer)
 

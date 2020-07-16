@@ -52,8 +52,6 @@ class TitanicBenchmark(nitroml.Benchmark):
     # tasks repository.
     dataset = tfds_dataset.TFDSDataset(
         tfds.builder('titanic', data_dir=data_dir))
-    task_dict = dataset.task.to_dict()
-    task_dict.pop('description')
 
     # Compute dataset statistics.
     statistics_gen = tfx.StatisticsGen(examples=dataset.examples)
@@ -77,9 +75,10 @@ class TitanicBenchmark(nitroml.Benchmark):
           transform_graph=transform.outputs.transform_graph,
           train_args=trainer_pb2.TrainArgs(num_steps=10),
           eval_args=trainer_pb2.EvalArgs(num_steps=5),
-          custom_config=task_dict)
+          custom_config=dataset.task.to_dict())
       pipeline.append(tuner)
 
+    # Define a Trainer to train our model on the given task.
     trainer = tfx.Trainer(
         run_fn='examples.auto_trainer.run_fn'
         if use_keras else 'examples.auto_estimator_trainer.run_fn',
@@ -92,7 +91,7 @@ class TitanicBenchmark(nitroml.Benchmark):
         eval_args=trainer_pb2.EvalArgs(num_steps=5000),
         hyperparameters=tuner.outputs['best_hyperparameters']
         if enable_tuning else None,
-        custom_config=task_dict)
+        custom_config=dataset.task.to_dict())
 
     pipeline.append(trainer)
 

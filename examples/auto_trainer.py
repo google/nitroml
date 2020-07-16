@@ -20,19 +20,19 @@ The consumed artifacts include:
  * TensorFlow Transform outputs.
 """
 
-import os
 from typing import Any, Callable, List, Optional, Text, Dict
 
 from absl import logging
-import tensorflow_transform as tft
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
 import kerastuner
 from tfx.components.tuner.component import TunerFnResult
 from tfx.components.trainer import fn_args_utils
 from tensorflow_metadata.proto.v0 import schema_pb2
+import tensorflow_transform as tft
 from tfx.components.trainer import executor as trainer_executor
-from nitroml.datasets import task
+
+from tensorflow_metadata.proto.v0 import schema_pb2
 
 FeatureColumn = Any
 
@@ -71,9 +71,7 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
       label_key=fn_args.custom_config['label_key'],
       num_classes=fn_args.custom_config['num_classes'])
 
-  build_keras_model = lambda hparams: _keras_model_builder(
-      data_provider, hparams)
-
+  build_keras_model = lambda hparams: _build_keras_model(data_provider, hparams)
   tuner = kerastuner.RandomSearch(
       build_keras_model,
       max_trials=6,
@@ -105,7 +103,6 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
       })
 
 
-# TODO(nikhilmehta): Use hyperparameters.
 def run_fn(fn_args: trainer_executor.TrainerFnArgs):
   """Train a DNN Keras Model based on given args.
 
@@ -136,10 +133,8 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
     hparams = kerastuner.HyperParameters.from_config(fn_args.hyperparameters)
   else:
     hparams = _get_hyperparameters()
-
   logging.info('HyperParameters for training: %s' % hparams.get_config())
-
-  model = _keras_model_builder(data_provider, hparams)
+  model = _build_keras_model(data_provider, hparams)
 
   train_spec = tf.estimator.TrainSpec(
       input_fn=data_provider.get_input_fn(
@@ -240,47 +235,43 @@ class KerasDataProvider():
   # TODO(nikhilmehta): Consider seperating "head" and "loss" from the adapter.
   @property
   def head_size(self) -> int:
-    """Returns the head size for this task"""
+    """Returns the head size for this task."""
 
     # TODO(github.com/googleinterns/nitroml/issues/29): Regression tasks
     # (self._num_classes==0)
     if self._num_classes == 2:
       return 1
-    elif self._num_classes > 2:
-      return self._num_classes
+    return self._num_classes
 
   @property
-  def loss(self) -> int:
-    """Returns the keras loss_fn for this task"""
+  def loss(self) -> str:
+    """Returns the keras loss_fn for this task."""
 
     if self._num_classes > 2:
       return self.SPARSE_CATEGORICAL_CE
-    else:
-      return self.BINARY_CE
+    return self.BINARY_CE
 
   @property
-  def head_activation(self) -> int:
-    """Returns the activation for the final layer"""
+  def head_activation(self) -> str:
+    """Returns the activation for the final layer."""
 
     if self._num_classes > 2:
       return 'softmax'
-    else:
-      return 'sigmoid'
+    return 'sigmoid'
 
   @property
   def metrics(self) -> List[tf.keras.metrics.Metric]:
 
     if self._num_classes == 2:
       return [
-          tf.keras.metrics.BinaryAccuracy(name="accuracy"),
-          tf.keras.metrics.BinaryCrossentropy(name="average_loss"),
+          tf.keras.metrics.BinaryAccuracy(name='accuracy'),
+          tf.keras.metrics.BinaryCrossentropy(name='average_loss'),
           tf.keras.metrics.AUC()
       ]
-    else:
-      return [
-          tf.keras.metrics.SparseCategoricalAccuracy(name="accuracy"),
-          tf.keras.metrics.SparseCategoricalCrossentropy(name="average_loss")
-      ]
+    return [
+        tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy'),
+        tf.keras.metrics.SparseCategoricalCrossentropy(name='average_loss')
+    ]
 
   def get_input_layers(self) -> Dict[Text, tf.keras.layers.Input]:
     """Returns input layers for a Keras Model."""
@@ -573,8 +564,17 @@ def _get_feature_dim(schema: schema_pb2.Schema, feature_name: Text) -> int:
   raise ValueError('Feature not found: {}'.format(feature_name))
 
 
-def _keras_model_builder(data_provider: KerasDataProvider,
-                         hparams: kerastuner.HyperParameters) -> tf.keras.Model:
+def _build_keras_model(data_provider: KerasDataProvider,
+                       hparams: kerastuner.HyperParameters) -> tf.keras.Model:
+  """Returns a Keras Model for the given data adapter.
+
+    Args:
+      data_provider: Data adaptor used to get the task information.
+      hparas: Hyperparameters of the model.
+
+    Returns:
+      model: A keras model for the given adapter and hyperparams.
+  """
 
   feature_columns = data_provider.get_numeric_feature_columns(
   ) + data_provider.get_embedding_feature_columns()
