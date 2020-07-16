@@ -53,9 +53,10 @@ class TitanicBenchmarkTest(e2etest.TestCase):
     nitroml.run([titanic_benchmark.TitanicBenchmark()],
                 pipeline_name=self._pipeline_name,
                 pipeline_root=self._pipeline_root,
-                metadata_connection_config=metadata_config)
+                metadata_connection_config=metadata_config,
+                enable_tuning=True)
 
-    self.assertComponentExecutionCount(7, self._metadata_path)
+    self.assertComponentExecutionCount(8, self._metadata_path)
     self.assertComponentSucceeded("ImportExampleGen.TitanicBenchmark.benchmark",
                                   self._metadata_path)
     self.assertComponentSucceeded("SchemaGen.TitanicBenchmark.benchmark",
@@ -63,6 +64,8 @@ class TitanicBenchmarkTest(e2etest.TestCase):
     self.assertComponentSucceeded("StatisticsGen.TitanicBenchmark.benchmark",
                                   self._metadata_path)
     self.assertComponentSucceeded("Transform.TitanicBenchmark.benchmark",
+                                  self._metadata_path)
+    self.assertComponentSucceeded("Tuner.TitanicBenchmark.benchmark",
                                   self._metadata_path)
     self.assertComponentSucceeded("Trainer.TitanicBenchmark.benchmark",
                                   self._metadata_path)

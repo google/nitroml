@@ -45,7 +45,8 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
   def benchmark(self,
                 mock_data: bool = False,
                 data_dir: str = None,
-                use_keras: bool = True):
+                use_keras: bool = True,
+                enable_tuning: bool = False):
 
     # TODO(nikhilmehta): create subbenchmarks using all 72 datasets
     datasets = openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data)
@@ -54,8 +55,8 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
       dataset_indices = [0]
     else:
       # To test on Kubeflow, use the following datasets (1 Categorical, 2 Binary).
-      # dataset_indices = [21, 23, 25]
-      dataset_indices = range(21, 40)
+      dataset_indices = [21, 23, 25]
+      # dataset_indices = range(21, 40)
 
     # List of datasets that do not incur OOM - [4,11]
     for ix in dataset_indices:
@@ -79,6 +80,18 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
             schema=schema_gen.outputs.schema,
             preprocessing_fn='examples.auto_transform.preprocessing_fn')
 
+        pipeline = [example_gen, statistics_gen, schema_gen, transform]
+
+        if enable_tuning:
+          tuner = tfx.Tuner(
+              tuner_fn='examples.auto_trainer.tuner_fn',
+              examples=transform.outputs.transformed_examples,
+              transform_graph=transform.outputs.transform_graph,
+              train_args=trainer_pb2.TrainArgs(num_steps=10),
+              eval_args=trainer_pb2.EvalArgs(num_steps=5),
+              custom_config=task_dict)
+          pipeline.append(tuner)
+
         trainer = tfx.Trainer(
             run_fn='examples.auto_trainer.run_fn'
             if use_keras else 'examples.auto_estimator_trainer.run_fn',
@@ -89,10 +102,11 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
             transform_graph=transform.outputs.transform_graph,
             train_args=trainer_pb2.TrainArgs(num_steps=1),
             eval_args=trainer_pb2.EvalArgs(num_steps=1),
+            hyperparameters=tuner.outputs['best_hyperparameters']
+            if enable_tuning else None,
             custom_config=task_dict)
 
-        # Collect the pipeline components to benchmark.
-        pipeline = [example_gen, statistics_gen, schema_gen, transform, trainer]
+        pipeline.append(trainer)
 
         # Finally, call evaluate() on the workflow DAG outputs, This will
         # automatically append Evaluators to compute metrics from the given

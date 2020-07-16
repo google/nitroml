@@ -59,17 +59,16 @@ class OpenMLCC18BenchmarkTest(e2etest.TestCase):
 
     with requests_mock.Mocker() as mocker:
       testing_utils.register_mock_urls(mocker)
-      nitroml.run(
-          [openml_cc18_benchmark.OpenMLCC18Benchmark()],
-          pipeline_name=self._pipeline_name,
-          pipeline_root=self._pipeline_root,
-          metadata_connection_config=metadata_config,
-          data_dir=self._data_dir,
-          mock_data=True,
-      )
+      nitroml.run([openml_cc18_benchmark.OpenMLCC18Benchmark()],
+                  pipeline_name=self._pipeline_name,
+                  pipeline_root=self._pipeline_root,
+                  metadata_connection_config=metadata_config,
+                  data_dir=self._data_dir,
+                  mock_data=True,
+                  enable_tuning=True)
 
     instance_name = '.'.join(['OpenMLCC18Benchmark', 'benchmark', 'mockdata'])
-    self.assertComponentExecutionCount(7, self._metadata_path)
+    self.assertComponentExecutionCount(8, self._metadata_path)
     self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]),
                                   self._metadata_path)
     self.assertComponentSucceeded('.'.join(['SchemaGen', instance_name]),
@@ -77,6 +76,8 @@ class OpenMLCC18BenchmarkTest(e2etest.TestCase):
     self.assertComponentSucceeded('.'.join(['StatisticsGen', instance_name]),
                                   self._metadata_path)
     self.assertComponentSucceeded('.'.join(['Transform', instance_name]),
+                                  self._metadata_path)
+    self.assertComponentSucceeded('.'.join(['Tuner', instance_name]),
                                   self._metadata_path)
     self.assertComponentSucceeded('.'.join(['Trainer', instance_name]),
                                   self._metadata_path)

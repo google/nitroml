@@ -145,7 +145,8 @@ class OpenMLCC18:
     for dataset_name in tf.io.gfile.listdir(self.root_dir):
       dataset_dir = os.path.join(self.root_dir, f'{dataset_name}', 'data')
       examples = external_input(dataset_dir)
-      example_gen = CsvExampleGen(input=examples)
+      # example_gen = CsvExampleGen(input_base=examples)
+      example_gen = CsvExampleGen(input_base=dataset_dir, input=examples)
       components.append(example_gen)
 
     return components
