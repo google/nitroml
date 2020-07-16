@@ -15,65 +15,33 @@
 # Lint as: python3
 """Tests for nitroml.examples.titanic_benchmark."""
 
-import json
-import os
-import sys
-import tempfile
-
-from absl import flags
-from absl.testing import absltest
-import nitroml
 from nitroml import results
 from examples import titanic_benchmark
 from nitroml.testing import e2etest
 
 from ml_metadata import metadata_store
-from ml_metadata.proto import metadata_store_pb2
-
-FLAGS = flags.FLAGS
 
 
 class TitanicBenchmarkTest(e2etest.TestCase):
 
   def setUp(self):
-    super(TitanicBenchmarkTest, self).setUp()
-    flags.FLAGS(sys.argv)
-
-    tempdir = tempfile.mkdtemp(dir=absltest.get_default_test_tmpdir())
-    self._pipeline_name = "nitroml_titanic_benchmark"
-    self._pipeline_root = os.path.join(tempdir, "nitroml", "titanic",
-                                       self._pipeline_name)
-    self._metadata_path = os.path.join(tempdir, "nitroml", "titanic",
-                                       self._pipeline_name, "metadata.db")
+    super(TitanicBenchmarkTest, self).setUp("nitroml_titanic_benchmark")
 
   def test(self):
-    metadata_config = metadata_store_pb2.ConnectionConfig(
-        sqlite=metadata_store_pb2.SqliteMetadataSourceConfig(
-            filename_uri=self._metadata_path))
-    nitroml.run([titanic_benchmark.TitanicBenchmark()],
-                pipeline_name=self._pipeline_name,
-                pipeline_root=self._pipeline_root,
-                metadata_connection_config=metadata_config)
+    self.run_benchmarks([titanic_benchmark.TitanicBenchmark()])
 
-    self.assertComponentExecutionCount(7, self._metadata_path)
-    self.assertComponentSucceeded("ImportExampleGen.TitanicBenchmark.benchmark",
-                                  self._metadata_path)
-    self.assertComponentSucceeded("SchemaGen.TitanicBenchmark.benchmark",
-                                  self._metadata_path)
-    self.assertComponentSucceeded("StatisticsGen.TitanicBenchmark.benchmark",
-                                  self._metadata_path)
-    self.assertComponentSucceeded("Transform.TitanicBenchmark.benchmark",
-                                  self._metadata_path)
-    self.assertComponentSucceeded("Trainer.TitanicBenchmark.benchmark",
-                                  self._metadata_path)
-    self.assertComponentSucceeded("Evaluator.TitanicBenchmark.benchmark",
-                                  self._metadata_path)
+    self.assertComponentExecutionCount(7)
+    self.assertComponentSucceeded("ImportExampleGen.TitanicBenchmark.benchmark")
+    self.assertComponentSucceeded("SchemaGen.TitanicBenchmark.benchmark")
+    self.assertComponentSucceeded("StatisticsGen.TitanicBenchmark.benchmark")
+    self.assertComponentSucceeded("Transform.TitanicBenchmark.benchmark")
+    self.assertComponentSucceeded("Trainer.TitanicBenchmark.benchmark")
+    self.assertComponentSucceeded("Evaluator.TitanicBenchmark.benchmark")
     self.assertComponentSucceeded(
-        "BenchmarkResultPublisher.TitanicBenchmark.benchmark",
-        self._metadata_path)
+        "BenchmarkResultPublisher.TitanicBenchmark.benchmark")
 
     # Load benchmark results.
-    store = metadata_store.MetadataStore(metadata_config)
+    store = metadata_store.MetadataStore(self.metadata_config)
     df = results.overview(store)
 
     # Check benchmark results overview values.
@@ -94,4 +62,4 @@ class TitanicBenchmarkTest(e2etest.TestCase):
 
 
 if __name__ == "__main__":
-  absltest.main()
+  e2etest.main()

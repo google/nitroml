@@ -18,14 +18,8 @@
   This test assumes that the openml_cc18 datasets exist.
 """
 
-import json
 import os
-import sys
-import tempfile
 
-from absl import flags
-from absl.testing import absltest
-import nitroml
 from nitroml import results
 from nitroml.datasets import testing_utils
 from examples import openml_cc18_benchmark
@@ -33,61 +27,35 @@ from nitroml.testing import e2etest
 import requests_mock
 
 from ml_metadata import metadata_store
-from ml_metadata.proto import metadata_store_pb2
-
-FLAGS = flags.FLAGS
 
 
 class OpenMLCC18BenchmarkTest(e2etest.TestCase):
 
   def setUp(self):
-    super(OpenMLCC18BenchmarkTest, self).setUp()
-    flags.FLAGS(sys.argv)
-
-    tempdir = tempfile.mkdtemp(dir=absltest.get_default_test_tmpdir())
-    self._pipeline_name = 'nitroml_openml_cc_18_benchmark'
-    self._pipeline_root = os.path.join(tempdir, 'nitroml', 'openml',
-                                       self._pipeline_name)
-    self._metadata_path = os.path.join(tempdir, 'nitroml', 'openml',
-                                       self._pipeline_name, 'metadata.db')
-    self._data_dir = os.path.join(tempdir, 'openML_mock_data')
+    super(OpenMLCC18BenchmarkTest, self).setUp('nitroml_openml_cc_18_benchmark')
 
   def test(self):
-    metadata_config = metadata_store_pb2.ConnectionConfig(
-        sqlite=metadata_store_pb2.SqliteMetadataSourceConfig(
-            filename_uri=self._metadata_path))
-
     with requests_mock.Mocker() as mocker:
       testing_utils.register_mock_urls(mocker)
-      nitroml.run(
+      self.run_benchmarks(
           [openml_cc18_benchmark.OpenMLCC18Benchmark()],
-          pipeline_name=self._pipeline_name,
-          pipeline_root=self._pipeline_root,
-          metadata_connection_config=metadata_config,
-          data_dir=self._data_dir,
+          data_dir=os.path.join(self.pipeline_root, 'openML_mock_data'),
           mock_data=True,
       )
 
     instance_name = '.'.join(['OpenMLCC18Benchmark', 'benchmark', 'mockdata'])
-    self.assertComponentExecutionCount(7, self._metadata_path)
-    self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]),
-                                  self._metadata_path)
-    self.assertComponentSucceeded('.'.join(['SchemaGen', instance_name]),
-                                  self._metadata_path)
-    self.assertComponentSucceeded('.'.join(['StatisticsGen', instance_name]),
-                                  self._metadata_path)
-    self.assertComponentSucceeded('.'.join(['Transform', instance_name]),
-                                  self._metadata_path)
-    self.assertComponentSucceeded('.'.join(['Trainer', instance_name]),
-                                  self._metadata_path)
-    self.assertComponentSucceeded('.'.join(['Evaluator', instance_name]),
-                                  self._metadata_path)
-    self.assertComponentSucceeded(
-        '.'.join(['BenchmarkResultPublisher', instance_name]),
-        self._metadata_path)
+    self.assertComponentExecutionCount(7)
+    self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
+    self.assertComponentSucceeded('.'.join(['SchemaGen', instance_name]))
+    self.assertComponentSucceeded('.'.join(['StatisticsGen', instance_name]))
+    self.assertComponentSucceeded('.'.join(['Transform', instance_name]))
+    self.assertComponentSucceeded('.'.join(['Trainer', instance_name]))
+    self.assertComponentSucceeded('.'.join(['Evaluator', instance_name]))
+    self.assertComponentSucceeded('.'.join(
+        ['BenchmarkResultPublisher', instance_name]))
 
     # Load benchmark results.
-    store = metadata_store.MetadataStore(metadata_config)
+    store = metadata_store.MetadataStore(self.metadata_config)
     df = results.overview(store)
 
     # Check benchmark results overview values.
@@ -106,4 +74,4 @@ class OpenMLCC18BenchmarkTest(e2etest.TestCase):
 
 
 if __name__ == '__main__':
-  absltest.main()
+  e2etest.main()

@@ -25,7 +25,7 @@ from absl.testing import absltest
 from absl.testing import parameterized
 from nitroml import nitroml
 
-from tfx.orchestration import tfx_runner
+from tfx.orchestration.beam import beam_dag_runner
 from tfx.types import channel_utils
 from tfx.types import standard_artifacts
 
@@ -50,7 +50,7 @@ class FakePipeline(object):
     return channel_utils.as_channel([model])
 
 
-class FakeTfxRunner(tfx_runner.TfxRunner):
+class FakeTfxRunner(beam_dag_runner.BeamDagRunner):
   """A fake TFX runner for testing."""
 
   def run(self, pipeline):

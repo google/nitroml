@@ -459,6 +459,9 @@ def run(benchmarks: List[Benchmark],
 
   Returns:
     The string list of benchmark names that were included in this run.
+
+  Raises:
+    ValueError: If the given tfx_runner is not supported.
   """
 
   runs_per_benchmark = FLAGS.runs_per_benchmark
