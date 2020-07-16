@@ -108,7 +108,7 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
 
   # Export an eval savedmodel for TFMA. If distributed training, it must only
   # be written by the chief worker, as would be done for serving savedmodel.
-  if run_config.is_chief:   
+  if run_config.is_chief:
     logging.info('Exporting eval_savedmodel for TFMA.')
     tfma.export.export_eval_savedmodel(
         estimator=estimator,
@@ -174,7 +174,7 @@ class EstimatorAdapter():
       return tf.estimator.BinaryClassHead()
 
   def get_numeric_feature_columns(self,
-                                  include_integer_columns: bool = True
+                                  include_integer_columns: bool = False
                                  ) -> List[FeatureColumn]:
     """Creates a set of feature columns.
 
@@ -213,7 +213,7 @@ class EstimatorAdapter():
     return numeric_columns
 
   def get_sparse_categorical_feature_columns(
-      self, include_integer_columns: bool = False) -> List[FeatureColumn]:
+      self, include_integer_columns: bool = True) -> List[FeatureColumn]:
     """Creates a set of sparse categorical feature columns.
 
     Args:
