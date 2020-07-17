@@ -45,7 +45,7 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
                 mock_data: bool = False,
                 data_dir: str = None,
                 use_keras: bool = True,
-                enable_tuning: bool = False):
+                enable_tuning: bool = True):
 
     # TODO(nikhilmehta): create subbenchmarks using all 72 datasets
     datasets = openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data)

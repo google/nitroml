@@ -47,7 +47,7 @@ class TitanicBenchmark(nitroml.Benchmark):
   def benchmark(self,
                 data_dir: str = None,
                 use_keras: bool = True,
-                enable_tuning: bool = False):
+                enable_tuning: bool = True):
     # NOTE: For convenience, we fetch the OpenML task from the AutoTFX
     # tasks repository.
     dataset = tfds_dataset.TFDSDataset(
@@ -73,8 +73,8 @@ class TitanicBenchmark(nitroml.Benchmark):
           tuner_fn='examples.auto_trainer.tuner_fn',
           examples=transform.outputs.transformed_examples,
           transform_graph=transform.outputs.transform_graph,
-          train_args=trainer_pb2.TrainArgs(num_steps=10),
-          eval_args=trainer_pb2.EvalArgs(num_steps=5),
+          train_args=trainer_pb2.TrainArgs(num_steps=100),
+          eval_args=trainer_pb2.EvalArgs(num_steps=50),
           custom_config=dataset.task.to_dict())
       pipeline.append(tuner)
 
@@ -87,8 +87,8 @@ class TitanicBenchmark(nitroml.Benchmark):
         transformed_examples=transform.outputs.transformed_examples,
         schema=schema_gen.outputs.schema,
         transform_graph=transform.outputs.transform_graph,
-        train_args=trainer_pb2.TrainArgs(num_steps=10000),
-        eval_args=trainer_pb2.EvalArgs(num_steps=5000),
+        train_args=trainer_pb2.TrainArgs(num_steps=1000),
+        eval_args=trainer_pb2.EvalArgs(num_steps=500),
         hyperparameters=tuner.outputs['best_hyperparameters']
         if enable_tuning else None,
         custom_config=dataset.task.to_dict())
