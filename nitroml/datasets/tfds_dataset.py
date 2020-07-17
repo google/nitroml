@@ -90,8 +90,9 @@ class TFDSDataset(object):
     task_type = task.Task.BINARY_CLASSIFICATION
     description = self._dataset_builder.info.description
     label_key = self._dataset_builder.info.supervised_keys[1]
-
+    dataset_name = self._dataset_builder.name
     titanic_task = task.Task(
+        dataset_name=dataset_name,
         task_type=task_type,
         num_classes=num_classes,
         description=description,

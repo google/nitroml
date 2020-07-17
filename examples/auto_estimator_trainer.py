@@ -254,7 +254,7 @@ class EstimatorAdapter():
     return feature_columns
 
   def get_embedding_feature_columns(self,
-                                    include_integer_columns: bool = False
+                                    include_integer_columns: bool = True
                                    ) -> List[FeatureColumn]:
     """Creates a set of embedding feature columns.
 

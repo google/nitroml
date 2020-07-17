@@ -54,8 +54,7 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
       dataset_indices = [0]
     else:
       # To test on Kubeflow, use the following datasets (1 Categorical, 2 Binary).
-      dataset_indices = [21, 23, 25]
-      # dataset_indices = range(21, 40)
+      dataset_indices = range(21, 40)
 
     # List of datasets that do not incur OOM - [4,11]
     for ix in dataset_indices:
@@ -92,15 +91,15 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
         trainer = tfx.Trainer(
             run_fn='examples.auto_trainer.run_fn'
             if use_keras else 'examples.auto_estimator_trainer.run_fn',
-            custom_executor_spec=executor_spec.ExecutorClassSpec(
-                trainer_executor.GenericExecutor),
+            custom_executor_spec=(executor_spec.ExecutorClassSpec(
+                trainer_executor.GenericExecutor)),
             transformed_examples=transform.outputs.transformed_examples,
             schema=schema_gen.outputs.schema,
             transform_graph=transform.outputs.transform_graph,
             train_args=trainer_pb2.TrainArgs(num_steps=10),
             eval_args=trainer_pb2.EvalArgs(num_steps=10),
-            hyperparameters=tuner.outputs['best_hyperparameters']
-            if enable_tuning else None,
+            hyperparameters=(tuner.outputs.best_hyperparameters
+                             if enable_tuning else None),
             custom_config=datasets.tasks[ix].to_dict())
 
         pipeline.append(trainer)

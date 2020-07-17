@@ -124,6 +124,7 @@ class OpenMLCC18:
         os.path.join(self.root_dir, dataset_name, 'task/task.json'),
         mode='r') as fin:
       data = json.load(fin)
+      data['dataset_name'] = dataset_name
       return_task = task.Task(**data)
 
     return return_task
@@ -144,9 +145,7 @@ class OpenMLCC18:
 
     for dataset_name in tf.io.gfile.listdir(self.root_dir):
       dataset_dir = os.path.join(self.root_dir, f'{dataset_name}', 'data')
-      examples = external_input(dataset_dir)
-      # example_gen = CsvExampleGen(input_base=examples)
-      example_gen = CsvExampleGen(input_base=dataset_dir, input=examples)
+      example_gen = CsvExampleGen(input_base=dataset_dir)
       components.append(example_gen)
 
     return components
@@ -295,6 +294,7 @@ class OpenMLCC18:
         f'on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.')
 
     task_desc = task.Task(
+        dataset_name=dataset_name,
         task_type=task_type,
         num_classes=n_classes,
         label_key=target_name,

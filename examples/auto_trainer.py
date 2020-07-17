@@ -69,7 +69,8 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
   data_provider = KerasDataProvider(
       transform_graph_dir=fn_args.transform_graph_path,
       label_key=fn_args.custom_config['label_key'],
-      num_classes=fn_args.custom_config['num_classes'])
+      num_classes=fn_args.custom_config['num_classes'],
+      dataset_name=fn_args.custom_config['dataset_name'])
 
   build_keras_model = lambda hparams: _build_keras_model(data_provider, hparams)
   tuner = kerastuner.RandomSearch(
@@ -79,7 +80,7 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
       allow_new_entries=False,
       objective=kerastuner.Objective('val_accuracy', 'max'),
       directory=fn_args.working_dir,
-      project_name='titanic_tuning')
+      project_name='_'.join([data_provider.dataset_name, 'tuning']))
 
   train_dataset = data_provider.get_input_fn(
       file_pattern=fn_args.train_files,
@@ -127,7 +128,8 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
   data_provider = KerasDataProvider(
       transform_graph_dir=fn_args.transform_output,
       label_key=fn_args.label_key,
-      num_classes=fn_args.num_classes)
+      num_classes=fn_args.num_classes,
+      dataset_name=fn_args.dataset_name)
 
   if fn_args.hyperparameters:
     hparams = kerastuner.HyperParameters.from_config(fn_args.hyperparameters)
@@ -194,8 +196,8 @@ class KerasDataProvider():
   CATEGORICAL_CE = 'categorical_crossentropy'
   BINARY_CE = 'binary_crossentropy'
 
-  def __init__(self, transform_graph_dir: str, label_key: str,
-               num_classes: int):
+  def __init__(self, transform_graph_dir: str, label_key: str, num_classes: int,
+               dataset_name: str):
     """Initializes the DataProvider from TFX artifacts.
 
     Args:
@@ -218,6 +220,11 @@ class KerasDataProvider():
     self._dataset_schema = self._tf_transform_output.transformed_metadata.schema
     self._label_key = label_key
     self._num_classes = num_classes
+    self._dataset_name = dataset_name
+
+  @property
+  def dataset_name(self) -> Text:
+    return self._dataset_name
 
   @property
   def raw_label_keys(self) -> List[Text]:
