@@ -28,6 +28,7 @@ import sys
 # Required since Python binaries ignore relative paths when importing:
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
+from absl import logging
 import nitroml
 from nitroml.components.transform import component
 from nitroml.datasets import openml_cc18
@@ -55,10 +56,36 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
     if mock_data:
       dataset_indices = [0]
     else:
-      dataset_indices = range(21, 40)
+      dataset_indices = range(len(datasets.names))
+
+    benchmark_datasets = [
+        'adult', 'airlines', 'albert', 'Amazon_employee_access', 'anneal',
+        'APSFailure', 'arrhythmia', 'Australian', 'bankmarketing', 'car',
+        'christine', 'cnae9', 'connect4', 'covertype', 'dilbert', 'dionis',
+        'fabert', 'FashionMNIST', 'guillmero', 'helena', 'higgs', 'jannis',
+        'jasmine', 'jungle_chess_2pcs_raw_endgame_complete', 'kc1',
+        'KDDCup09_appetency', 'krvskp', 'mfeatfactors', 'MiniBooNE', 'nomao',
+        'numerai286', 'phoneme', 'riccardo', 'robert', 'segment', 'shuttle',
+        'sylvine', 'vehicle', 'volkert'
+    ]
+
+    map(lambda x: x.lower(), benchmark_datasets)
+
+    logging.info(list(set(benchmark_datasets) - set(datasets.names)))
+    logging.info('\n %s \n',
+                 list(set(datasets.names) - set(benchmark_datasets)))
+    logging.info(
+        'Available OpenMLCC18 datasets: %d',
+        len(list(set(benchmark_datasets).intersection(set(datasets.names)))))
 
     for ix in dataset_indices:
       name = datasets.names[ix]
+
+      if name.lower() not in benchmark_datasets:
+        logging.info('Skipping %s', name)
+        continue
+      else:
+        logging.info('Benchmarking %s', name)
 
       with self.sub_benchmark(name):
         example_gen = datasets.components[ix]
@@ -114,6 +141,7 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
 
 
 if __name__ == '__main__':
+
   if config.USE_KUBEFLOW:
     # We need the string "KubeflowDagRunner" in this file to appease the
     # validator used in `tfx create pipeline`.
