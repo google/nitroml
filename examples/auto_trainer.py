@@ -41,6 +41,8 @@ def _get_hyperparameters() -> kerastuner.HyperParameters:
   """Returns hyperparameters for building Keras model."""
   hp = kerastuner.HyperParameters()
   hp.Choice('learning_rate', [1e-2, 1e-3], default=1e-2)
+  hp.Int('num_layers', min_value=1, max_value=5, step=1, default=2)
+  hp.Int('num_nodes', min_value=32, max_value=512, step=32, default=128)
   return hp
 
 
@@ -75,7 +77,7 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
   build_keras_model = lambda hparams: _build_keras_model(data_provider, hparams)
   tuner = kerastuner.RandomSearch(
       build_keras_model,
-      max_trials=6,
+      max_trials=10,
       hyperparameters=_get_hyperparameters(),
       allow_new_entries=False,
       objective=kerastuner.Objective('val_accuracy', 'max'),
@@ -591,7 +593,9 @@ def _build_keras_model(data_provider: KerasDataProvider,
   assert len(feature_columns) >= len(input_layers)
 
   x = tf.keras.layers.DenseFeatures(feature_columns)(input_layers)
-  for numnodes in [128, 128]:
+
+  hparam_nodes = hparams.get('num_nodes')
+  for numnodes in [hparam_nodes] * hparams.get('num_layers'):
     x = tf.keras.layers.Dense(numnodes)(x)
   output = tf.keras.layers.Dense(
       data_provider.head_size,

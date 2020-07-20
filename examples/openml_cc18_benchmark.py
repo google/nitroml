@@ -48,15 +48,15 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
                 enable_tuning: bool = True):
 
     # TODO(nikhilmehta): create subbenchmarks using all 72 datasets
+    # Kubeflow throws a "Max work worflow size error" when #components are large.
+    # Track issue: https://github.com/kubeflow/pipelines/issues/4170
     datasets = openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data)
 
     if mock_data:
       dataset_indices = [0]
     else:
-      # To test on Kubeflow, use the following datasets (1 Categorical, 2 Binary).
       dataset_indices = range(21, 40)
 
-    # List of datasets that do not incur OOM - [4,11]
     for ix in dataset_indices:
       name = datasets.names[ix]
 
