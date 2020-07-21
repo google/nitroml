@@ -38,11 +38,17 @@ class OpenMLCC18BenchmarkTest(e2etest.TestCase):
       {
           'testcase_name': 'keras_trainer',
           'use_keras': True,
+          'enable_tuning': False,
+      }, {
+          'testcase_name': 'keras_tuning_trainer',
+          'use_keras': True,
+          'enable_tuning': True,
       }, {
           'testcase_name': 'estimator_trainer',
           'use_keras': False,
+          'enable_tuning': False,
       })
-  def test(self, use_keras):
+  def test(self, use_keras, enable_tuning):
     with requests_mock.Mocker() as mocker:
       testing_utils.register_mock_urls(mocker)
       self.run_benchmarks(
@@ -50,10 +56,15 @@ class OpenMLCC18BenchmarkTest(e2etest.TestCase):
           data_dir=os.path.join(self.pipeline_root, 'openML_mock_data'),
           mock_data=True,
           use_keras=use_keras,
+          enable_tuning=enable_tuning,
       )
 
     instance_name = '.'.join(['OpenMLCC18Benchmark', 'benchmark', 'mockdata'])
-    self.assertComponentExecutionCount(7)
+    if enable_tuning:
+      self.assertComponentExecutionCount(8)
+      self.assertComponentSucceeded('.'.join(['Tuner', instance_name]))
+    else:
+      self.assertComponentExecutionCount(7)
     self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
     self.assertComponentSucceeded('.'.join(['SchemaGen', instance_name]))
     self.assertComponentSucceeded('.'.join(['StatisticsGen', instance_name]))

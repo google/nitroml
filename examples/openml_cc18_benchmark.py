@@ -44,19 +44,19 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
   def benchmark(self,
                 mock_data: bool = False,
                 data_dir: str = None,
-                use_keras: bool = True):
+                use_keras: bool = True,
+                enable_tuning: bool = True):
 
     # TODO(nikhilmehta): create subbenchmarks using all 72 datasets
+    # Kubeflow throws a "Max work worflow size error" when #components are large.
+    # Track issue: https://github.com/kubeflow/pipelines/issues/4170
     datasets = openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data)
 
     if mock_data:
       dataset_indices = [0]
     else:
-      # To test on Kubeflow, use the following datasets (1 Categorical, 2 Binary).
-      # dataset_indices = [21, 23, 25]
       dataset_indices = range(21, 40)
 
-    # List of datasets that do not incur OOM - [4,11]
     for ix in dataset_indices:
       name = datasets.names[ix]
 
@@ -75,21 +75,34 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
             schema=schema_gen.outputs.schema,
             preprocessing_fn='examples.auto_transform.preprocessing_fn')
 
+        pipeline = [example_gen, statistics_gen, schema_gen, transform]
+
+        if enable_tuning:
+          tuner = tfx.Tuner(
+              tuner_fn='examples.auto_trainer.tuner_fn',
+              examples=transform.outputs.transformed_examples,
+              transform_graph=transform.outputs.transform_graph,
+              train_args=trainer_pb2.TrainArgs(num_steps=10),
+              eval_args=trainer_pb2.EvalArgs(num_steps=5),
+              custom_config=datasets.tasks[ix].to_dict())
+          pipeline.append(tuner)
+
         # Define a Trainer to train our model on the given task.
         trainer = tfx.Trainer(
             run_fn='examples.auto_trainer.run_fn'
             if use_keras else 'examples.auto_estimator_trainer.run_fn',
-            custom_executor_spec=executor_spec.ExecutorClassSpec(
-                trainer_executor.GenericExecutor),
+            custom_executor_spec=(executor_spec.ExecutorClassSpec(
+                trainer_executor.GenericExecutor)),
             transformed_examples=transform.outputs.transformed_examples,
             schema=schema_gen.outputs.schema,
             transform_graph=transform.outputs.transform_graph,
             train_args=trainer_pb2.TrainArgs(num_steps=10),
             eval_args=trainer_pb2.EvalArgs(num_steps=10),
+            hyperparameters=(tuner.outputs.best_hyperparameters
+                             if enable_tuning else None),
             custom_config=datasets.tasks[ix].to_dict())
 
-        # Collect the pipeline components to benchmark.
-        pipeline = [example_gen, statistics_gen, schema_gen, transform, trainer]
+        pipeline.append(trainer)
 
         # Finally, call evaluate() on the workflow DAG outputs, This will
         # automatically append Evaluators to compute metrics from the given

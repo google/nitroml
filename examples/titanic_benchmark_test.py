@@ -31,15 +31,25 @@ class TitanicBenchmarkTest(e2etest.TestCase):
       {
           "testcase_name": "keras_trainer",
           "use_keras": True,
+          "enable_tuning": False,
+      }, {
+          "testcase_name": "keras_tuning_trainer",
+          "use_keras": True,
+          "enable_tuning": True,
       }, {
           "testcase_name": "estimator_trainer",
           "use_keras": False,
+          "enable_tuning": False,
       })
-  def test(self, use_keras):
+  def test(self, use_keras, enable_tuning):
     self.run_benchmarks([titanic_benchmark.TitanicBenchmark()],
-                        use_keras=use_keras)
-
-    self.assertComponentExecutionCount(7)
+                        use_keras=use_keras,
+                        enable_tuning=enable_tuning)
+    if enable_tuning:
+      self.assertComponentExecutionCount(8)
+      self.assertComponentSucceeded("Tuner.TitanicBenchmark.benchmark")
+    else:
+      self.assertComponentExecutionCount(7)
     self.assertComponentSucceeded("ImportExampleGen.TitanicBenchmark.benchmark")
     self.assertComponentSucceeded("SchemaGen.TitanicBenchmark.benchmark")
     self.assertComponentSucceeded("StatisticsGen.TitanicBenchmark.benchmark")
@@ -59,7 +69,6 @@ class TitanicBenchmarkTest(e2etest.TestCase):
         "benchmark",
         "run",
         "num_runs",
-        "auc",
         "accuracy",
         "average_loss",
         "post_export_metrics/example_count",

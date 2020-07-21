@@ -27,7 +27,6 @@ import tensorflow as tf
 import tensorflow_model_analysis as tfma
 import tensorflow_transform as tft
 from tfx.components.trainer import executor as trainer_executor
-
 from tensorflow_metadata.proto.v0 import schema_pb2
 
 FeatureColumn = Any
@@ -172,7 +171,7 @@ class EstimatorAdapter():
       return tf.estimator.BinaryClassHead()
 
   def get_numeric_feature_columns(self,
-                                  include_integer_columns: bool = True
+                                  include_integer_columns: bool = False
                                  ) -> List[FeatureColumn]:
     """Creates a set of feature columns.
 
@@ -211,7 +210,7 @@ class EstimatorAdapter():
     return numeric_columns
 
   def get_sparse_categorical_feature_columns(
-      self, include_integer_columns: bool = False) -> List[FeatureColumn]:
+      self, include_integer_columns: bool = True) -> List[FeatureColumn]:
     """Creates a set of sparse categorical feature columns.
 
     Args:
@@ -252,7 +251,7 @@ class EstimatorAdapter():
     return feature_columns
 
   def get_embedding_feature_columns(self,
-                                    include_integer_columns: bool = False
+                                    include_integer_columns: bool = True
                                    ) -> List[FeatureColumn]:
     """Creates a set of embedding feature columns.
 

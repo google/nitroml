@@ -66,27 +66,6 @@ class TestCase(parameterized.TestCase, absltest.TestCase):
     tf.io.gfile.makedirs(self.pipeline_root)
     self.metadata_path = os.path.join(self.pipeline_root, "metadata.db")
 
-    # BEGIN GOOGLE-INTERNAL
-    # Required for the MyOrchestratorRunner when run in google3.
-    FLAGS.command = "launch"
-    FLAGS.config = json.dumps({
-        "pipeline_name": pipeline_name,
-        "pipeline_root": self.pipeline_root,
-        "pipeline_args": {},
-        "enable_cache": False,
-        "metadata_connection_config": {
-            "sqlite": {
-                "filename_uri": self.metadata_path,
-            }
-        },
-        "local_config": {},
-        "beam_pipeline_args": [
-            "--runner=google3.pipeline.flume.py.runner.FlumeRunner"
-        ],
-        "flume_args": ["--flume_exec_mode=UNOPT"],
-        "launch_config": {},
-    })
-    # BEGIN GOOGLE-INTERNAL
 
   @property
   def metadata_config(self):

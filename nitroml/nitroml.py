@@ -419,6 +419,7 @@ def get_default_kubeflow_dag_runner():
 
   metadata_config = kubeflow_dag_runner.get_default_kubeflow_metadata_config()
   tfx_image = os.environ.get("KUBEFLOW_TFX_IMAGE", None)
+  logging.info('Using "%s" as  the docker image.', tfx_image)
   runner_config = kubeflow_dag_runner.KubeflowDagRunnerConfig(
       kubeflow_metadata_config=metadata_config, tfx_image=tfx_image)
 

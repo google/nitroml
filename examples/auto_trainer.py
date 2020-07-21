@@ -23,17 +23,90 @@ The consumed artifacts include:
 from typing import Any, Callable, List, Optional, Text, Dict
 
 from absl import logging
+import kerastuner
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
 import tensorflow_transform as tft
 from tfx.components.trainer import executor as trainer_executor
+from tfx.components.trainer import fn_args_utils
+from tfx.components.tuner.component import TunerFnResult
 
 from tensorflow_metadata.proto.v0 import schema_pb2
 
 FeatureColumn = Any
 
 
-# TODO(nikhilmehta): Use hyperparameters.
+def _get_hyperparameters() -> kerastuner.HyperParameters:
+  """Returns hyperparameters for building Keras model."""
+  hp = kerastuner.HyperParameters()
+  hp.Choice('learning_rate', [1e-2, 1e-3], default=1e-2)
+  hp.Int('num_layers', min_value=1, max_value=5, step=1, default=2)
+  hp.Int('num_nodes', min_value=32, max_value=512, step=32, default=128)
+  return hp
+
+
+def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
+  """Build the tuner using the KerasTuner API.
+
+  Args:
+    fn_args: Holds args as name/value pairs.
+      - working_dir: working dir for tuning.
+      - train_files: List of file paths containing training tf.Example data.
+      - eval_files: List of file paths containing eval tf.Example data.
+      - train_steps: number of train steps.
+      - eval_steps: number of eval steps.
+      - schema_path: optional schema of the input data.
+      - transform_graph_path: optional transform graph produced by TFT.
+
+  Returns:
+    A namedtuple contains the following:
+      - tuner: A BaseTuner that will be used for tuning.
+      - fit_kwargs: Args to pass to tuner's run_trial function for fitting the
+                    model , e.g., the training and validation dataset. Required
+                    args depend on the above tuner's implementation.
+  """
+  # RandomSearch is a subclass of kerastuner.Tuner which inherits from
+  # BaseTuner.
+
+  # TODO(weill): Replace with AutoDataProvider.
+  data_provider = KerasDataProvider(
+      transform_graph_dir=fn_args.transform_graph_path,
+      label_key=fn_args.custom_config['label_key'],
+      num_classes=fn_args.custom_config['num_classes'],
+      dataset_name=fn_args.custom_config['dataset_name'])
+
+  build_keras_model = lambda hparams: _build_keras_model(data_provider, hparams)
+  tuner = kerastuner.RandomSearch(
+      build_keras_model,
+      max_trials=10,
+      hyperparameters=_get_hyperparameters(),
+      allow_new_entries=False,
+      objective=kerastuner.Objective('val_accuracy', 'max'),
+      directory=fn_args.working_dir,
+      project_name='_'.join([data_provider.dataset_name, 'tuning']))
+
+  train_dataset = data_provider.get_input_fn(
+      file_pattern=fn_args.train_files,
+      batch_size=64,
+      num_epochs=None,
+      shuffle=True)()
+
+  eval_dataset = data_provider.get_input_fn(
+      file_pattern=fn_args.eval_files,
+      batch_size=64,
+      num_epochs=1,
+      shuffle=False)()
+
+  return TunerFnResult(
+      tuner=tuner,
+      fit_kwargs={
+          'x': train_dataset,
+          'validation_data': eval_dataset,
+          'steps_per_epoch': fn_args.train_steps,
+          'validation_steps': fn_args.eval_steps
+      })
+
+
 def run_fn(fn_args: trainer_executor.TrainerFnArgs):
   """Train a DNN Keras Model based on given args.
 
@@ -58,9 +131,15 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
   data_provider = KerasDataProvider(
       transform_graph_dir=fn_args.transform_output,
       label_key=fn_args.label_key,
-      num_classes=fn_args.num_classes)
+      num_classes=fn_args.num_classes,
+      dataset_name=fn_args.dataset_name)
 
-  model = _build_keras_model(data_provider)
+  if fn_args.hyperparameters:
+    hparams = kerastuner.HyperParameters.from_config(fn_args.hyperparameters)
+  else:
+    hparams = _get_hyperparameters()
+  logging.info('HyperParameters for training: %s', hparams.get_config())
+  model = _build_keras_model(data_provider, hparams)
 
   train_spec = tf.estimator.TrainSpec(
       input_fn=data_provider.get_input_fn(
@@ -120,14 +199,15 @@ class KerasDataProvider():
   CATEGORICAL_CE = 'categorical_crossentropy'
   BINARY_CE = 'binary_crossentropy'
 
-  def __init__(self, transform_graph_dir: str, label_key: str,
-               num_classes: int):
+  def __init__(self, transform_graph_dir: str, label_key: str, num_classes: int,
+               dataset_name: str):
     """Initializes the DataProvider from TFX artifacts.
 
     Args:
       transform_graph_dir: Path to the TensorFlow Transform graph artifacts.
       label_key: String label key.
       num_classes: Number of classes.
+      dataset_name: String name of the dataset.
 
     Raises:
       ValueError: When `num_classes` < 2.
@@ -144,6 +224,11 @@ class KerasDataProvider():
     self._dataset_schema = self._tf_transform_output.transformed_metadata.schema
     self._label_key = label_key
     self._num_classes = num_classes
+    self._dataset_name = dataset_name
+
+  @property
+  def dataset_name(self) -> Text:
+    return self._dataset_name
 
   @property
   def raw_label_keys(self) -> List[Text]:
@@ -386,7 +471,7 @@ class KerasDataProvider():
 
   def get_input_fn(
       self,
-      file_pattern: Text,
+      file_pattern: List[Text],
       batch_size: int,
       num_epochs: Optional[int] = None,
       shuffle: Optional[bool] = True,
@@ -490,8 +575,17 @@ def _get_feature_dim(schema: schema_pb2.Schema, feature_name: Text) -> int:
   raise ValueError('Feature not found: {}'.format(feature_name))
 
 
-def _build_keras_model(data_provider: KerasDataProvider) -> tf.keras.Model:
-  """Returns a Keras Model for the given data adapter."""
+def _build_keras_model(data_provider: KerasDataProvider,
+                       hparams: kerastuner.HyperParameters) -> tf.keras.Model:
+  """Returns a Keras Model for the given data adapter.
+
+  Args:
+    data_provider: Data adaptor used to get the task information.
+    hparams: Hyperparameters of the model.
+
+  Returns:
+    A keras model for the given adapter and hyperparams.
+  """
 
   feature_columns = data_provider.get_numeric_feature_columns(
   ) + data_provider.get_embedding_feature_columns()
@@ -501,7 +595,9 @@ def _build_keras_model(data_provider: KerasDataProvider) -> tf.keras.Model:
   assert len(feature_columns) >= len(input_layers)
 
   x = tf.keras.layers.DenseFeatures(feature_columns)(input_layers)
-  for numnodes in [128, 128]:
+
+  hparam_nodes = hparams.get('num_nodes')
+  for numnodes in [hparam_nodes] * hparams.get('num_layers'):
     x = tf.keras.layers.Dense(numnodes)(x)
   output = tf.keras.layers.Dense(
       data_provider.head_size,
@@ -512,7 +608,8 @@ def _build_keras_model(data_provider: KerasDataProvider) -> tf.keras.Model:
   model = tf.keras.Model(input_layers, output)
   model.compile(
       loss=data_provider.loss,
-      optimizer=tf.keras.optimizers.Adam(lr=0.001),
+      optimizer=tf.keras.optimizers.Adam(
+          lr=float(hparams.get('learning_rate'))),
       metrics=data_provider.metrics)
   model.summary()
 

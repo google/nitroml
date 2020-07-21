@@ -26,6 +26,7 @@ class Task:
   REGRESSION = 'regression'
 
   def __init__(self,
+               dataset_name: str,
                task_type: str,
                label_key: str,
                num_classes: int = 0,
@@ -35,6 +36,7 @@ class Task:
     if not self._verify_task(task_type):
       raise ValueError('Invalid task type')
 
+    self._dataset_name = dataset_name
     self._type = task_type
     self._num_classes = num_classes
     self._description = description
@@ -53,6 +55,10 @@ class Task:
     ]
 
   @property
+  def dataset_name(self):
+    return self._dataset_name
+
+  @property
   def type(self):
     return self._type
 
@@ -68,6 +74,7 @@ class Task:
     """Convert task attributes to dictionary."""
 
     return_dict = {}
+    return_dict['dataset_name'] = self._dataset_name
     return_dict['description'] = self._description
     return_dict['task_type'] = self._type
     return_dict['num_classes'] = self._num_classes
