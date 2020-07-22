@@ -1,7 +1,7 @@
 {
   "data_set_description": {
     "id": "1",
-    "name": "mock-data",
+    "name": "mockdata",
     "version": "1",
     "description": "",
     "format": "ARFF",
