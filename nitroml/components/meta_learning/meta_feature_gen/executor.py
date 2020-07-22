@@ -16,6 +16,7 @@
 """Executor for MetaFeatureGen."""
 
 import os
+import json
 from typing import Any, Dict, List, Text
 
 from absl import logging
@@ -24,6 +25,10 @@ from tfx.utils import io_utils
 from tfx.components.base import base_executor
 from tfx.types.artifact import Artifact
 import tensorflow_data_validation as tfdv
+from tensorflow_metadata.proto.v0 import statistics_pb2
+
+# Default file name for generated MetaFeature file.
+_DEFAULT_FILE_NAME = 'meta_features.txt'
 
 
 class MetaFeatureGenExecutor(base_executor.BaseExecutor):
@@ -53,12 +58,33 @@ class MetaFeatureGenExecutor(base_executor.BaseExecutor):
           'DatasetFeatureStatisticsList proto contains multiple datasets. Only '
           'one dataset is currently supported.')
     stats = stats.datasets[0]
-    logging.info('Number of examples: {%s}', stats.num_examples)
+
+    num_float_features = 0
+    num_int_features = 0
+    num_categorical_features = 0
     for feature in stats.features:
-      logging.info(feature)
+      name = feature.name
+      if not name:
+        name = feature.path.step[0]
+      logging.info('Feature Name: %s', name)
 
-    fname = os.path.join(
+      if statistics_pb2.FeatureNameStatistics.FLOAT == feature.type:
+        num_float_features += 1
+      elif statistics_pb2.FeatureNameStatistics.INT == feature.type:
+        num_int_features += 1
+      else:
+        num_categorical_features += 1
+
+    meta_feature_dict = {
+        'num_examples': stats.num_examples,
+        'num_int_features': num_int_features,
+        'num_float_features': num_float_features,
+        'num_categorical_features': num_categorical_features,
+    }
+
+    meta_feature_path = os.path.join(
         artifact_utils.get_single_uri(output_dict['meta_features']),
-        'meta_features')
+        _DEFAULT_FILE_NAME)
 
-    logging.info(fname)
+    io_utils.write_string_file(meta_feature_path, json.dumps(meta_feature_dict))
+    logging.info('MetaFeature saved at %s', meta_feature_path)
