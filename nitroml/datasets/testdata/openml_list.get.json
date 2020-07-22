@@ -3,7 +3,7 @@
     "dataset": [
       {
         "did": 1,
-        "name": "mock-data",
+        "name": "mockdata",
         "version": 1,
         "status": "active",
         "format": "ARFF",

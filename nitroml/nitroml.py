@@ -99,9 +99,10 @@ def _qualified_name(prefix: Text, name: Text) -> Text:
 class _BenchmarkPipeline(object):
   """A pipeline for a benchmark."""
 
-  def __init__(self, benchmark_name: Text,
+  def __init__(self,
+               benchmark_name: Text,
                base_pipeline: List[base_component.BaseComponent],
-               evaluator: tfx.Evaluator):
+               evaluator: tfx.Evaluator = None):
     self._benchmark_name = benchmark_name
     self._base_pipeline = base_pipeline
     self._evaluator = evaluator
@@ -120,18 +121,27 @@ class _BenchmarkPipeline(object):
 
   @property
   def pipeline(self) -> List[base_component.BaseComponent]:
-    return self._base_pipeline + [self._evaluator]
+    if self._evaluator:
+      return self._base_pipeline + [self._evaluator]
+    else:
+      return self._base_pipeline
 
 
 class _RepeatablePipeline(object):
   """A repeatable benchmark."""
 
-  def __init__(self, benchmark_pipeline: _BenchmarkPipeline, repetition: int,
-               num_repetitions: int):
+  def __init__(self,
+               benchmark_pipeline: _BenchmarkPipeline,
+               repetition: int,
+               num_repetitions: int,
+               add_publisher: bool = True,
+               **kwargs):
+
     self.benchmark_pipeline = benchmark_pipeline
     self._repetition = repetition
     self._num_repetitions = num_repetitions
     self._publisher = None
+    self._add_publisher = add_publisher
 
   @property
   def benchmark_name(self) -> Text:
@@ -152,7 +162,10 @@ class _RepeatablePipeline(object):
 
   @property
   def components(self) -> List[base_component.BaseComponent]:
-    return self.benchmark_pipeline.pipeline + [self.publisher]
+    if self._add_publisher:
+      return self.benchmark_pipeline.pipeline + [self.publisher]
+    else:
+      return self.benchmark_pipeline.pipeline
 
 
 class _ConcatenatedPipelineBuilder(object):
@@ -346,6 +359,10 @@ class Benchmark(abc.ABC):
     self._result.pipelines.append(
         _BenchmarkPipeline(benchmark_name, pipeline, evaluator))
 
+  def test_without_evaluate(self, pipeline):
+    benchmark_name = self._benchmark.id()
+    self._result.pipelines.append(_BenchmarkPipeline(benchmark_name, pipeline))
+
   def id(self) -> Text:
     """The unique ID of this benchmark."""
 
@@ -485,7 +502,8 @@ def run(benchmarks: List[Benchmark],
               _RepeatablePipeline(
                   pipeline,
                   repetition=benchmark_run + 1,  # One-index runs.
-                  num_repetitions=runs_per_benchmark))
+                  num_repetitions=runs_per_benchmark,
+                  **kwargs))
   pipeline_builder = _ConcatenatedPipelineBuilder(pipelines)
   benchmark_pipeline = pipeline_builder.build(pipeline_name, pipeline_root,
                                               metadata_connection_config,

@@ -1,6 +1,7 @@
-"bkblk","bknwy","bkon8","bkona","bkspr","bkxbq","bkxcr","bkxwp","blxwp","bxqsq","cntxt","dsopp","dwipd","hdchk","katri","mulch","qxmsq","r2ar8","reskd","reskr","rimmx","rkxwp","rxmsq","simpl","skach","skewr","skrxp","spcop","stlmt","thrsk","wkcti","wkna8","wknck","wkovl","wkpos","wtoeg","class"
-'f','f','f','f','f','f','f','f','f','f','f','f','l','f','n','f','f','t','f','f','f','f','f','f','f','t','f','f','f','f','f','f','f','t','t','n','won'
-'f','f','f','f','t','f','f','f','f','f','f','f','l','f','n','f','f','t','f','f','f','f','f','f','f','t','f','f','f','f','f','f','f','t','t','n','won'
-'f','f','f','f','t','f','t','f','f','f','f','f','l','f','n','f','f','t','f','f','f','f','f','f','f','t','f','f','f','f','f','f','f','t','t','n','won'
-'f','f','f','f','f','f','f','f','f','f','f','f','g','f','n','f','f','t','f','f','f','f','f','t','f','f','f','f','f','f','f','f','t','t','t','t','nowin'
-'f','f','f','f','f','f','f','f','f','f','f','f','g','f','n','f','f','t','f','f','f','f','t','f','f','f','f','f','f','f','f','f','f','t','t','t','nowin'
+"mock_feature_string","mock_feature_int","mock_feature_float","class"
+'a',10,0.1,'yes'
+'b',20,0.2,'no'
+'b',30,0.3,'yes'
+'a',40,0.4,'no'
+'c',50,0.5,'no'
+'c',60,0.6,'yes'

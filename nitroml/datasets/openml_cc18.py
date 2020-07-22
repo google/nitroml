@@ -61,6 +61,9 @@ class OpenMLCC18:
     if not mock_data and not api_key:
       raise ValueError("API_KEY cannot be ''")
 
+    if root_dir is None:
+      raise ValueError('root_dir cannot be None.')
+
     self._components = []
     self._tasks = []
     self._names = []
