@@ -38,9 +38,7 @@ from tfx import components as tfx
 from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
-from nitroml.components.meta_learning.nearest_neighbor.component import NearestNeighborMetaLearner
-from tfx import types
-from tfx.types import standard_artifacts
+from nitroml.components.meta_learning import meta_learning_wrapper
 
 
 class OpenMLCC18MetaLearning(nitroml.Benchmark):
@@ -56,14 +54,18 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
     datasets = openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data)
     dataset_indices = range(len(datasets.names))
     # meta_datasets = ['adult', 'car', 'segment']
-    meta_datasets = ['mockdata', 'mockdata', ]
-    meta_train_datasets = meta_datasets[:2]
-    meta_test_datasets = meta_datasets[2:3]
+    meta_datasets = [
+        'mockdata',
+        'mockdata',
+    ]
+    meta_train_datasets = meta_datasets[:1]
+    meta_test_datasets = meta_datasets[1:2]
 
-    train_stats_artifacts = []
-    test_stats_artifacts = []
+    train_stat_gens = []
+    test_stat_gens = []
+
     pipeline = []
-    train_statistics = {}
+
     for ix in [0, 1]:
 
       name = datasets.names[0]
@@ -72,23 +74,27 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
       if name.lower() not in meta_datasets:
         logging.info('Skipping %s', name)
         continue
-      elif name.lower() in meta_train_datasets:
-        is_meta_train = True
-      else:
-        is_meta_train = False
 
       example_gen = datasets.components[0]
       pipeline.append(example_gen)
 
-      statistics_gen = tfx.StatisticsGen(
+      stats_gen = tfx.StatisticsGen(
           examples=example_gen.outputs.examples, instance_name=name + f'_{ix}')
-      pipeline.append(statistics_gen)
+      pipeline.append(stats_gen)
 
-      train_statistics[
-          f'train_statistics_{ix}'] = statistics_gen.outputs.statistics
+      #TODO(nikhilmehta): Remove the ix == 0 check.
+      if name.lower() in meta_train_datasets and ix == 0:
+        train_stat_gens.append(stats_gen)
+      else:
+        test_stat_gens.append(stats_gen)
 
-    meta_learner = NearestNeighborMetaLearner(**train_statistics)
-    pipeline.append(meta_learner)
+    meta_learner_helper = meta_learning_wrapper.MetaLearningWrapper(
+        train_transformed_examples=None,
+        train_stats_gens=train_stat_gens,
+        test_transformed_examples=None,
+        test_stats_gens=test_stat_gens)
+
+    pipeline = pipeline + meta_learner_helper.pipeline
 
     self.test_without_evaluate(pipeline)
 
