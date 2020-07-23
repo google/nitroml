@@ -26,7 +26,7 @@ from tfx.components.base import base_component
 from tfx.proto import example_gen_pb2
 from tfx.utils.dsl_utils import external_input
 
-from tensorflow_metadata.proto.v0 import problem_statement_pb2 as ps_pb2
+from nitroml.protos import problem_statement_pb2 as ps_pb2
 
 
 class TFDSTask(task.Task):

@@ -29,7 +29,7 @@ import tensorflow_transform as tft
 from tfx.components.trainer import executor as trainer_executor
 
 from google.protobuf import text_format
-from tensorflow_metadata.proto.v0 import problem_statement_pb2 as ps_pb2
+from nitroml.protos import problem_statement_pb2 as ps_pb2
 from tensorflow_metadata.proto.v0 import schema_pb2
 
 FeatureColumn = Any

@@ -23,7 +23,7 @@ from tfx import components as tfx
 from tfx import types
 from tfx.components.base import base_component
 
-from tensorflow_metadata.proto.v0 import problem_statement_pb2 as ps_pb2
+from nitroml.protos import problem_statement_pb2 as ps_pb2
 
 
 class OpenMLTask(task.Task):
