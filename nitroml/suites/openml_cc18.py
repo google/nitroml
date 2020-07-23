@@ -13,21 +13,21 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-r"""The OpenML dataset provider."""
+r"""The OpenML-CC18 suite of benchmark tasks."""
 
 from concurrent import futures
 import datetime
 import functools
 import json
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Iterator
 
 from absl import logging
-from nitroml.datasets import data_utils
-from nitroml.datasets import task
+from nitroml.suites import data_utils
+from nitroml.suites import suite
+from nitroml.tasks import openml
+from nitroml.tasks import task
 import tensorflow as tf
-from tfx.components.base import base_component
-from tfx.components.example_gen.csv_example_gen.component import CsvExampleGen
 
 _OPENML_API_URL = 'https://www.openml.org/api/v1/json'
 _OPENML_FILE_API_URL = 'https://www.openml.org/data/v1'
@@ -35,13 +35,12 @@ _DATASET_FILTERS = ['status=active', 'tag=OpenML-CC18']
 _OPENML_API_KEY = 'OPENML_API_KEY'
 
 
-class OpenMLCC18:
-  """The OpenML Dataset Handler.
+class OpenMLCC18(suite.Suite):
+  """The OpenML-CC18 suite of benchmark tasks.
 
-  The handler downloads the suite of CC18 datasets provided by OpenML and
-  creates
-  the ExampleGen components from the raw CSV files which can be used in a TFX
-  pipeline.
+  The object downloads the suite of OpenML-CC18 datasets provided by OpenML
+  and creates the ExampleGen components from the raw CSV files which can be
+  used in a TFX pipeline.
   """
 
   def __init__(self,
@@ -60,9 +59,7 @@ class OpenMLCC18:
     if not mock_data and not api_key:
       raise ValueError("API_KEY cannot be ''")
 
-    self._components = []
     self._tasks = []
-    self._names = []
     self.root_dir = os.path.join(root_dir, 'openML_datasets')
     self.max_threads = max_threads
     self.api_key = api_key
@@ -79,42 +76,17 @@ class OpenMLCC18:
 
       if tf.io.gfile.exists(self.root_dir):
         logging.info(
-            'The directory %s already exists. Removing it and downloading OpenMLCC18 again.',
-            self.root_dir)
+            'The directory %s already exists. '
+            'Removing it and downloading OpenMLCC18 again.', self.root_dir)
 
         tf.io.gfile.rmtree(self.root_dir)
 
       self._get_data()
 
-  @property
-  def names(self) -> List[str]:
-    """Returns the names of all OpenML datasets."""
-
-    if not self._names:
-      self._names = [
-          data_utils.convert_to_valid_identifier(name)
-          for name in tf.io.gfile.listdir(self.root_dir)
-      ]
-
-    return self._names
-
-  @property
-  def components(self) -> List[base_component.BaseComponent]:
-    """Returns the components for tfx pipeline."""
-
-    if not self._components:
-      self._components = self._create_components()
-
-    return self._components
-
-  @property
-  def tasks(self) -> List[task.Task]:
-    """Returns the list of task information for the openML datasets."""
-
+  def __iter__(self) -> Iterator[task.Task]:
     if not self._tasks:
       self._tasks = self._create_tasks()
-
-    return self._tasks
+    return iter(self._tasks)
 
   def _load_task(self, dataset_name: str) -> task.Task:
     """Loads the task information for the argument dataset."""
@@ -124,9 +96,10 @@ class OpenMLCC18:
         mode='r') as fin:
       data = json.load(fin)
       data['dataset_name'] = dataset_name
-      return_task = task.Task(**data)
-
-    return return_task
+      return openml.OpenML(
+          name=data_utils.convert_to_valid_identifier(dataset_name),
+          root_dir=self.root_dir,
+          **data)
 
   def _create_tasks(self) -> List[task.Task]:
     """Creates and returns the list of task properties for openML datasets."""
@@ -136,18 +109,6 @@ class OpenMLCC18:
       tasks.append(self._load_task(dataset_name))
 
     return tasks
-
-  def _create_components(self) -> List[base_component.BaseComponent]:
-    """Creates and returns the list of components for OpenML datasets."""
-
-    components = []
-
-    for dataset_name in tf.io.gfile.listdir(self.root_dir):
-      dataset_dir = os.path.join(self.root_dir, f'{dataset_name}', 'data')
-      example_gen = CsvExampleGen(input_base=dataset_dir)
-      components.append(example_gen)
-
-    return components
 
   def _get_data(self):
     """Downloads openML datasets using the OpenML API."""
@@ -292,20 +253,20 @@ class OpenMLCC18:
         f'type={task_type}. Fetched from OpenML servers '
         f'on {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.')
 
-    task_desc = task.Task(
-        dataset_name=dataset_name,
-        task_type=task_type,
-        num_classes=n_classes,
-        label_key=target_name,
-        description=description)
-
     task_dir = os.path.join(dataset_dir, 'task')
     if not tf.io.gfile.isdir(task_dir):
       tf.io.gfile.makedirs(task_dir)
 
     task_path = os.path.join(task_dir, 'task.json')
+    task_desc = {
+        'dataset_name': dataset_name,
+        'task_type': task_type,
+        'num_classes': n_classes,
+        'label_key': target_name,
+        'description': description
+    }
     with tf.io.gfile.GFile(task_path, mode='w') as fout:
-      json.dump(task_desc.to_dict(), fout)
+      json.dump(task_desc, fout)
 
     logging.info('OpenML dataset with id=%d, name=%s, on %s.', dataset_id,
                  dataset_name,
@@ -406,8 +367,8 @@ class OpenMLCC18:
     """
 
     if n_classes == 2:
-      return task.Task.BINARY_CLASSIFICATION
+      return openml.OpenML.BINARY_CLASSIFICATION
     elif n_classes > 2:
-      return task.Task.CATEGORICAL_CLASSIFICATION
+      return openml.OpenML.CATEGORICAL_CLASSIFICATION
 
-    return task.Task.REGRESSION
+    return openml.OpenML.REGRESSION

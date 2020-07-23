@@ -13,20 +13,14 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Package nitroml."""
+"""Package nitroml.tasks."""
 
-from nitroml import suites
-from nitroml import tasks
-from nitroml.nitroml import Benchmark
-from nitroml.nitroml import get_default_kubeflow_dag_runner
-from nitroml.nitroml import main
-from nitroml.nitroml import run
+from nitroml.tasks.openml import OpenML
+from nitroml.tasks.task import Task
+from nitroml.tasks.tfds_task import TFDSTask
 
 __all__ = [
-    "suites",
-    "tasks",
-    "Benchmark",
-    "get_default_kubeflow_dag_runner",
-    "main",
-    "run",
+    "OpenML",
+    "Task",
+    "TFDSTask",
 ]

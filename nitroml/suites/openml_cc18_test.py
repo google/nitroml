@@ -13,15 +13,14 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Tests for nitroml.datasets.openML_datasets.py."""
+"""Tests for nitroml.suites.openml_cc18."""
 
 import os
-import tempfile
 
 from absl.testing import absltest
 from absl.testing import parameterized
-from nitroml.datasets import openml_cc18
-from nitroml.datasets import testing_utils
+from nitroml.suites import openml_cc18
+from nitroml.suites import testing_utils
 import requests_mock
 
 
@@ -37,21 +36,20 @@ class OpenMLCC18Test(parameterized.TestCase, absltest.TestCase):
   @parameterized.named_parameters(
       {
           'testcase_name': 'openML_default',
-          'root_dir': os.path.join(tempfile.gettempdir(), 'openML_mock_data'),
           'use_cache': False,
       }, {
           'testcase_name': 'openML_use-cache',
-          'root_dir': os.path.join(tempfile.gettempdir(), 'openML_mock_data'),
           'use_cache': True,
       })
-  def test_examples(self, root_dir, use_cache):
+  def test_examples(self, use_cache):
 
+    root_dir = os.path.join(absltest.get_default_test_tmpdir(),
+                            'openML_mock_data')
     with requests_mock.Mocker() as mocker:
       testing_utils.register_mock_urls(mocker)
-      datasets = openml_cc18.OpenMLCC18(root_dir, use_cache, mock_data=True)
+      suite = openml_cc18.OpenMLCC18(root_dir, use_cache, mock_data=True)
 
-    self.assertNotEmpty(datasets.components)
-    self.assertEqual(len(datasets.tasks), len(datasets.components))
+    self.assertNotEmpty(list(suite))
 
 
 if __name__ == '__main__':

@@ -15,9 +15,17 @@
 # Lint as: python3
 r"""Task class to identify the type of problem."""
 
+import os
+from typing import Any, Dict, List
 
-class Task:
-  r"""Task class to track the task associated with the benchmark."""
+from nitroml.tasks import task
+from tfx import components as tfx
+from tfx import types
+from tfx.components.base import base_component
+
+
+class OpenML(task.Task):
+  r"""Defines an OpenML task for an AutoML pipeline."""
 
   # Note: We may have to clear the saved task objects if we change these
   # constants.
@@ -26,21 +34,24 @@ class Task:
   REGRESSION = 'regression'
 
   def __init__(self,
+               name: str,
+               root_dir: str,
                dataset_name: str,
                task_type: str,
                label_key: str,
                num_classes: int = 0,
                description: str = ''):
-    super().__init__()
-
     if not self._verify_task(task_type):
       raise ValueError('Invalid task type')
 
+    self._name = name
     self._dataset_name = dataset_name
     self._type = task_type
     self._num_classes = num_classes
     self._description = description
     self._label_key = label_key
+    self._example_gen = tfx.CsvExampleGen(
+        input_base=os.path.join(root_dir, f'{dataset_name}', 'data'))
 
   def __str__(self):
     return (f'Task: {self._type} \nClasses: {self._num_classes} \n'
@@ -50,9 +61,13 @@ class Task:
     """Verify if task_type is among valid tasks or not."""
 
     return task_type in [
-        Task.BINARY_CLASSIFICATION, Task.CATEGORICAL_CLASSIFICATION,
-        Task.REGRESSION
+        self.BINARY_CLASSIFICATION, self.CATEGORICAL_CLASSIFICATION,
+        self.REGRESSION
     ]
+
+  @property
+  def name(self):
+    return self._name
 
   @property
   def dataset_name(self):
@@ -70,7 +85,17 @@ class Task:
   def label_key(self):
     return self._label_key
 
-  def to_dict(self):
+  @property
+  def components(self) -> List[base_component.BaseComponent]:
+    return [self._example_gen]
+
+  @property
+  def examples(self) -> types.Channel:
+    """Returns train and eval labeled examples."""
+
+    return self._example_gen.outputs.examples
+
+  def to_dict(self) -> Dict[str, Any]:
     """Convert task attributes to dictionary."""
 
     return_dict = {}

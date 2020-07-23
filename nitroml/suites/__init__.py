@@ -13,4 +13,12 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Package nitroml.datasets."""
+"""Package nitroml.suites."""
+
+from nitroml.suites.openml_cc18 import OpenMLCC18
+from nitroml.suites.suite import Suite
+
+__all__ = [
+    "OpenMLCC18",
+    "Suite",
+]

@@ -13,31 +13,28 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Tests for nitroml.datasets.tfds_dataset.py."""
+"""Tests for nitroml.tasks.tfds_task.py."""
 
 import os
 
 from absl.testing import absltest
 from absl.testing import parameterized
-from nitroml.datasets import tfds_dataset
+from nitroml.tasks import tfds_task
 import tensorflow_datasets as tfds
 
 
-class TFDSDatasetTest(parameterized.TestCase, absltest.TestCase):
+class TFDSTaskTest(parameterized.TestCase, absltest.TestCase):
 
   @parameterized.named_parameters(
       {
-          'testcase_name':
-              'titanic',
-          'dataset_fn':
-              lambda: tfds_dataset.TFDSDataset(tfds.builder('titanic')),
-          'want_name':
-              'titanic'
+          'testcase_name': 'titanic',
+          'dataset_fn': lambda: tfds_task.TFDSTask(tfds.builder('titanic')),
+          'want_name': 'titanic'
       }, {
           'testcase_name':
               'fashion_mnist',
           'dataset_fn':
-              lambda: tfds_dataset.TFDSDataset(tfds.builder('fashion_mnist')),
+              lambda: tfds_task.TFDSTask(tfds.builder('fashion_mnist')),
           'want_name':
               'fashion_mnist'
       })

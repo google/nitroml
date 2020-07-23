@@ -13,20 +13,29 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Package nitroml."""
+r"""An AutoML benchmark tasks."""
 
-from nitroml import suites
-from nitroml import tasks
-from nitroml.nitroml import Benchmark
-from nitroml.nitroml import get_default_kubeflow_dag_runner
-from nitroml.nitroml import main
-from nitroml.nitroml import run
+import abc
+from typing import Any, Dict, List
+from tfx import types
+from tfx.components.base import base_component
 
-__all__ = [
-    "suites",
-    "tasks",
-    "Benchmark",
-    "get_default_kubeflow_dag_runner",
-    "main",
-    "run",
-]
+
+class Task(abc.ABC):
+  r"""Defines a Task for AutoML."""
+
+  @abc.abstractproperty
+  def name(self) -> str:
+    """Returns the task's name."""
+
+  @abc.abstractproperty
+  def components(self) -> List[base_component.BaseComponent]:
+    """Returns TFX components required for the task."""
+
+  @abc.abstractproperty
+  def examples(self) -> types.Channel:
+    """Returns train and eval labeled examples."""
+
+  @abc.abstractmethod
+  def to_dict(self) -> Dict[str, Any]:
+    """Convert task attributes to a dictionary."""

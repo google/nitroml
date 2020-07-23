@@ -13,7 +13,7 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""NitroML: Accelerate AutoML development.
+"""NitroML: Accelerate AutoML research.
 
 go/nitroml
 

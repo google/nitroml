@@ -15,10 +15,10 @@
 # Lint as: python3
 r"""A dataset from a TFDS Dataset."""
 
-from typing import List, Text
+from typing import Any, Dict, List, Text
 
 from absl import logging
-from nitroml.datasets import task
+from nitroml.tasks import task
 import tensorflow_datasets as tfds
 from tfx import components as tfx
 from tfx import types
@@ -27,8 +27,8 @@ from tfx.proto import example_gen_pb2
 from tfx.utils.dsl_utils import external_input
 
 
-class TFDSDataset(object):
-  """A NitroML Dataset wrapper around a TensorFlow Datasets (TFDS) Dataset."""
+class TFDSTask(task.Task):
+  """A NitroML Task from a TensorFlow Datasets (TFDS) Dataset."""
 
   def __init__(self, dataset_builder: tfds.core.DatasetBuilder):
     """A NitroML dataset from a TFDS DatasetBuilder.
@@ -36,13 +36,13 @@ class TFDSDataset(object):
     Args:
       dataset_builder: A `tfds.DatasetBuilder` instance which defines the
         TFDS dataset to use. Example: `dataset =
-          TFDSDataset(tfds.builder('titanic'))`
+          TFDSTask(tfds.builder('titanic'))`
     """
 
     # TODO(b/159086401): Download and prepare the dataset in a component
     # instead of at construction time, so that this step happens lazily during
     # pipeline execution.
-    logging.info("Preparing dataset...")
+    logging.info('Preparing dataset...')
     dataset_builder.download_and_prepare()
     logging.info(dataset_builder.info)
 
@@ -60,7 +60,7 @@ class TFDSDataset(object):
       pattern = value.filenames[0]
       splits.append(example_gen_pb2.Input.Split(name=name, pattern=pattern))
 
-    logging.info("Splits: %s", splits)
+    logging.info('Splits: %s', splits)
     input_config = example_gen_pb2.Input(splits=splits)
     return tfx.ImportExampleGen(
         input=external_input(self._dataset_builder.data_dir),
@@ -80,22 +80,13 @@ class TFDSDataset(object):
 
     return self._example_gen.outputs.examples
 
-  @property
-  def task(self) -> task.Task:
-    """Returns the Task for this dataset."""
+  def to_dict(self) -> Dict[str, Any]:
+    """Convert task attributes to dictionary."""
 
+    return_dict = {}
     # TODO(github.com/googleinterns/nitroml/issues/29): Infer num_classes using
     # vocab (after SchemaGen or TFT).
-    num_classes = 2
-    task_type = task.Task.BINARY_CLASSIFICATION
-    description = self._dataset_builder.info.description
-    label_key = self._dataset_builder.info.supervised_keys[1]
-    dataset_name = self._dataset_builder.name
-    titanic_task = task.Task(
-        dataset_name=dataset_name,
-        task_type=task_type,
-        num_classes=num_classes,
-        description=description,
-        label_key=label_key)
-
-    return titanic_task
+    return_dict['num_classes'] = 2
+    return_dict['label_key'] = self._dataset_builder.info.supervised_keys[1]
+    return_dict['dataset_name'] = self._dataset_builder.name
+    return return_dict

@@ -14,7 +14,7 @@
 # =============================================================================
 # Lint as: python3
 # pyformat: disable
-r"""Demos a basic NitroML benchmark on 'OpenMLCC18' datasets from OpenML.
+r"""Demos a basic NitroML benchmark on the 'OpenML-CC18' suite from OpenML.
 
 To run in open-source:
 
@@ -30,7 +30,6 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
 from nitroml.components.transform import component
-from nitroml.datasets import openml_cc18
 from examples import config
 from tfx import components as tfx
 from tfx.components.base import executor_spec
@@ -39,52 +38,51 @@ from tfx.proto import trainer_pb2
 
 
 class OpenMLCC18Benchmark(nitroml.Benchmark):
-  r"""Demos a NitroML benchmark on the 'OpenML-CC18' classification datasets."""
+  r"""Demos a NitroML benchmark on the 'OpenML-CC18' classification tasks."""
 
   def benchmark(self,
                 mock_data: bool = False,
                 data_dir: str = None,
                 use_keras: bool = True,
                 enable_tuning: bool = True):
+    for i, task in enumerate(
+        nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data)):
 
-    # TODO(nikhilmehta): create subbenchmarks using all 72 datasets
-    # Kubeflow throws a "Max work worflow size error" when #components are large.
-    # Track issue: https://github.com/kubeflow/pipelines/issues/4170
-    datasets = openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data)
+      if not mock_data and i not in range(21, 40):
+        # Use only 20 of the datasets for now.
+        # TODO(nikhilmehta): Create subbenchmarks for all 72 tasks.
+        # Kubeflow throws a "Max work worflow size error" when pipeline contains
+        # too many components.
+        # Track issue: https://github.com/kubeflow/pipelines/issues/4170
+        continue
 
-    if mock_data:
-      dataset_indices = [0]
-    else:
-      dataset_indices = range(21, 40)
+      with self.sub_benchmark(task.name):
 
-    for ix in dataset_indices:
-      name = datasets.names[ix]
+        # Compute dataset statistics.
+        statistics_gen = tfx.StatisticsGen(examples=task.examples)
 
-      with self.sub_benchmark(name):
-        example_gen = datasets.components[ix]
-
-        statistics_gen = tfx.StatisticsGen(
-            examples=example_gen.outputs.examples)
-
+        # Infer the dataset schema.
         schema_gen = tfx.SchemaGen(
             statistics=statistics_gen.outputs.statistics,
             infer_feature_shape=True)
 
+        # Apply global transformations and compute vocabularies.
         transform = component.Transform(
-            examples=example_gen.outputs.examples,
+            examples=task.examples,
             schema=schema_gen.outputs.schema,
             preprocessing_fn='examples.auto_transform.preprocessing_fn')
 
-        pipeline = [example_gen, statistics_gen, schema_gen, transform]
+        pipeline = task.components + [statistics_gen, schema_gen, transform]
 
         if enable_tuning:
+          # Search over search space of model hyperparameters.
           tuner = tfx.Tuner(
               tuner_fn='examples.auto_trainer.tuner_fn',
               examples=transform.outputs.transformed_examples,
               transform_graph=transform.outputs.transform_graph,
               train_args=trainer_pb2.TrainArgs(num_steps=10),
               eval_args=trainer_pb2.EvalArgs(num_steps=5),
-              custom_config=datasets.tasks[ix].to_dict())
+              custom_config=task.to_dict())
           pipeline.append(tuner)
 
         # Define a Trainer to train our model on the given task.
@@ -100,7 +98,7 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
             eval_args=trainer_pb2.EvalArgs(num_steps=10),
             hyperparameters=(tuner.outputs.best_hyperparameters
                              if enable_tuning else None),
-            custom_config=datasets.tasks[ix].to_dict())
+            custom_config=task.to_dict())
 
         pipeline.append(trainer)
 
@@ -108,9 +106,7 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
         # automatically append Evaluators to compute metrics from the given
         # SavedModel and 'eval' TF Examples.
         self.evaluate(
-            pipeline,
-            examples=example_gen.outputs['examples'],
-            model=trainer.outputs.model)
+            pipeline, examples=task.examples, model=trainer.outputs.model)
 
 
 if __name__ == '__main__':
