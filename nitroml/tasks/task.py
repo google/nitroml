@@ -20,7 +20,7 @@ from typing import List
 from tfx import types
 from tfx.components.base import base_component
 
-from tensorflow_metadata.proto.v0 import problem_statement_pb2 as ps_pb2
+from nitroml.protos import problem_statement_pb2 as ps_pb2
 
 
 class Task(abc.ABC):

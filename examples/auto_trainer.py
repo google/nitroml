@@ -32,7 +32,7 @@ from tfx.components.trainer import fn_args_utils
 from tfx.components.tuner.component import TunerFnResult
 
 from google.protobuf import text_format
-from tensorflow_metadata.proto.v0 import problem_statement_pb2 as ps_pb2
+from nitroml.protos import problem_statement_pb2 as ps_pb2
 from tensorflow_metadata.proto.v0 import schema_pb2
 
 FeatureColumn = Any
