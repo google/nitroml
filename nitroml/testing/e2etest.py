@@ -25,6 +25,7 @@ nitroml/examples/titanic_benchmark_test.py.
 
 import json
 import os
+import sys
 import tempfile
 from typing import List, Text
 
@@ -60,6 +61,7 @@ class TestCase(parameterized.TestCase, absltest.TestCase):
     """
     super(TestCase, self).setUp()
 
+    FLAGS(sys.argv)  # Required for tests that use flags in open-source.
     tempdir = tempfile.mkdtemp(dir=absltest.get_default_test_tmpdir())
     self.pipeline_name = "autodata_test"
     self.pipeline_root = os.path.join(tempdir, self.pipeline_name)

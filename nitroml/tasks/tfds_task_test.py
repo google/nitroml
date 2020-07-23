@@ -28,24 +28,21 @@ class TFDSTaskTest(parameterized.TestCase, absltest.TestCase):
   @parameterized.named_parameters(
       {
           'testcase_name': 'titanic',
-          'dataset_fn': lambda: tfds_task.TFDSTask(tfds.builder('titanic')),
+          'task_fn': lambda: tfds_task.TFDSTask(tfds.builder('titanic')),
           'want_name': 'titanic'
       }, {
-          'testcase_name':
-              'fashion_mnist',
-          'dataset_fn':
-              lambda: tfds_task.TFDSTask(tfds.builder('fashion_mnist')),
-          'want_name':
-              'fashion_mnist'
+          'testcase_name': 'fashion_mnist',
+          'task_fn': lambda: tfds_task.TFDSTask(tfds.builder('fashion_mnist')),
+          'want_name': 'fashion_mnist'
       })
-  def test_examples(self, dataset_fn, want_name):
+  def test_examples(self, task_fn, want_name):
     with tfds.testing.mock_data(
         num_examples=5,
         data_dir=os.path.join(os.path.dirname(__file__), 'testdata')):
-      dataset = dataset_fn()
-      self.assertEqual(want_name, dataset.name)
-      self.assertIsNotNone(dataset.examples)
-      self.assertLen(dataset.components, 1)
+      task = task_fn()
+      self.assertEqual(want_name, task.name)
+      self.assertIsNotNone(task.train_and_eval_examples)
+      self.assertLen(task.components, 1)
 
 
 if __name__ == '__main__':

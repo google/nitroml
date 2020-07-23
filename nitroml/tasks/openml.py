@@ -90,7 +90,7 @@ class OpenML(task.Task):
     return [self._example_gen]
 
   @property
-  def examples(self) -> types.Channel:
+  def train_and_eval_examples(self) -> types.Channel:
     """Returns train and eval labeled examples."""
 
     return self._example_gen.outputs.examples

@@ -33,9 +33,10 @@ class Task(abc.ABC):
     """Returns TFX components required for the task."""
 
   @abc.abstractproperty
-  def examples(self) -> types.Channel:
+  def train_and_eval_examples(self) -> types.Channel:
     """Returns train and eval labeled examples."""
 
-  @abc.abstractmethod
   def to_dict(self) -> Dict[str, Any]:
     """Convert task attributes to a dictionary."""
+
+    return {}

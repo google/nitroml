@@ -59,7 +59,8 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
       with self.sub_benchmark(task.name):
 
         # Compute dataset statistics.
-        statistics_gen = tfx.StatisticsGen(examples=task.examples)
+        statistics_gen = tfx.StatisticsGen(
+            examples=task.train_and_eval_examples)
 
         # Infer the dataset schema.
         schema_gen = tfx.SchemaGen(
@@ -68,7 +69,7 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
 
         # Apply global transformations and compute vocabularies.
         transform = component.Transform(
-            examples=task.examples,
+            examples=task.train_and_eval_examples,
             schema=schema_gen.outputs.schema,
             preprocessing_fn='examples.auto_transform.preprocessing_fn')
 
@@ -106,7 +107,9 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
         # automatically append Evaluators to compute metrics from the given
         # SavedModel and 'eval' TF Examples.
         self.evaluate(
-            pipeline, examples=task.examples, model=trainer.outputs.model)
+            pipeline,
+            examples=task.train_and_eval_examples,
+            model=trainer.outputs.model)
 
 
 if __name__ == '__main__':
