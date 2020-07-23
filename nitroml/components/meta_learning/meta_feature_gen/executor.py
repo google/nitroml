@@ -67,6 +67,7 @@ class MetaFeatureGenExecutor(base_executor.BaseExecutor):
       if not name:
         name = feature.path.step[0]
       logging.info('Feature Name: %s', name)
+      logging.info('Feature: %s', feature)
 
       if statistics_pb2.FeatureNameStatistics.FLOAT == feature.type:
         num_float_features += 1

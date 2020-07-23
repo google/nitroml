@@ -18,6 +18,7 @@ r"""Meta Learning helper class the defines the meta learning DAG."""
 from typing import Any, Dict, Optional, Text, List
 
 from nitroml.components import MetaFeatureGen
+from nitroml.components import MetaLearner
 from tfx.components.base import base_component
 from tfx import types
 
@@ -26,10 +27,10 @@ class MetaLearningWrapper(object):
   """A helper class that wraps definition of meta learning sub-pipeline."""
 
   def __init__(self,
-               train_transformed_examples: List[types.Channel],
-               train_stats_gens: List[types.Channel],
-               test_transformed_examples: List[types.Channel],
-               test_stats_gens: List[types.Channel],
+               train_transformed_examples: List[base_component.BaseComponent],
+               train_stats_gens: List[base_component.BaseComponent],
+               test_transformed_examples: List[base_component.BaseComponent],
+               test_stats_gens: List[base_component.BaseComponent],
                algorithm: Text = 'nearest_neighbor'):
 
     self._train_transformed_examples = train_transformed_examples
@@ -40,23 +41,27 @@ class MetaLearningWrapper(object):
     self._pipeline = []
     self._build_pipeline()
 
+  @property
+  def pipeline(self) -> List[base_component.BaseComponent]:
+    return self._pipeline
+
   # TODO(nikhilmehta): Add instance_name.
   def _build_pipeline(self) -> None:
     """Builds the meta-learning pipeline."""
 
     self._pipeline = []
-    train_statistics = {}
+    train_meta_features = {}
     for ix, stats_gen in enumerate(self._train_stats_gens):
       meta_feature_gen = MetaFeatureGen(
           statistics=stats_gen.outputs.statistics, instance_name='1')
+      train_meta_features[
+          f'meta_features_{ix}'] = meta_feature_gen.outputs.meta_features
       self._pipeline.append(meta_feature_gen)
+
+    learner = MetaLearner(algorithm='nearest_neighbor', **train_statistics)
 
     test_statistics = {}
     for ix, stats_gen in enumerate(self._test_stats_gens):
       meta_feature_gen = MetaFeatureGen(
           statistics=stats_gen.outputs.statistics, instance_name='2')
       self._pipeline.append(meta_feature_gen)
-
-  @property
-  def pipeline(self) -> List[base_component.BaseComponent]:
-    return self._pipeline

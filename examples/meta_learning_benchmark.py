@@ -62,10 +62,12 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
     meta_test_datasets = meta_datasets[1:2]
 
     train_stat_gens = []
+    train_transforms = []
     test_stat_gens = []
-
+    test_transforms = []
     pipeline = []
 
+    # TODO(nikhilmehta: Add instance_name)
     for ix in [0, 1]:
 
       name = datasets.names[0]
@@ -80,18 +82,29 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
 
       stats_gen = tfx.StatisticsGen(
           examples=example_gen.outputs.examples, instance_name=name + f'_{ix}')
-      pipeline.append(stats_gen)
+      schema_gen = tfx.SchemaGen(
+          statistics=stats_gen.outputs.statistics,
+          infer_feature_shape=True,
+          instance_name=name + f'_{ix}')
+      transform = Transform(
+          examples=example_gen.outputs.examples,
+          schema=schema_gen.outputs.schema,
+          preprocessing_fn='examples.auto_transform.preprocessing_fn',
+          instance_name=name + f'_{ix}')
+      pipeline.extend([stats_gen, schema_gen, transform])
 
       #TODO(nikhilmehta): Remove the ix == 0 check.
       if name.lower() in meta_train_datasets and ix == 0:
         train_stat_gens.append(stats_gen)
+        train_transforms.append(transform)
       else:
         test_stat_gens.append(stats_gen)
+        test_transforms.append(transform)
 
     meta_learner_helper = meta_learning_wrapper.MetaLearningWrapper(
-        train_transformed_examples=None,
+        train_transformed_examples=train_transforms,
         train_stats_gens=train_stat_gens,
-        test_transformed_examples=None,
+        test_transformed_examples=test_transforms,
         test_stats_gens=test_stat_gens)
 
     pipeline = pipeline + meta_learner_helper.pipeline

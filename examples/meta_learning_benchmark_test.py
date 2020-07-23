@@ -22,7 +22,7 @@ import os
 
 from nitroml import results
 from nitroml.datasets import testing_utils
-from examples import example_meta_learning
+from examples import meta_learning_benchmark
 from nitroml.testing import e2etest
 import requests_mock
 
@@ -41,7 +41,7 @@ class MetaLearningTest(e2etest.TestCase):
   def test(self, use_keras):
     with requests_mock.Mocker() as mocker:
       testing_utils.register_mock_urls(mocker)
-      self.run_benchmarks([example_meta_learning.OpenMLCC18MetaLearning()],
+      self.run_benchmarks([meta_learning_benchmark.OpenMLCC18MetaLearning()],
                           data_dir=os.path.join(self.pipeline_root,
                                                 'mock_meta_learning_openml'),
                           mock_data=True,

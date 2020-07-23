@@ -37,8 +37,7 @@ class MetaFeatureGenSpec(ComponentSpec):
   """MetaFeatureGenSpec component spec."""
 
   PARAMETERS = {
-      'custom_config': ExecutionParameter(type=(str, Text), optional=True),
-      # 'instance_name': Optional[Text] = None,
+      'custom_config': ExecutionParameter(type=(str, str), optional=True),
   }
   INPUTS = {
       'statistics': ChannelParameter(type=standard_artifacts.ExampleStatistics),
@@ -57,8 +56,8 @@ class MetaFeatureGen(base_component.BaseComponent):
 
   def __init__(self,
                statistics: types.Channel = None,
-               custom_config: Optional[Dict[Text, Any]] = None,
-               instance_name: Optional[Text] = None):
+               custom_config: Optional[Dict[str, Any]] = None,
+               instance_name: Optional[str] = None):
     """Construct a MetaFeatureGen component.
 
     Args:
