@@ -55,10 +55,11 @@ class MetaLearningWrapper(object):
       meta_feature_gen = MetaFeatureGen(
           statistics=stats_gen.outputs.statistics, instance_name='1')
       train_meta_features[
-          f'meta_features_{ix}'] = meta_feature_gen.outputs.meta_features
+          f'meta_train_features_{ix}'] = meta_feature_gen.outputs.meta_features
       self._pipeline.append(meta_feature_gen)
 
-    learner = MetaLearner(algorithm='nearest_neighbor', **train_statistics)
+    learner = MetaLearner(algorithm='nearest_neighbor', **train_meta_features)
+    self._pipeline.append(learner)
 
     test_statistics = {}
     for ix, stats_gen in enumerate(self._test_stats_gens):

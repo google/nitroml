@@ -18,7 +18,7 @@
 from typing import Any, Dict, Optional, Text, Union
 
 from nitroml.components.meta_learning.meta_learner import executor
-from nitroml.components.meta_learning.meta_feature_gen import MetaFeatures
+from nitroml.components.meta_learning import artifacts
 from tfx import types
 from tfx.components.base import base_component
 from tfx.components.base import executor_spec
@@ -27,7 +27,6 @@ from tfx.types import standard_artifacts
 from tfx.types.component_spec import ComponentSpec
 from tfx.types.component_spec import ExecutionParameter
 from tfx.types.component_spec import ChannelParameter
-from tfx.types.artifact import Artifact
 
 
 class MetaLearnerSpec(ComponentSpec):
@@ -35,11 +34,12 @@ class MetaLearnerSpec(ComponentSpec):
 
   PARAMETERS = {
       'algorithm': ExecutionParameter(type=str),
+      'custom_config': ExecutionParameter(type=(str, str), optional=True),
   }
   INPUTS = {
       **{
           'meta_train_features_%s' % input_id:
-          ChannelParameter(type=MetaFeatures, optional=True)
+          ChannelParameter(type=artifacts.MetaFeatures, optional=True)
           for input_id in range(executor._MAX_INPUTS)
       }
   }
@@ -52,21 +52,26 @@ class MetaLearner(base_component.BaseComponent):
   """MetaLearner that recommends a tuner config."""
 
   SPEC_CLASS = MetaLearnerSpec
-  EXECUTOR_SPEC = executor_spec.ExecutorClassSpec(
-      executor.MetaLearnerExecutor)
+  EXECUTOR_SPEC = executor_spec.ExecutorClassSpec(executor.MetaLearnerExecutor)
 
-  def __init__(self, algorithm: str, **meta_train_data: types.Channel = None):
-    """Construct a NearestNeighborMetaLearner component.
+  def __init__(self,
+               algorithm: str,
+               custom_config: Optional[Dict[str, Any]] = None,
+               **meta_train_data: types.Channel):
+    """Construct a MetaLearner component.
 
     Args:
       meta_train_data: Dict of output of StatisticsGen for train datasets.
     """
 
-    if not meta_train_stats:
+    if not meta_train_data:
       raise ValueError('Meta-train stats cannot be empty.')
 
-    meta_features = types.Channel(type=MetaFeatures, artifacts=[MetaFeatures()])
+    model = types.Channel(
+        type=standard_artifacts.Model, artifacts=[standard_artifacts.Model()])
     spec = MetaLearnerSpec(
-        meta_features=meta_features, **meta_train_data)
-
+        algorithm=algorithm,
+        metalearned_model=model,
+        custom_config=custom_config,
+        **meta_train_data)
     super(MetaLearner, self).__init__(spec=spec)

@@ -15,9 +15,11 @@
 # Lint as: python3
 """Executor for MetaLearner."""
 
+import os
 import json
 from typing import Any, Dict, List, Text
 
+from nitroml.components.meta_learning import artifacts
 from absl import logging
 from tfx.components.base import base_executor
 from tfx.types import artifact_utils
@@ -26,6 +28,7 @@ from tfx.utils import io_utils
 import tensorflow_data_validation as tfdv
 
 _MAX_INPUTS = 10
+
 
 class MetaLearnerExecutor(base_executor.BaseExecutor):
   """Executor for MetaLearnerExecutor."""
@@ -48,20 +51,14 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
 
     train_stats = {}
     for ix in range(_MAX_INPUTS):
-      stats_key = f'train_statistics_{ix}'
-      if (stats_key in input_dict):
-        train_stats_uri = io_utils.get_only_uri_in_dir(
-            artifact_utils.get_split_uri(input_dict[stats_key], 'train'))
+      meta_feature_key = f'meta_train_features_{ix}'
+      if (meta_feature_key in input_dict):
+        meta_feature_uri = os.path.join(
+            artifact_utils.get_single_uri(input_dict[meta_feature_key]),
+            artifacts.MetaFeatures.DEFAULT_FILE_NAME)
+        logging.info('Found %s at %s.', meta_feature_key, meta_feature_uri)
 
-        stats = tfdv.load_statistics(train_stats_uri)
-        if len(stats.datasets) != 1:
-          raise ValueError(
-              'DatasetFeatureStatisticsList proto contains multiple datasets. Only '
-              'one dataset is currently supported.')
-
-        stats = stats.datasets[0]
-
-        for feature in stats.features:
-
-        logging.info('Number of examples: {%s}', stats.num_examples)
-        logging.info(stats.features)
+        meta_features = jsonio_utils.read_string_file(meta_feature_uri)
+        logging.info('File %s.', data)
+      else:
+        logging.info('Did not Find %s.', meta_feature_key)

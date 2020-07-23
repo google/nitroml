@@ -82,16 +82,20 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
 
       stats_gen = tfx.StatisticsGen(
           examples=example_gen.outputs.examples, instance_name=name + f'_{ix}')
-      schema_gen = tfx.SchemaGen(
-          statistics=stats_gen.outputs.statistics,
-          infer_feature_shape=True,
-          instance_name=name + f'_{ix}')
-      transform = Transform(
-          examples=example_gen.outputs.examples,
-          schema=schema_gen.outputs.schema,
-          preprocessing_fn='examples.auto_transform.preprocessing_fn',
-          instance_name=name + f'_{ix}')
-      pipeline.extend([stats_gen, schema_gen, transform])
+      # schema_gen = tfx.SchemaGen(
+      #     statistics=stats_gen.outputs.statistics,
+      #     infer_feature_shape=True,
+      #     instance_name=name + f'_{ix}')
+      # transform = Transform(
+      #     examples=example_gen.outputs.examples,
+      #     schema=schema_gen.outputs.schema,
+      #     preprocessing_fn='examples.auto_transform.preprocessing_fn',
+      #     instance_name=name + f'_{ix}')
+      # pipeline.extend([stats_gen, schema_gen, transform])
+
+      # TODO Remove this:
+      pipeline.extend([stats_gen])
+      transform = None
 
       #TODO(nikhilmehta): Remove the ix == 0 check.
       if name.lower() in meta_train_datasets and ix == 0:

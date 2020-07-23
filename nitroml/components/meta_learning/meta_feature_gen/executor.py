@@ -19,6 +19,7 @@ import os
 import json
 from typing import Any, Dict, List, Text
 
+from nitroml.components.meta_learning import artifacts
 from absl import logging
 from tfx.types import artifact_utils
 from tfx.utils import io_utils
@@ -26,9 +27,6 @@ from tfx.components.base import base_executor
 from tfx.types.artifact import Artifact
 import tensorflow_data_validation as tfdv
 from tensorflow_metadata.proto.v0 import statistics_pb2
-
-# Default file name for generated MetaFeature file.
-_DEFAULT_FILE_NAME = 'meta_features.txt'
 
 
 class MetaFeatureGenExecutor(base_executor.BaseExecutor):
@@ -85,7 +83,7 @@ class MetaFeatureGenExecutor(base_executor.BaseExecutor):
 
     meta_feature_path = os.path.join(
         artifact_utils.get_single_uri(output_dict['meta_features']),
-        _DEFAULT_FILE_NAME)
+        artifacts.MetaFeatures.DEFAULT_FILE_NAME)
 
     io_utils.write_string_file(meta_feature_path, json.dumps(meta_feature_dict))
     logging.info('MetaFeature saved at %s', meta_feature_path)

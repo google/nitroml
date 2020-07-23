@@ -13,7 +13,12 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Package nitroml.components."""
+"""Definition of custom artifacts used in meta learning."""
 
-from nitroml.components.meta_learning.meta_feature_gen.component import MetaFeatureGen
-from nitroml.components.meta_learning.meta_learner.component import MetaLearner
+from tfx.types.artifact import Artifact
+
+
+class MetaFeatures(Artifact):
+  """NitroML's custom Artifact for meta features."""
+  TYPE_NAME = 'NitroML.MetaFeatures'
+  DEFAULT_FILE_NAME = 'meta_features.txt'
