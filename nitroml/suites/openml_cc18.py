@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Iterator
 from absl import logging
 from nitroml.suites import data_utils
 from nitroml.suites import suite
-from nitroml.tasks import openml
+from nitroml.tasks import openml_task
 from nitroml.tasks import task
 import tensorflow as tf
 
@@ -96,7 +96,7 @@ class OpenMLCC18(suite.Suite):
         mode='r') as fin:
       data = json.load(fin)
       data['dataset_name'] = dataset_name
-      return openml.OpenML(
+      return openml_task.OpenMLTask(
           name=data_utils.convert_to_valid_identifier(dataset_name),
           root_dir=self.root_dir,
           **data)
@@ -367,8 +367,8 @@ class OpenMLCC18(suite.Suite):
     """
 
     if n_classes == 2:
-      return openml.OpenML.BINARY_CLASSIFICATION
+      return openml_task.OpenMLTask.BINARY_CLASSIFICATION
     elif n_classes > 2:
-      return openml.OpenML.CATEGORICAL_CLASSIFICATION
+      return openml_task.OpenMLTask.CATEGORICAL_CLASSIFICATION
 
-    return openml.OpenML.REGRESSION
+    return openml_task.OpenMLTask.REGRESSION

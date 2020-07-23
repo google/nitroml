@@ -36,6 +36,8 @@ from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
 
+from google.protobuf import text_format
+
 
 class OpenMLCC18Benchmark(nitroml.Benchmark):
   r"""Demos a NitroML benchmark on the 'OpenML-CC18' classification tasks."""
@@ -83,7 +85,13 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
               transform_graph=transform.outputs.transform_graph,
               train_args=trainer_pb2.TrainArgs(num_steps=10),
               eval_args=trainer_pb2.EvalArgs(num_steps=5),
-              custom_config=task.to_dict())
+              custom_config={
+                  # Pass the problem statement proto as a text proto. Required
+                  # since custom_config must be JSON-serializable.
+                  'problem_statement':
+                      text_format.MessageToString(
+                          message=task.problem_statement, as_utf8=True),
+              })
           pipeline.append(tuner)
 
         # Define a Trainer to train our model on the given task.
@@ -99,7 +107,13 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
             eval_args=trainer_pb2.EvalArgs(num_steps=10),
             hyperparameters=(tuner.outputs.best_hyperparameters
                              if enable_tuning else None),
-            custom_config=task.to_dict())
+            custom_config={
+                # Pass the problem statement proto as a text proto. Required
+                # since custom_config must be JSON-serializable.
+                'problem_statement':
+                    text_format.MessageToString(
+                        message=task.problem_statement, as_utf8=True),
+            })
 
         pipeline.append(trainer)
 

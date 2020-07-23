@@ -16,15 +16,17 @@
 r"""Task class to identify the type of problem."""
 
 import os
-from typing import Any, Dict, List
+from typing import List
 
 from nitroml.tasks import task
 from tfx import components as tfx
 from tfx import types
 from tfx.components.base import base_component
 
+from tensorflow_metadata.proto.v0 import problem_statement_pb2 as ps_pb2
 
-class OpenML(task.Task):
+
+class OpenMLTask(task.Task):
   r"""Defines an OpenML task for an AutoML pipeline."""
 
   # Note: We may have to clear the saved task objects if we change these
@@ -95,13 +97,28 @@ class OpenML(task.Task):
 
     return self._example_gen.outputs.examples
 
-  def to_dict(self) -> Dict[str, Any]:
-    """Convert task attributes to dictionary."""
+  @property
+  def problem_statement(self) -> ps_pb2.ProblemStatement:
+    """Returns the ProblemStatement associated with this Task."""
 
-    return_dict = {}
-    return_dict['dataset_name'] = self._dataset_name
-    return_dict['description'] = self._description
-    return_dict['task_type'] = self._type
-    return_dict['num_classes'] = self._num_classes
-    return_dict['label_key'] = self._label_key
-    return return_dict
+    return ps_pb2.ProblemStatement(
+        owner=['nitroml'],
+        tasks=[ps_pb2.Task(
+            name=self.name,
+            type=self._get_task_type(),
+        )])
+
+  def _get_task_type(self):
+    """Creates a `ps_pb2.Type` from the number of classes."""
+
+    if self.num_classes == 0:
+      return ps_pb2.Type(
+          one_dimensional_regression=ps_pb2.OneDimensionalRegression(
+              label=self._label_key))
+    if self.num_classes == 2:
+      return ps_pb2.Type(
+          binary_classification=ps_pb2.BinaryClassification(
+              label=self._label_key))
+    return ps_pb2.Type(
+        multi_class_classification=ps_pb2.MultiClassClassification(
+            label=self._label_key))

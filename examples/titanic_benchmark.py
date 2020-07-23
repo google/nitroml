@@ -32,12 +32,12 @@ import nitroml
 from nitroml.components.transform import component
 from examples import config
 import tensorflow_datasets as tfds
-
 from tfx import components as tfx
 from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
-# pylint: enable=g-import-not-at-top
+
+from google.protobuf import text_format
 
 
 class TitanicBenchmark(nitroml.Benchmark):
@@ -73,7 +73,13 @@ class TitanicBenchmark(nitroml.Benchmark):
           transform_graph=transform.outputs.transform_graph,
           train_args=trainer_pb2.TrainArgs(num_steps=100),
           eval_args=trainer_pb2.EvalArgs(num_steps=50),
-          custom_config=task.to_dict())
+          custom_config={
+              # Pass the problem statement proto as a text proto. Required
+              # since custom_config must be JSON-serializable.
+              'problem_statement':
+                  text_format.MessageToString(
+                      message=task.problem_statement, as_utf8=True),
+          })
       pipeline.append(tuner)
 
     # Define a Trainer to train our model on the given task.
@@ -89,7 +95,13 @@ class TitanicBenchmark(nitroml.Benchmark):
         eval_args=trainer_pb2.EvalArgs(num_steps=500),
         hyperparameters=(tuner.outputs.best_hyperparameters
                          if enable_tuning else None),
-        custom_config=task.to_dict())
+        custom_config={
+            # Pass the problem statement proto as a text proto. Required
+            # since custom_config must be JSON-serializable.
+            'problem_statement':
+                text_format.MessageToString(
+                    message=task.problem_statement, as_utf8=True),
+        })
 
     pipeline.append(trainer)
 

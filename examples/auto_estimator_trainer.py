@@ -20,13 +20,16 @@ The consumed artifacts include:
  * TensorFlow Transform outputs.
 """
 
-from typing import Any, Callable, List, Optional, Text
+from typing import Any, Callable, List, Optional
 
 from absl import logging
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
 import tensorflow_transform as tft
 from tfx.components.trainer import executor as trainer_executor
+
+from google.protobuf import text_format
+from tensorflow_metadata.proto.v0 import problem_statement_pb2 as ps_pb2
 from tensorflow_metadata.proto.v0 import schema_pb2
 
 FeatureColumn = Any
@@ -51,12 +54,14 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
       - eval_steps: Number of eval steps.
       - base_model: Base model that will be used for this training job.
       - hyperparameters: An optional kerastuner.HyperParameters config.
+      - problem_statement: A text-format serialized ProblemStatement proto
+        which defines the task.
   """
 
   autodata_adapter = EstimatorAdapter(
-      transform_graph_dir=fn_args.transform_output,
-      label_key=fn_args.label_key,
-      num_classes=fn_args.num_classes)
+      problem_statement=text_format.Parse(fn_args.problem_statement,
+                                          ps_pb2.ProblemStatement()),
+      transform_graph_dir=fn_args.transform_output)
 
   run_config = tf.estimator.RunConfig(
       model_dir=fn_args.serving_model_dir,
@@ -121,40 +126,46 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
 class EstimatorAdapter():
   """Creates feature columns and specs from TFX artifacts."""
 
-  def __init__(self, transform_graph_dir: str, label_key: str,
-               num_classes: int):
+  def __init__(self, problem_statement: ps_pb2.ProblemStatement,
+               transform_graph_dir: str):
     """Initializes the EstimatorAdapter from TFX artifacts.
 
     Args:
+      problem_statement: Defines the task and label key.
       transform_graph_dir: Path to the TensorFlow Transform graph artifacts.
-      label_key: String label key.
-      num_classes: Number of classes.
-
-    Raises:
-      ValueError: When `num_classes` < 2.
     """
 
-    # TODO(github.com/googleinterns/nitroml/issues/29): Regression tasks
-    # (self._num_classes==0).
-    if num_classes < 2:
-      raise ValueError('Classification should have num_classes >= 2.')
-
+    self._problem_statement = problem_statement
     # Parse transform.
     self._tf_transform_output = tft.TFTransformOutput(transform_graph_dir)
     # Parse schema.
     self._dataset_schema = self._tf_transform_output.transformed_metadata.schema
-    self._label_key = label_key
-    self._num_classes = num_classes
 
   @property
-  def raw_label_keys(self) -> List[Text]:
+  def label_key(self) -> str:
+    task_type = self._problem_statement.tasks[0].type
+    if task_type.HasField('multi_class_classification'):
+      return task_type.multi_class_classification.label
+    if task_type.HasField('binary_classification'):
+      return task_type.binary_classification.label
+    if task_type.HasField('one_dimensional_regression'):
+      return task_type.one_dimensional_regression.label
+    raise ValueError('Invalid task type: {}'.format(task_type))
+
+  @property
+  def num_classes(self) -> int:
+    return self._tf_transform_output.num_buckets_for_transformed_feature(
+        self.label_key)
+
+  @property
+  def raw_label_keys(self) -> List[str]:
     """The raw label key as defined in the ProblemStatement."""
 
     # TODO(nikhilmehta): Change the task object to allow label_key to be a list.
-    return [self._label_key]
+    return [self.label_key]
 
   @property
-  def transformed_label_keys(self) -> List[Text]:
+  def transformed_label_keys(self) -> List[str]:
     """The label key after applying TensorFlow Transform to the Examples."""
 
     return self.raw_label_keys
@@ -164,9 +175,9 @@ class EstimatorAdapter():
     """Returns the Estimator Head for this task."""
 
     # TODO(github.com/googleinterns/nitroml/issues/29): Regression tasks
-    # (self._num_classes==0)
-    if self._num_classes > 2:
-      return tf.estimator.MultiClassHead(self._num_classes)
+    # (self.num_classes==0)
+    if self.num_classes > 2:
+      return tf.estimator.MultiClassHead(self.num_classes)
     else:
       return tf.estimator.BinaryClassHead()
 
@@ -270,7 +281,7 @@ class EstimatorAdapter():
 
   def get_input_fn(
       self,
-      file_pattern: Text,
+      file_pattern: str,
       batch_size: int,
       num_epochs: Optional[int] = None,
       shuffle: Optional[bool] = True,
@@ -433,7 +444,7 @@ def _normalizer_01_fn(value, column):
 
 
 def _get_feature_storage_type(schema: schema_pb2.Schema,
-                              feature_name: Text) -> tf.dtypes.DType:
+                              feature_name: str) -> tf.dtypes.DType:
   """Get the storage type of at tf.Example feature."""
 
   for feature in schema.feature:
@@ -447,7 +458,7 @@ def _get_feature_storage_type(schema: schema_pb2.Schema,
   raise ValueError('Feature not found: {}'.format(feature_name))
 
 
-def _get_feature_dim(schema: schema_pb2.Schema, feature_name: Text) -> int:
+def _get_feature_dim(schema: schema_pb2.Schema, feature_name: str) -> int:
   """Get the dimension of the tf.Example feature."""
 
   for feature in schema.feature:

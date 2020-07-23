@@ -15,7 +15,7 @@
 # Lint as: python3
 r"""A dataset from a TFDS Dataset."""
 
-from typing import Any, Dict, List, Text
+from typing import List
 
 from absl import logging
 from nitroml.tasks import task
@@ -25,6 +25,8 @@ from tfx import types
 from tfx.components.base import base_component
 from tfx.proto import example_gen_pb2
 from tfx.utils.dsl_utils import external_input
+
+from tensorflow_metadata.proto.v0 import problem_statement_pb2 as ps_pb2
 
 
 class TFDSTask(task.Task):
@@ -67,7 +69,7 @@ class TFDSTask(task.Task):
         input_config=input_config)
 
   @property
-  def name(self) -> Text:
+  def name(self) -> str:
     return self._dataset_builder.info.name
 
   @property
@@ -80,13 +82,19 @@ class TFDSTask(task.Task):
 
     return self._example_gen.outputs.examples
 
-  def to_dict(self) -> Dict[str, Any]:
-    """Convert task attributes to dictionary."""
+  @property
+  def problem_statement(self) -> ps_pb2.ProblemStatement:
+    """Returns the ProblemStatement associated with this Task."""
 
-    return_dict = {}
-    # TODO(github.com/googleinterns/nitroml/issues/29): Infer num_classes using
-    # vocab (after SchemaGen or TFT).
-    return_dict['num_classes'] = 2
-    return_dict['label_key'] = self._dataset_builder.info.supervised_keys[1]
-    return_dict['dataset_name'] = self._dataset_builder.name
-    return return_dict
+    # Supervised keys is a two-tuple.
+    _, target_key = self._dataset_builder.info.supervised_keys
+    return ps_pb2.ProblemStatement(
+        owner=['nitroml'],
+        tasks=[
+            ps_pb2.Task(
+                name=self.name,
+                type=ps_pb2.Type(
+                    binary_classification=ps_pb2.BinaryClassification(
+                        label=target_key)),
+            )
+        ])

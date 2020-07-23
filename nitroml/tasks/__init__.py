@@ -15,12 +15,12 @@
 # Lint as: python3
 """Package nitroml.tasks."""
 
-from nitroml.tasks.openml import OpenML
+from nitroml.tasks.openml_task import OpenMLTask
 from nitroml.tasks.task import Task
 from nitroml.tasks.tfds_task import TFDSTask
 
 __all__ = [
-    "OpenML",
+    "OpenMLTask",
     "Task",
     "TFDSTask",
 ]

@@ -16,9 +16,11 @@
 r"""An AutoML benchmark tasks."""
 
 import abc
-from typing import Any, Dict, List
+from typing import List
 from tfx import types
 from tfx.components.base import base_component
+
+from tensorflow_metadata.proto.v0 import problem_statement_pb2 as ps_pb2
 
 
 class Task(abc.ABC):
@@ -36,7 +38,6 @@ class Task(abc.ABC):
   def train_and_eval_examples(self) -> types.Channel:
     """Returns train and eval labeled examples."""
 
-  def to_dict(self) -> Dict[str, Any]:
-    """Convert task attributes to a dictionary."""
-
-    return {}
+  @abc.abstractproperty
+  def problem_statement(self) -> ps_pb2.ProblemStatement:
+    """Returns the ProblemStatement associated with this Task."""
