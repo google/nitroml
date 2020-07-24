@@ -66,9 +66,12 @@ class OpenMLCC18BenchmarkTest(e2etest.TestCase):
     else:
       self.assertComponentExecutionCount(7)
     self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
-    self.assertComponentSucceeded('.'.join(['SchemaGen', instance_name]))
-    self.assertComponentSucceeded('.'.join(['StatisticsGen', instance_name]))
-    self.assertComponentSucceeded('.'.join(['Transform', instance_name]))
+    self.assertComponentSucceeded('.'.join(
+        ['SchemaGen.AutoData', instance_name]))
+    self.assertComponentSucceeded('.'.join(
+        ['StatisticsGen.AutoData', instance_name]))
+    self.assertComponentSucceeded('.'.join(
+        ['Transform.AutoData', instance_name]))
     self.assertComponentSucceeded('.'.join(['Trainer', instance_name]))
     self.assertComponentSucceeded('.'.join(['Evaluator', instance_name]))
     self.assertComponentSucceeded('.'.join(

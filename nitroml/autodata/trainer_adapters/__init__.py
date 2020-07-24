@@ -13,22 +13,4 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Package nitroml."""
-
-from nitroml import autodata
-from nitroml import suites
-from nitroml import tasks
-from nitroml.nitroml import Benchmark
-from nitroml.nitroml import get_default_kubeflow_dag_runner
-from nitroml.nitroml import main
-from nitroml.nitroml import run
-
-__all__ = [
-    "autodata",
-    "suites",
-    "tasks",
-    "Benchmark",
-    "get_default_kubeflow_dag_runner",
-    "main",
-    "run",
-]
+"""Package nitroml.autodata.trainer_adapters."""

@@ -29,7 +29,6 @@ import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
-from nitroml.components.transform import component
 from examples import config
 import tensorflow_datasets as tfds
 from tfx import components as tfx
@@ -50,27 +49,19 @@ class TitanicBenchmark(nitroml.Benchmark):
     # Use TFDSTask to define the task for the titanic dataset.
     task = nitroml.tasks.TFDSTask(tfds.builder('titanic', data_dir=data_dir))
 
-    # Compute dataset statistics.
-    statistics_gen = tfx.StatisticsGen(examples=task.train_and_eval_examples)
-
-    # Infer the dataset schema.
-    schema_gen = tfx.SchemaGen(
-        statistics=statistics_gen.outputs.statistics, infer_feature_shape=True)
-
-    # Apply global transformations and compute vocabularies.
-    transform = component.Transform(
+    autodata = nitroml.autodata.AutoData(
+        task.problem_statement,
         examples=task.train_and_eval_examples,
-        schema=schema_gen.outputs.schema,
-        preprocessing_fn='examples.auto_transform.preprocessing_fn')
+        preprocessor=nitroml.autodata.BasicPreprocessor())
 
-    pipeline = task.components + [statistics_gen, schema_gen, transform]
+    pipeline = task.components + autodata.components
 
     if enable_tuning:
       # Search over search space of model hyperparameters.
       tuner = tfx.Tuner(
           tuner_fn='examples.auto_trainer.tuner_fn',
-          examples=transform.outputs.transformed_examples,
-          transform_graph=transform.outputs.transform_graph,
+          examples=autodata.transformed_examples,
+          transform_graph=autodata.transform_graph,
           train_args=trainer_pb2.TrainArgs(num_steps=100),
           eval_args=trainer_pb2.EvalArgs(num_steps=50),
           custom_config={
@@ -88,9 +79,9 @@ class TitanicBenchmark(nitroml.Benchmark):
         if use_keras else 'examples.auto_estimator_trainer.run_fn',
         custom_executor_spec=(executor_spec.ExecutorClassSpec(
             trainer_executor.GenericExecutor)),
-        transformed_examples=transform.outputs.transformed_examples,
-        schema=schema_gen.outputs.schema,
-        transform_graph=transform.outputs.transform_graph,
+        transformed_examples=autodata.transformed_examples,
+        transform_graph=autodata.transform_graph,
+        schema=autodata.schema,
         train_args=trainer_pb2.TrainArgs(num_steps=1000),
         eval_args=trainer_pb2.EvalArgs(num_steps=500),
         hyperparameters=(tuner.outputs.best_hyperparameters
