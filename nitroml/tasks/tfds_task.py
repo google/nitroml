@@ -15,10 +15,10 @@
 # Lint as: python3
 r"""A dataset from a TFDS Dataset."""
 
-from typing import List, Text
+from typing import List
 
 from absl import logging
-from nitroml.datasets import task
+from nitroml.tasks import task
 import tensorflow_datasets as tfds
 from tfx import components as tfx
 from tfx import types
@@ -26,9 +26,11 @@ from tfx.components.base import base_component
 from tfx.proto import example_gen_pb2
 from tfx.utils.dsl_utils import external_input
 
+from nitroml.protos import problem_statement_pb2 as ps_pb2
 
-class TFDSDataset(object):
-  """A NitroML Dataset wrapper around a TensorFlow Datasets (TFDS) Dataset."""
+
+class TFDSTask(task.Task):
+  """A NitroML Task from a TensorFlow Datasets (TFDS) Dataset."""
 
   def __init__(self, dataset_builder: tfds.core.DatasetBuilder):
     """A NitroML dataset from a TFDS DatasetBuilder.
@@ -36,13 +38,13 @@ class TFDSDataset(object):
     Args:
       dataset_builder: A `tfds.DatasetBuilder` instance which defines the
         TFDS dataset to use. Example: `dataset =
-          TFDSDataset(tfds.builder('titanic'))`
+          TFDSTask(tfds.builder('titanic'))`
     """
 
     # TODO(b/159086401): Download and prepare the dataset in a component
     # instead of at construction time, so that this step happens lazily during
     # pipeline execution.
-    logging.info("Preparing dataset...")
+    logging.info('Preparing dataset...')
     dataset_builder.download_and_prepare()
     logging.info(dataset_builder.info)
 
@@ -60,14 +62,14 @@ class TFDSDataset(object):
       pattern = value.filenames[0]
       splits.append(example_gen_pb2.Input.Split(name=name, pattern=pattern))
 
-    logging.info("Splits: %s", splits)
+    logging.info('Splits: %s', splits)
     input_config = example_gen_pb2.Input(splits=splits)
     return tfx.ImportExampleGen(
         input=external_input(self._dataset_builder.data_dir),
         input_config=input_config)
 
   @property
-  def name(self) -> Text:
+  def name(self) -> str:
     return self._dataset_builder.info.name
 
   @property
@@ -75,27 +77,24 @@ class TFDSDataset(object):
     return [self._example_gen]
 
   @property
-  def examples(self) -> types.Channel:
+  def train_and_eval_examples(self) -> types.Channel:
     """Returns train and eval labeled examples."""
 
     return self._example_gen.outputs.examples
 
   @property
-  def task(self) -> task.Task:
-    """Returns the Task for this dataset."""
+  def problem_statement(self) -> ps_pb2.ProblemStatement:
+    """Returns the ProblemStatement associated with this Task."""
 
-    # TODO(github.com/googleinterns/nitroml/issues/29): Infer num_classes using
-    # vocab (after SchemaGen or TFT).
-    num_classes = 2
-    task_type = task.Task.BINARY_CLASSIFICATION
-    description = self._dataset_builder.info.description
-    label_key = self._dataset_builder.info.supervised_keys[1]
-    dataset_name = self._dataset_builder.name
-    titanic_task = task.Task(
-        dataset_name=dataset_name,
-        task_type=task_type,
-        num_classes=num_classes,
-        description=description,
-        label_key=label_key)
-
-    return titanic_task
+    # Supervised keys is a two-tuple.
+    _, target_key = self._dataset_builder.info.supervised_keys
+    return ps_pb2.ProblemStatement(
+        owner=['nitroml'],
+        tasks=[
+            ps_pb2.Task(
+                name=self.name,
+                type=ps_pb2.Type(
+                    binary_classification=ps_pb2.BinaryClassification(
+                        label=target_key)),
+            )
+        ])

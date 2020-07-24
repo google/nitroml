@@ -25,6 +25,7 @@ nitroml/examples/titanic_benchmark_test.py.
 
 import json
 import os
+import sys
 import tempfile
 from typing import List, Text
 
@@ -60,34 +61,13 @@ class TestCase(parameterized.TestCase, absltest.TestCase):
     """
     super(TestCase, self).setUp()
 
+    FLAGS(sys.argv)  # Required for tests that use flags in open-source.
     tempdir = tempfile.mkdtemp(dir=absltest.get_default_test_tmpdir())
     self.pipeline_name = "autodata_test"
     self.pipeline_root = os.path.join(tempdir, self.pipeline_name)
     tf.io.gfile.makedirs(self.pipeline_root)
     self.metadata_path = os.path.join(self.pipeline_root, "metadata.db")
 
-    if hasattr(FLAGS, 'command'):
-      # BEGIN GOOGLE-INTERNAL
-      # Required for the MyOrchestratorRunner when run in google3.
-      FLAGS.command = "launch"
-      FLAGS.config = json.dumps({
-          "pipeline_name": pipeline_name,
-          "pipeline_root": self.pipeline_root,
-          "pipeline_args": {},
-          "enable_cache": False,
-          "metadata_connection_config": {
-              "sqlite": {
-                  "filename_uri": self.metadata_path,
-              }
-          },
-          "local_config": {},
-          "beam_pipeline_args": [
-              "--runner=google3.pipeline.flume.py.runner.FlumeRunner"
-          ],
-          "flume_args": ["--flume_exec_mode=UNOPT"],
-          "launch_config": {},
-      })
-      # BEGIN GOOGLE-INTERNAL
 
   @property
   def metadata_config(self):

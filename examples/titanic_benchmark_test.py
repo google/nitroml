@@ -51,9 +51,12 @@ class TitanicBenchmarkTest(e2etest.TestCase):
     else:
       self.assertComponentExecutionCount(7)
     self.assertComponentSucceeded("ImportExampleGen.TitanicBenchmark.benchmark")
-    self.assertComponentSucceeded("SchemaGen.TitanicBenchmark.benchmark")
-    self.assertComponentSucceeded("StatisticsGen.TitanicBenchmark.benchmark")
-    self.assertComponentSucceeded("Transform.TitanicBenchmark.benchmark")
+    self.assertComponentSucceeded(
+        "SchemaGen.AutoData.TitanicBenchmark.benchmark")
+    self.assertComponentSucceeded(
+        "StatisticsGen.AutoData.TitanicBenchmark.benchmark")
+    self.assertComponentSucceeded(
+        "Transform.AutoData.TitanicBenchmark.benchmark")
     self.assertComponentSucceeded("Trainer.TitanicBenchmark.benchmark")
     self.assertComponentSucceeded("Evaluator.TitanicBenchmark.benchmark")
     self.assertComponentSucceeded(
@@ -69,7 +72,6 @@ class TitanicBenchmarkTest(e2etest.TestCase):
         "benchmark",
         "run",
         "num_runs",
-        "auc",
         "accuracy",
         "average_loss",
         "post_export_metrics/example_count",

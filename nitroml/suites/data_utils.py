@@ -13,7 +13,7 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Utility module for datasets."""
+"""Utility module for suites."""
 
 import re
 from typing import Dict, List

@@ -13,7 +13,7 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""NitroML: Accelerate AutoML development.
+"""NitroML: Accelerate AutoML research.
 
 go/nitroml
 
@@ -60,6 +60,7 @@ except ModuleNotFoundError:
 # pylint: enable=g-import-not-at-top
 
 T = TypeVar("T")
+
 
 FLAGS = flags.FLAGS
 
@@ -435,7 +436,7 @@ def get_default_kubeflow_dag_runner():
 
   metadata_config = kubeflow_dag_runner.get_default_kubeflow_metadata_config()
   tfx_image = os.environ.get("KUBEFLOW_TFX_IMAGE", None)
-  logging.info(f'Using {tfx_image} as  the docker image.')
+  logging.info('Using "%s" as  the docker image.', tfx_image)
   runner_config = kubeflow_dag_runner.KubeflowDagRunnerConfig(
       kubeflow_metadata_config=metadata_config, tfx_image=tfx_image)
 
@@ -482,6 +483,7 @@ def run(benchmarks: List[Benchmark],
   """
 
   runs_per_benchmark = FLAGS.runs_per_benchmark
+
 
   if not tfx_runner:
     logging.info("Setting TFX runner to OSS default: BeamDagRunner.")

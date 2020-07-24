@@ -31,27 +31,30 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 from absl import logging
 import nitroml
-from nitroml.components.transform.component import Transform
-from nitroml.datasets import openml_cc18
 from examples import config
 from tfx import components as tfx
 from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
+from tfx.components.base import base_component
 from nitroml.components.meta_learning import meta_learning_wrapper
+
+from google.protobuf import text_format
 
 
 class OpenMLCC18MetaLearning(nitroml.Benchmark):
   r"""Demos a metalearning pipeline using 'OpenML-CC18' classification datasets."""
+
+  def set_instance_name(self,
+                        component: base_component.BaseComponent,
+                        suffix: str = ''):
+    component._instance_name = f'{component._instance_name}.{suffix}'
 
   def benchmark(self,
                 mock_data: bool = False,
                 data_dir: str = None,
                 use_keras: bool = True,
                 add_publisher: bool = False):
-
-    datasets = openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data)
-    dataset_indices = range(len(datasets.names))
 
     train_stat_gens = []
     train_transforms = []
@@ -60,6 +63,8 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
     pipeline = []
     meta_train_data = {}
 
+    # TODO: Think of a better way to create this experiment,
+    # Create train/test datasets.
     if mock_data:
       train_indices = [0, 1]
       test_indices = [0]
@@ -67,87 +72,101 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
       train_indices = range(21, 26)
       test_indices = range(27, 28)
 
-    for ix, train_index in enumerate(train_indices):
+    pipeline = []
+    for train_index, task in enumerate(
+        nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data)):
 
-      name = datasets.names[train_index]
-      logging.info(f'Train dataset: {name}')
-      task_dict = datasets.tasks[train_index].to_dict()
-      example_gen = datasets.components[train_index]
-      example_gen._instance_name = f'{example_gen._instance_name}.train_{name}'
-      stats_gen = tfx.StatisticsGen(
-          examples=example_gen.outputs.examples, instance_name=f'train_{name}')
-      schema_gen = tfx.SchemaGen(
-          statistics=stats_gen.outputs.statistics,
-          infer_feature_shape=True,
-          instance_name=f'train_{name}')
-      transform = Transform(
-          examples=example_gen.outputs.examples,
-          schema=schema_gen.outputs.schema,
-          preprocessing_fn='examples.auto_transform.preprocessing_fn',
-          instance_name=f'train_{name}')
+      if train_index not in train_indices:
+        continue
+
+      logging.info('Train: %s', task.name)
+      autodata = nitroml.autodata.AutoData(
+          task.problem_statement,
+          examples=task.train_and_eval_examples,
+          preprocessor=nitroml.autodata.BasicPreprocessor())
+
+      ## TODO: Move this autodata
+      suffix = f'train_{task.name}'
+      self.set_instance_name(task.components[0], suffix)
+      self.set_instance_name(autodata._schema_gen, suffix)
+      self.set_instance_name(autodata._statistics_gen, suffix)
+      self.set_instance_name(autodata._transform, suffix)
+      pipeline += task.components + autodata.components
+
       tuner = tfx.Tuner(
           tuner_fn='examples.auto_trainer.tuner_fn',
-          examples=transform.outputs.transformed_examples,
-          transform_graph=transform.outputs.transform_graph,
+          examples=autodata.transformed_examples,
+          transform_graph=autodata.transform_graph,
           train_args=trainer_pb2.TrainArgs(num_steps=1),
           eval_args=trainer_pb2.EvalArgs(num_steps=1),
-          custom_config=task_dict,
-          instance_name=f'train_{name}')
+          custom_config={
+              # Pass the problem statement proto as a text proto. Required
+              # since custom_config must be JSON-serializable.
+              'problem_statement':
+                  text_format.MessageToString(
+                      message=task.problem_statement, as_utf8=True),
+          },
+          instance_name=f'train_{task.name}')
+      pipeline.append(tuner)
 
-      pipeline.extend([example_gen, stats_gen, schema_gen, transform, tuner])
-
-      train_stat_gens.append(stats_gen)
-      train_transforms.append(transform)
+      # TODO: Work with channels instead of components
+      train_stat_gens.append(autodata._statistics_gen)
+      train_transforms.append(autodata._transform)
       meta_train_data[
-          f'hparams_train_{ix}'] = tuner.outputs.best_hyperparameters
+          f'hparams_train_{len(train_stat_gens)}'] = tuner.outputs.best_hyperparameters
 
     meta_learner_helper = meta_learning_wrapper.MetaLearningWrapper(
         train_transformed_examples=train_transforms,
         train_stats_gens=train_stat_gens,
         meta_train_data=meta_train_data)
-    pipeline = pipeline + meta_learner_helper.pipeline
+    pipeline += pipeline + meta_learner_helper.pipeline
 
-    for ix, test_index in enumerate(test_indices):
+    for test_index, task in enumerate(
+        nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data)):
 
-      name = datasets.names[test_index]
-      logging.info(f'Test dataset: {name}')
-      task_dict = datasets.tasks[test_index].to_dict()
-      example_gen = datasets.components[test_index]
-      example_gen._instance_name = f'{example_gen._instance_name}.train_{name}'
-      stats_gen = tfx.StatisticsGen(
-          examples=example_gen.outputs.examples, instance_name=f'test_{name}')
-      schema_gen = tfx.SchemaGen(
-          statistics=stats_gen.outputs.statistics,
-          infer_feature_shape=True,
-          instance_name=f'test_{name}')
-      transform = Transform(
-          examples=example_gen.outputs.examples,
-          schema=schema_gen.outputs.schema,
-          preprocessing_fn='examples.auto_transform.preprocessing_fn',
-          instance_name=f'test_{name}')
+      logging.info('Test: %s', task.name)
+      if test_index not in test_indices:
+        continue
+
+      autodata = nitroml.autodata.AutoData(
+          task.problem_statement,
+          examples=task.train_and_eval_examples,
+          preprocessor=nitroml.autodata.BasicPreprocessor())
+
+      ## TODO: Move this autodata
+      suffix = f'test_{task.name}'
+      self.set_instance_name(task.components[0], suffix)
+      self.set_instance_name(autodata._schema_gen, suffix)
+      self.set_instance_name(autodata._statistics_gen, suffix)
+      self.set_instance_name(autodata._transform, suffix)
+      pipeline += task.components + autodata.components
+
       trainer = tfx.Trainer(
           run_fn='examples.auto_trainer.run_fn',
           custom_executor_spec=(executor_spec.ExecutorClassSpec(
               trainer_executor.GenericExecutor)),
-          transformed_examples=transform.outputs.transformed_examples,
-          schema=schema_gen.outputs.schema,
-          transform_graph=transform.outputs.transform_graph,
+          transformed_examples=autodata.transformed_examples,
+          transform_graph=autodata.transform_graph,
+          schema=autodata.schema,
           train_args=trainer_pb2.TrainArgs(num_steps=1),
           eval_args=trainer_pb2.EvalArgs(num_steps=1),
           hyperparameters=meta_learner_helper.recommended_search_space,
-          custom_config=task_dict)
-
-      # test_stat_gens.append(stats_gen)
-      # test_transforms.append(transform)
-      pipeline.extend([example_gen, stats_gen, schema_gen, transform, trainer])
+          custom_config={
+              # Pass the problem statement proto as a text proto. Required
+              # since custom_config must be JSON-serializable.
+              'problem_statement':
+                  text_format.MessageToString(
+                      message=task.problem_statement, as_utf8=True),
+          })
+      pipeline.append(trainer)
 
       # self.test_without_evaluate(pipeline)
       # Finally, call evaluate() on the workflow DAG outputs, This will
       # automatically append Evaluators to compute metrics from the given
-      # SavedModel and 'eval' TF Examples.
+      # SavedModel and 'eval' TF Examples.ss
       self.evaluate(
           pipeline,
-          examples=example_gen.outputs['examples'],
+          examples=task.train_and_eval_examples,
           model=trainer.outputs.model)
 
 

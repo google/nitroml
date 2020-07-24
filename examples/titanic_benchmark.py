@@ -29,16 +29,14 @@ import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
-from nitroml.components.transform import component
-from nitroml.datasets import tfds_dataset
 from examples import config
 import tensorflow_datasets as tfds
-
 from tfx import components as tfx
 from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
-# pylint: enable=g-import-not-at-top
+
+from google.protobuf import text_format
 
 
 class TitanicBenchmark(nitroml.Benchmark):
@@ -48,34 +46,31 @@ class TitanicBenchmark(nitroml.Benchmark):
                 data_dir: str = None,
                 use_keras: bool = True,
                 enable_tuning: bool = True):
-    # NOTE: For convenience, we fetch the OpenML task from the AutoTFX
-    # tasks repository.
-    dataset = tfds_dataset.TFDSDataset(
-        tfds.builder('titanic', data_dir=data_dir))
-    
-    # Compute dataset statistics.
-    statistics_gen = tfx.StatisticsGen(examples=dataset.examples)
+    # Use TFDSTask to define the task for the titanic dataset.
+    task = nitroml.tasks.TFDSTask(tfds.builder('titanic', data_dir=data_dir))
 
-    # Infer the dataset schema.
-    schema_gen = tfx.SchemaGen(
-        statistics=statistics_gen.outputs.statistics, infer_feature_shape=True)
+    autodata = nitroml.autodata.AutoData(
+        task.problem_statement,
+        examples=task.train_and_eval_examples,
+        preprocessor=nitroml.autodata.BasicPreprocessor())
 
-    # Apply global transformations and compute vocabularies.
-    transform = component.Transform(
-        examples=dataset.examples,
-        schema=schema_gen.outputs.schema,
-        preprocessing_fn='examples.auto_transform.preprocessing_fn')
-
-    pipeline = dataset.components + [statistics_gen, schema_gen, transform]
+    pipeline = task.components + autodata.components
 
     if enable_tuning:
+      # Search over search space of model hyperparameters.
       tuner = tfx.Tuner(
           tuner_fn='examples.auto_trainer.tuner_fn',
-          examples=transform.outputs.transformed_examples,
-          transform_graph=transform.outputs.transform_graph,
+          examples=autodata.transformed_examples,
+          transform_graph=autodata.transform_graph,
           train_args=trainer_pb2.TrainArgs(num_steps=100),
           eval_args=trainer_pb2.EvalArgs(num_steps=50),
-          custom_config=dataset.task.to_dict())
+          custom_config={
+              # Pass the problem statement proto as a text proto. Required
+              # since custom_config must be JSON-serializable.
+              'problem_statement':
+                  text_format.MessageToString(
+                      message=task.problem_statement, as_utf8=True),
+          })
       pipeline.append(tuner)
 
     # Define a Trainer to train our model on the given task.
@@ -84,14 +79,20 @@ class TitanicBenchmark(nitroml.Benchmark):
         if use_keras else 'examples.auto_estimator_trainer.run_fn',
         custom_executor_spec=(executor_spec.ExecutorClassSpec(
             trainer_executor.GenericExecutor)),
-        transformed_examples=transform.outputs.transformed_examples,
-        schema=schema_gen.outputs.schema,
-        transform_graph=transform.outputs.transform_graph,
+        transformed_examples=autodata.transformed_examples,
+        transform_graph=autodata.transform_graph,
+        schema=autodata.schema,
         train_args=trainer_pb2.TrainArgs(num_steps=1000),
         eval_args=trainer_pb2.EvalArgs(num_steps=500),
         hyperparameters=(tuner.outputs.best_hyperparameters
                          if enable_tuning else None),
-        custom_config=dataset.task.to_dict())
+        custom_config={
+            # Pass the problem statement proto as a text proto. Required
+            # since custom_config must be JSON-serializable.
+            'problem_statement':
+                text_format.MessageToString(
+                    message=task.problem_statement, as_utf8=True),
+        })
 
     pipeline.append(trainer)
 
@@ -99,7 +100,9 @@ class TitanicBenchmark(nitroml.Benchmark):
     # automatically append Evaluators to compute metrics from the given
     # SavedModel and 'eval' TF Examples.
     self.evaluate(
-        pipeline, examples=dataset.examples, model=trainer.outputs.model)
+        pipeline,
+        examples=task.train_and_eval_examples,
+        model=trainer.outputs.model)
 
 
 if __name__ == '__main__':

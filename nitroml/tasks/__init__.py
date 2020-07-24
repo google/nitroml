@@ -13,17 +13,14 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""NitroML config.
+"""Package nitroml.tasks."""
 
-This file defines environments for nitroml.
-"""
-import os
+from nitroml.tasks.openml_task import OpenMLTask
+from nitroml.tasks.task import Task
+from nitroml.tasks.tfds_task import TFDSTask
 
-USE_KUBEFLOW = True
-
-PIPELINE_NAME = 'nitroml_tuner_examples'
-GCS_BUCKET_NAME = 'artifacts.nitroml-brain-xgcp.appspot.com'
-PIPELINE_ROOT = os.path.join('gs://', GCS_BUCKET_NAME, PIPELINE_NAME)
-TF_DOWNLOAD_DIR = os.path.join('gs://', GCS_BUCKET_NAME, 'tensorflow-datasets')
-OTHER_DOWNLOAD_DIR = os.path.join('gs://', GCS_BUCKET_NAME, 'other-datasets')
-TFX_IMAGE = 'tensorflow/tfx:0.23.0.dev20200716'
+__all__ = [
+    "OpenMLTask",
+    "Task",
+    "TFDSTask",
+]

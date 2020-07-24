@@ -20,18 +20,19 @@ The consumed artifacts include:
  * TensorFlow Transform outputs.
 """
 
-from typing import Any, Callable, List, Optional, Text, Dict
+from typing import Any, Callable, List, Optional, Dict
 
 from absl import logging
+import kerastuner
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
-import kerastuner
-from tfx.components.tuner.component import TunerFnResult
-from tfx.components.trainer import fn_args_utils
-from tensorflow_metadata.proto.v0 import schema_pb2
 import tensorflow_transform as tft
 from tfx.components.trainer import executor as trainer_executor
+from tfx.components.trainer import fn_args_utils
+from tfx.components.tuner.component import TunerFnResult
 
+from google.protobuf import text_format
+from nitroml.protos import problem_statement_pb2 as ps_pb2
 from tensorflow_metadata.proto.v0 import schema_pb2
 
 FeatureColumn = Any
@@ -48,6 +49,7 @@ def _get_hyperparameters() -> kerastuner.HyperParameters:
 
 def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
   """Build the tuner using the KerasTuner API.
+
   Args:
     fn_args: Holds args as name/value pairs.
       - working_dir: working dir for tuning.
@@ -57,6 +59,9 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
       - eval_steps: number of eval steps.
       - schema_path: optional schema of the input data.
       - transform_graph_path: optional transform graph produced by TFT.
+      - custom_config: A dict with a single 'problem_statement' entry containing
+        a text-format serialized ProblemStatement proto which defines the task.
+
   Returns:
     A namedtuple contains the following:
       - tuner: A BaseTuner that will be used for tuning.
@@ -69,10 +74,10 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
 
   # TODO(weill): Replace with AutoDataProvider.
   data_provider = KerasDataProvider(
-      transform_graph_dir=fn_args.transform_graph_path,
-      label_key=fn_args.custom_config['label_key'],
-      num_classes=fn_args.custom_config['num_classes'],
-      dataset_name=fn_args.custom_config['dataset_name'])
+      problem_statement=text_format.Parse(
+          fn_args.custom_config['problem_statement'],
+          ps_pb2.ProblemStatement()),
+      transform_graph_dir=fn_args.transform_graph_path)
 
   build_keras_model = lambda hparams: _build_keras_model(data_provider, hparams)
   tuner = kerastuner.RandomSearch(
@@ -82,7 +87,7 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
       allow_new_entries=False,
       objective=kerastuner.Objective('val_accuracy', 'max'),
       directory=fn_args.working_dir,
-      project_name='_'.join([data_provider.dataset_name, 'tuning']))
+      project_name='_'.join([data_provider.task_name, 'tuning']))
 
   train_dataset = data_provider.get_input_fn(
       file_pattern=fn_args.train_files,
@@ -124,20 +129,21 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
       - eval_steps: Number of eval steps.
       - base_model: Base model that will be used for this training job.
       - hyperparameters: An optional kerastuner.HyperParameters config.
+      - problem_statement: A text-format serialized ProblemStatement proto
+        which defines the task.
   """
 
   # TODO(weill): Replace with AutoDataProvider.
   data_provider = KerasDataProvider(
-      transform_graph_dir=fn_args.transform_output,
-      label_key=fn_args.label_key,
-      num_classes=fn_args.num_classes,
-      dataset_name=fn_args.dataset_name)
+      problem_statement=text_format.Parse(fn_args.problem_statement,
+                                          ps_pb2.ProblemStatement()),
+      transform_graph_dir=fn_args.transform_output)
 
   if fn_args.hyperparameters:
     hparams = kerastuner.HyperParameters.from_config(fn_args.hyperparameters)
   else:
     hparams = _get_hyperparameters()
-  logging.info('HyperParameters for training: %s' % hparams.get_config())
+  logging.info('HyperParameters for training: %s', hparams.get_config())
   model = _build_keras_model(data_provider, hparams)
 
   train_spec = tf.estimator.TrainSpec(
@@ -191,52 +197,57 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
 
 
 # TODO(weill): Replace with AutoData
-class KerasDataProvider():
+class KerasDataProvider:
   """Creates feature columns and specs from TFX artifacts."""
 
   SPARSE_CATEGORICAL_CE = 'sparse_categorical_crossentropy'
   CATEGORICAL_CE = 'categorical_crossentropy'
   BINARY_CE = 'binary_crossentropy'
 
-  def __init__(self, transform_graph_dir: str, label_key: str, num_classes: int,
-               dataset_name: str):
+  def __init__(self, problem_statement: ps_pb2.ProblemStatement,
+               transform_graph_dir: str):
     """Initializes the DataProvider from TFX artifacts.
 
     Args:
+      problem_statement: Defines the task and label key.
       transform_graph_dir: Path to the TensorFlow Transform graph artifacts.
-      label_key: String label key.
-      num_classes: Number of classes.
-
-    Raises:
-      ValueError: When `num_classes` < 2.
     """
 
-    # TODO(github.com/googleinterns/nitroml/issues/29): Regression tasks
-    # (self._num_classes==0).
-    if num_classes < 2:
-      raise ValueError('Classification should have num_classes >= 2.')
-
+    self._problem_statement = problem_statement
     # Parse transform.
     self._tf_transform_output = tft.TFTransformOutput(transform_graph_dir)
     # Parse schema.
     self._dataset_schema = self._tf_transform_output.transformed_metadata.schema
-    self._label_key = label_key
-    self._num_classes = num_classes
-    self._dataset_name = dataset_name
 
   @property
-  def dataset_name(self) -> Text:
-    return self._dataset_name
+  def label_key(self) -> str:
+    task_type = self._problem_statement.tasks[0].type
+    if task_type.HasField('multi_class_classification'):
+      return task_type.multi_class_classification.label
+    if task_type.HasField('binary_classification'):
+      return task_type.binary_classification.label
+    if task_type.HasField('one_dimensional_regression'):
+      return task_type.one_dimensional_regression.label
+    raise ValueError('Invalid task type: {}'.format(task_type))
 
   @property
-  def raw_label_keys(self) -> List[Text]:
+  def num_classes(self) -> int:
+    return self._tf_transform_output.num_buckets_for_transformed_feature(
+        self.label_key)
+
+  @property
+  def task_name(self) -> str:
+    return self._problem_statement.tasks[0].name
+
+  @property
+  def raw_label_keys(self) -> List[str]:
     """The raw label key as defined in the ProblemStatement."""
 
     # TODO(nikhilmehta): Change the task object to allow label_key to be a list.
-    return [self._label_key]
+    return [self.label_key]
 
   @property
-  def transformed_label_keys(self) -> List[Text]:
+  def transformed_label_keys(self) -> List[str]:
     """The label key after applying TensorFlow Transform to the Examples."""
 
     return self.raw_label_keys
@@ -247,16 +258,16 @@ class KerasDataProvider():
     """Returns the head size for this task."""
 
     # TODO(github.com/googleinterns/nitroml/issues/29): Regression tasks
-    # (self._num_classes==0)
-    if self._num_classes == 2:
+    # (self.num_classes==0)
+    if self.num_classes == 2:
       return 1
-    return self._num_classes
+    return self.num_classes
 
   @property
   def loss(self) -> str:
     """Returns the keras loss_fn for this task."""
 
-    if self._num_classes > 2:
+    if self.num_classes > 2:
       return self.SPARSE_CATEGORICAL_CE
     return self.BINARY_CE
 
@@ -264,14 +275,14 @@ class KerasDataProvider():
   def head_activation(self) -> str:
     """Returns the activation for the final layer."""
 
-    if self._num_classes > 2:
+    if self.num_classes > 2:
       return 'softmax'
     return 'sigmoid'
 
   @property
   def metrics(self) -> List[tf.keras.metrics.Metric]:
 
-    if self._num_classes == 2:
+    if self.num_classes == 2:
       return [
           tf.keras.metrics.BinaryAccuracy(name='accuracy'),
           tf.keras.metrics.BinaryCrossentropy(name='average_loss'),
@@ -282,7 +293,7 @@ class KerasDataProvider():
         tf.keras.metrics.SparseCategoricalCrossentropy(name='average_loss')
     ]
 
-  def get_input_layers(self) -> Dict[Text, tf.keras.layers.Input]:
+  def get_input_layers(self) -> Dict[str, tf.keras.layers.Input]:
     """Returns input layers for a Keras Model."""
 
     feature_spec = self._tf_transform_output.transformed_feature_spec().copy()
@@ -469,7 +480,7 @@ class KerasDataProvider():
 
   def get_input_fn(
       self,
-      file_pattern: Text,
+      file_pattern: List[str],
       batch_size: int,
       num_epochs: Optional[int] = None,
       shuffle: Optional[bool] = True,
@@ -550,7 +561,7 @@ class KerasDataProvider():
 
 
 def _get_feature_storage_type(schema: schema_pb2.Schema,
-                              feature_name: Text) -> tf.dtypes.DType:
+                              feature_name: str) -> tf.dtypes.DType:
   """Get the storage type of at tf.Example feature."""
 
   for feature in schema.feature:
@@ -564,7 +575,7 @@ def _get_feature_storage_type(schema: schema_pb2.Schema,
   raise ValueError('Feature not found: {}'.format(feature_name))
 
 
-def _get_feature_dim(schema: schema_pb2.Schema, feature_name: Text) -> int:
+def _get_feature_dim(schema: schema_pb2.Schema, feature_name: str) -> int:
   """Get the dimension of the tf.Example feature."""
 
   for feature in schema.feature:
@@ -577,12 +588,12 @@ def _build_keras_model(data_provider: KerasDataProvider,
                        hparams: kerastuner.HyperParameters) -> tf.keras.Model:
   """Returns a Keras Model for the given data adapter.
 
-    Args:
-      data_provider: Data adaptor used to get the task information.
-      hparas: Hyperparameters of the model.
+  Args:
+    data_provider: Data adaptor used to get the task information.
+    hparams: Hyperparameters of the model.
 
-    Returns:
-      model: A keras model for the given adapter and hyperparams.
+  Returns:
+    A keras model for the given adapter and hyperparams.
   """
 
   feature_columns = data_provider.get_numeric_feature_columns(

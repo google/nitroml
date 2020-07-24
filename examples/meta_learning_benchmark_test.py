@@ -21,9 +21,9 @@
 import os
 
 from nitroml import results
-from nitroml.datasets import testing_utils
-from examples import meta_learning_benchmark
+from nitroml.suites import testing_utils
 from nitroml.testing import e2etest
+from examples import meta_learning_benchmark
 import requests_mock
 
 from ml_metadata import metadata_store
@@ -43,16 +43,17 @@ class MetaLearningTest(e2etest.TestCase):
       testing_utils.register_mock_urls(mocker)
       self.run_benchmarks([meta_learning_benchmark.OpenMLCC18MetaLearning()],
                           data_dir=os.path.join(self.pipeline_root,
-                                                'mock_meta_learning_openml'),
+                                                'mock_metalearning_openml'),
                           mock_data=True,
                           use_keras=use_keras,
-                          add_publisher=False,
                           enable_cache=False)
 
-    instance_name = '.'.join(['OpenMLCC18Benchmark', 'benchmark', 'mockdata'])
-    # self.assertComponentExecutionCount(11)
-    self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
-
+    # instance_names = []
+    # train_dataset_ids = [1,2]
+    # for ix in train_dataset_ids:
+    #   instance_name = '.'.join(['OpenMLCC18Benchmark', 'benchmark', 'mockdata_{ix}'])
+    #   instance_names.append(instance_name)
+    #   self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
     # if enable_tuning:
 
     #   self.assertComponentSucceeded('.'.join(['Tuner', instance_name]))
@@ -83,7 +84,8 @@ class MetaLearningTest(e2etest.TestCase):
     # ], df.columns.values.tolist())
     # self.assertSameElements([1], df['run'].tolist())
     # self.assertSameElements([1], df['num_runs'].tolist())
-    # self.assertSameElements([instance_name], df.benchmark.unique())
+    self.assertSameElements(instance_names, df.benchmark.unique())
+    self.assertComponentExecutionCount(11)
 
 
 if __name__ == '__main__':

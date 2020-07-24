@@ -13,17 +13,14 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""NitroML config.
+"""Package nitroml.autodata."""
 
-This file defines environments for nitroml.
-"""
-import os
+from nitroml.autodata.autodata_pipeline import AutoData
+from nitroml.autodata.preprocessors.basic_preprocessor import BasicPreprocessor
+from nitroml.autodata.preprocessors.preprocessor import Preprocessor
 
-USE_KUBEFLOW = True
-
-PIPELINE_NAME = 'nitroml_tuner_examples'
-GCS_BUCKET_NAME = 'artifacts.nitroml-brain-xgcp.appspot.com'
-PIPELINE_ROOT = os.path.join('gs://', GCS_BUCKET_NAME, PIPELINE_NAME)
-TF_DOWNLOAD_DIR = os.path.join('gs://', GCS_BUCKET_NAME, 'tensorflow-datasets')
-OTHER_DOWNLOAD_DIR = os.path.join('gs://', GCS_BUCKET_NAME, 'other-datasets')
-TFX_IMAGE = 'tensorflow/tfx:0.23.0.dev20200716'
+__all__ = [
+    "AutoData",
+    "BasicPreprocessor",
+    "Preprocessor",
+]

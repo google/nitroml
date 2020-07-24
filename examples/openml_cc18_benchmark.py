@@ -14,7 +14,7 @@
 # =============================================================================
 # Lint as: python3
 # pyformat: disable
-r"""Demos a basic NitroML benchmark on 'OpenMLCC18' datasets from OpenML.
+r"""Demos a basic NitroML benchmark on the 'OpenML-CC18' suite from OpenML.
 
 To run in open-source:
 
@@ -30,88 +30,58 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 from absl import logging
 import nitroml
-from nitroml.components.transform import component
-from nitroml.datasets import openml_cc18
 from examples import config
 from tfx import components as tfx
 from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
 
+from google.protobuf import text_format
+
 
 class OpenMLCC18Benchmark(nitroml.Benchmark):
-  r"""Demos a NitroML benchmark on the 'OpenML-CC18' classification datasets."""
+  r"""Demos a NitroML benchmark on the 'OpenML-CC18' classification tasks."""
 
   def benchmark(self,
                 mock_data: bool = False,
                 data_dir: str = None,
                 use_keras: bool = True,
                 enable_tuning: bool = True):
+    for i, task in enumerate(
+        nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data)):
 
-    # TODO(nikhilmehta): create subbenchmarks using all 72 datasets
-    # Kubeflow throws a "Max work worflow size error" when #components are large.
-    # Track issue: https://github.com/kubeflow/pipelines/issues/4170
-    datasets = openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data)
-
-    if mock_data:
-      dataset_indices = [0]
-    else:
-      dataset_indices = range(len(datasets.names))
-
-    benchmark_datasets = [
-        'adult', 'airlines', 'albert', 'Amazon_employee_access', 'anneal',
-        'APSFailure', 'arrhythmia', 'Australian', 'bankmarketing', 'car',
-        'christine', 'cnae9', 'connect4', 'covertype', 'dilbert', 'dionis',
-        'fabert', 'FashionMNIST', 'guillmero', 'helena', 'higgs', 'jannis',
-        'jasmine', 'jungle_chess_2pcs_raw_endgame_complete', 'kc1',
-        'KDDCup09_appetency', 'krvskp', 'mfeatfactors', 'MiniBooNE', 'nomao',
-        'numerai286', 'phoneme', 'riccardo', 'robert', 'segment', 'shuttle',
-        'sylvine', 'vehicle', 'volkert'
-    ]
-
-    map(lambda x: x.lower(), benchmark_datasets)
-
-    logging.info(list(set(benchmark_datasets) - set(datasets.names)))
-    logging.info('\n %s \n',
-                 list(set(datasets.names) - set(benchmark_datasets)))
-    logging.info(
-        'Available OpenMLCC18 datasets: %d',
-        len(list(set(benchmark_datasets).intersection(set(datasets.names)))))
-
-    for ix in dataset_indices:
-      name = datasets.names[ix]
-
-      if name.lower() not in benchmark_datasets:
-        logging.info('Skipping %s', name)
+      if not mock_data and i not in range(21, 40):
+        # Use only 20 of the datasets for now.
+        # TODO(nikhilmehta): Create subbenchmarks for all 72 tasks.
+        # Kubeflow throws a "Max work worflow size error" when pipeline contains
+        # too many components.
+        # Track issue: https://github.com/kubeflow/pipelines/issues/4170
         continue
-      else:
-        logging.info('Benchmarking %s', name)
 
-      with self.sub_benchmark(name):
-        example_gen = datasets.components[ix]
+      with self.sub_benchmark(task.name):
 
-        statistics_gen = tfx.StatisticsGen(
-            examples=example_gen.outputs.examples)
+        autodata = nitroml.autodata.AutoData(
+            task.problem_statement,
+            examples=task.train_and_eval_examples,
+            preprocessor=nitroml.autodata.BasicPreprocessor())
 
-        schema_gen = tfx.SchemaGen(
-            statistics=statistics_gen.outputs.statistics,
-            infer_feature_shape=True)
-
-        transform = component.Transform(
-            examples=example_gen.outputs.examples,
-            schema=schema_gen.outputs.schema,
-            preprocessing_fn='examples.auto_transform.preprocessing_fn')
-
-        pipeline = [example_gen, statistics_gen, schema_gen, transform]
+        pipeline = task.components + autodata.components
 
         if enable_tuning:
+          # Search over search space of model hyperparameters.
           tuner = tfx.Tuner(
               tuner_fn='examples.auto_trainer.tuner_fn',
-              examples=transform.outputs.transformed_examples,
-              transform_graph=transform.outputs.transform_graph,
+              examples=autodata.transformed_examples,
+              transform_graph=autodata.transform_graph,
               train_args=trainer_pb2.TrainArgs(num_steps=10),
               eval_args=trainer_pb2.EvalArgs(num_steps=5),
-              custom_config=datasets.tasks[ix].to_dict())
+              custom_config={
+                  # Pass the problem statement proto as a text proto. Required
+                  # since custom_config must be JSON-serializable.
+                  'problem_statement':
+                      text_format.MessageToString(
+                          message=task.problem_statement, as_utf8=True),
+              })
           pipeline.append(tuner)
 
         # Define a Trainer to train our model on the given task.
@@ -120,14 +90,20 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
             if use_keras else 'examples.auto_estimator_trainer.run_fn',
             custom_executor_spec=(executor_spec.ExecutorClassSpec(
                 trainer_executor.GenericExecutor)),
-            transformed_examples=transform.outputs.transformed_examples,
-            schema=schema_gen.outputs.schema,
-            transform_graph=transform.outputs.transform_graph,
+            transformed_examples=autodata.transformed_examples,
+            transform_graph=autodata.transform_graph,
+            schema=autodata.schema,
             train_args=trainer_pb2.TrainArgs(num_steps=10),
             eval_args=trainer_pb2.EvalArgs(num_steps=10),
             hyperparameters=(tuner.outputs.best_hyperparameters
                              if enable_tuning else None),
-            custom_config=datasets.tasks[ix].to_dict())
+            custom_config={
+                # Pass the problem statement proto as a text proto. Required
+                # since custom_config must be JSON-serializable.
+                'problem_statement':
+                    text_format.MessageToString(
+                        message=task.problem_statement, as_utf8=True),
+            })
 
         pipeline.append(trainer)
 
@@ -136,7 +112,7 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
         # SavedModel and 'eval' TF Examples.
         self.evaluate(
             pipeline,
-            examples=example_gen.outputs['examples'],
+            examples=task.train_and_eval_examples,
             model=trainer.outputs.model)
 
 

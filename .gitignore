@@ -9,7 +9,6 @@ docs/build*
 
 # Bazel outputs.
 bazel-*
-*_pb2.py
 
 # Byte-compiled
 _pycache__/

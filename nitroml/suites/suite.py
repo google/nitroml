@@ -13,17 +13,18 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""NitroML config.
+r"""A suite of benchmark tasks."""
 
-This file defines environments for nitroml.
-"""
-import os
+import abc
+from typing import Iterator
 
-USE_KUBEFLOW = True
+from nitroml.tasks import task
 
-PIPELINE_NAME = 'nitroml_tuner_examples'
-GCS_BUCKET_NAME = 'artifacts.nitroml-brain-xgcp.appspot.com'
-PIPELINE_ROOT = os.path.join('gs://', GCS_BUCKET_NAME, PIPELINE_NAME)
-TF_DOWNLOAD_DIR = os.path.join('gs://', GCS_BUCKET_NAME, 'tensorflow-datasets')
-OTHER_DOWNLOAD_DIR = os.path.join('gs://', GCS_BUCKET_NAME, 'other-datasets')
-TFX_IMAGE = 'tensorflow/tfx:0.23.0.dev20200716'
+
+class Suite(abc.ABC):
+  r"""Defines a collection of Tasks."""
+
+  @abc.abstractmethod
+  def __iter__(self) -> Iterator[task.Task]:
+    """Returns the tasks that compose this suite."""
+    pass
