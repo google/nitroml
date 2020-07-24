@@ -21,6 +21,7 @@ from nitroml.components import MetaFeatureGen
 from nitroml.components import MetaLearner
 from tfx.components.base import base_component
 from tfx import types
+import kerastuner
 
 
 class MetaLearningWrapper(object):
@@ -29,40 +30,58 @@ class MetaLearningWrapper(object):
   def __init__(self,
                train_transformed_examples: List[base_component.BaseComponent],
                train_stats_gens: List[base_component.BaseComponent],
-               test_transformed_examples: List[base_component.BaseComponent],
-               test_stats_gens: List[base_component.BaseComponent],
-               algorithm: Text = 'nearest_neighbor'):
+               meta_train_data: Dict[str, Any],
+               algorithm: str = 'majority_voting'):
 
     self._train_transformed_examples = train_transformed_examples
     self._train_stats_gens = train_stats_gens
-    self._test_transformed_examples = test_transformed_examples
-    self._test_stats_gens = test_stats_gens
-    self._algorithm = algorithm
+    self._meta_train_data = meta_train_data
     self._pipeline = []
-    self._build_pipeline()
+    self._algorithm = algorithm
+    self._recommended_search_space = None
+    self._build_meta_learner()
 
   @property
   def pipeline(self) -> List[base_component.BaseComponent]:
     return self._pipeline
 
-  # TODO(nikhilmehta): Add instance_name.
-  def _build_pipeline(self) -> None:
+  @property
+  def recommended_search_space(self) -> kerastuner.HyperParameters:
+    return self._recommended_search_space
+
+  def _build_meta_learner(self) -> None:
     """Builds the meta-learning pipeline."""
 
     self._pipeline = []
     train_meta_features = {}
     for ix, stats_gen in enumerate(self._train_stats_gens):
-      meta_feature_gen = MetaFeatureGen(
-          statistics=stats_gen.outputs.statistics, instance_name='1')
-      train_meta_features[
-          f'meta_train_features_{ix}'] = meta_feature_gen.outputs.meta_features
-      self._pipeline.append(meta_feature_gen)
+      self._meta_train_data[
+          f'meta_train_features_{ix}'] = self._get_meta_feature_channel(
+              stats_gen, instance_name=f'train_{ix}')
 
-    learner = MetaLearner(algorithm='nearest_neighbor', **train_meta_features)
+    learner = MetaLearner(algorithm=self._algorithm, **self._meta_train_data)
     self._pipeline.append(learner)
+    self._recommended_search_space = learner.outputs.meta_hyperparameters
 
-    test_statistics = {}
-    for ix, stats_gen in enumerate(self._test_stats_gens):
-      meta_feature_gen = MetaFeatureGen(
-          statistics=stats_gen.outputs.statistics, instance_name='2')
-      self._pipeline.append(meta_feature_gen)
+  def _get_meta_feature_channel(self,
+                                statistics_gen: base_component.BaseComponent,
+                                transform: Optional[
+                                    base_component.BaseComponent] = None,
+                                instance_name: str = None) -> types.Channel:
+    """Creates the `MetaFeatureGen` component and returns the output channel.
+
+      Args:
+        statistics_gen: The tfx StatisticsGen component to create MetaFeatures.
+        transformed_examples: The tfx Transform component
+
+      Returns:
+        meta_features: MetaFeatures channel
+    """
+
+    meta_feature_gen = MetaFeatureGen(
+        statistics=statistics_gen.outputs.statistics,
+        transformed_examples=(transform.outputs.transformed_examples
+                              if transform else None),
+        instance_name=instance_name)
+    self._pipeline.append(meta_feature_gen)
+    return meta_feature_gen.outputs.meta_features

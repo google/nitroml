@@ -46,11 +46,15 @@ class MetaLearningTest(e2etest.TestCase):
                                                 'mock_meta_learning_openml'),
                           mock_data=True,
                           use_keras=use_keras,
-                          add_publisher=False)
+                          add_publisher=False,
+                          enable_cache=False)
 
-    # instance_name = '.'.join(['OpenMLCC18Benchmark', 'benchmark', 'mockdata'])
+    instance_name = '.'.join(['OpenMLCC18Benchmark', 'benchmark', 'mockdata'])
+    # self.assertComponentExecutionCount(11)
+    self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
+
     # if enable_tuning:
-    #   self.assertComponentExecutionCount(8)
+
     #   self.assertComponentSucceeded('.'.join(['Tuner', instance_name]))
     # else:
     #   self.assertComponentExecutionCount(7)

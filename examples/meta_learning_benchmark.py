@@ -48,7 +48,6 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
                 mock_data: bool = False,
                 data_dir: str = None,
                 use_keras: bool = True,
-                enable_tuning: bool = True,
                 add_publisher: bool = False):
 
     datasets = openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data)
@@ -66,54 +65,97 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
     test_stat_gens = []
     test_transforms = []
     pipeline = []
+    meta_train_data = {}
 
-    # TODO(nikhilmehta: Add instance_name)
     for ix in [0, 1]:
 
       name = datasets.names[0]
       task_dict = datasets.tasks[0].to_dict()
-
       if name.lower() not in meta_datasets:
         logging.info('Skipping %s', name)
         continue
 
       example_gen = datasets.components[0]
-      pipeline.append(example_gen)
+      if ix == 0:
+        pipeline.append(example_gen)
 
       stats_gen = tfx.StatisticsGen(
-          examples=example_gen.outputs.examples, instance_name=name + f'_{ix}')
-      # schema_gen = tfx.SchemaGen(
-      #     statistics=stats_gen.outputs.statistics,
-      #     infer_feature_shape=True,
-      #     instance_name=name + f'_{ix}')
-      # transform = Transform(
-      #     examples=example_gen.outputs.examples,
-      #     schema=schema_gen.outputs.schema,
-      #     preprocessing_fn='examples.auto_transform.preprocessing_fn',
-      #     instance_name=name + f'_{ix}')
-      # pipeline.extend([stats_gen, schema_gen, transform])
+          examples=example_gen.outputs.examples,
+          instance_name=f'train_{name}_{ix}')
+      schema_gen = tfx.SchemaGen(
+          statistics=stats_gen.outputs.statistics,
+          infer_feature_shape=True,
+          instance_name=f'train_{name}_{ix}')
+      transform = Transform(
+          examples=example_gen.outputs.examples,
+          schema=schema_gen.outputs.schema,
+          preprocessing_fn='examples.auto_transform.preprocessing_fn',
+          instance_name=f'train_{name}_{ix}')
+      tuner = tfx.Tuner(
+          tuner_fn='examples.auto_trainer.tuner_fn',
+          examples=transform.outputs.transformed_examples,
+          transform_graph=transform.outputs.transform_graph,
+          train_args=trainer_pb2.TrainArgs(num_steps=1),
+          eval_args=trainer_pb2.EvalArgs(num_steps=1),
+          custom_config=task_dict,
+          instance_name=f'train_{name}_{ix}')
 
-      # TODO Remove this:
-      pipeline.extend([stats_gen])
-      transform = None
+      pipeline.extend([stats_gen, schema_gen, transform, tuner])
 
-      #TODO(nikhilmehta): Remove the ix == 0 check.
-      if name.lower() in meta_train_datasets and ix == 0:
-        train_stat_gens.append(stats_gen)
-        train_transforms.append(transform)
-      else:
-        test_stat_gens.append(stats_gen)
-        test_transforms.append(transform)
+      train_stat_gens.append(stats_gen)
+      train_transforms.append(transform)
+      meta_train_data[
+          f'hparams_train_{ix}'] = tuner.outputs.best_hyperparameters
 
+    # Define metalearner
     meta_learner_helper = meta_learning_wrapper.MetaLearningWrapper(
         train_transformed_examples=train_transforms,
         train_stats_gens=train_stat_gens,
-        test_transformed_examples=test_transforms,
-        test_stats_gens=test_stat_gens)
-
+        meta_train_data=meta_train_data)
     pipeline = pipeline + meta_learner_helper.pipeline
 
-    self.test_without_evaluate(pipeline)
+    for ix in [0]:
+
+      name = datasets.names[0]
+      task_dict = datasets.tasks[0].to_dict()
+      example_gen = datasets.components[0]
+
+      stats_gen = tfx.StatisticsGen(
+          examples=example_gen.outputs.examples,
+          instance_name=f'test_{name}_{ix}')
+      schema_gen = tfx.SchemaGen(
+          statistics=stats_gen.outputs.statistics,
+          infer_feature_shape=True,
+          instance_name=f'test_{name}_{ix}')
+      transform = Transform(
+          examples=example_gen.outputs.examples,
+          schema=schema_gen.outputs.schema,
+          preprocessing_fn='examples.auto_transform.preprocessing_fn',
+          instance_name=f'test_{name}_{ix}')
+      trainer = tfx.Trainer(
+          run_fn='examples.auto_trainer.run_fn',
+          custom_executor_spec=(executor_spec.ExecutorClassSpec(
+              trainer_executor.GenericExecutor)),
+          transformed_examples=transform.outputs.transformed_examples,
+          schema=schema_gen.outputs.schema,
+          transform_graph=transform.outputs.transform_graph,
+          train_args=trainer_pb2.TrainArgs(num_steps=1),
+          eval_args=trainer_pb2.EvalArgs(num_steps=1),
+          hyperparameters=meta_learner_helper.recommended_search_space,
+          custom_config=task_dict)
+
+      # test_stat_gens.append(stats_gen)
+      # test_transforms.append(transform)
+      pipeline.extend([stats_gen, schema_gen, transform, trainer])
+
+      # self.test_without_evaluate(pipeline)
+      # Finally, call evaluate() on the workflow DAG outputs, This will
+      # automatically append Evaluators to compute metrics from the given
+      # SavedModel and 'eval' TF Examples.
+      self.evaluate(
+          pipeline,
+          examples=example_gen.outputs['examples'],
+          model=trainer.outputs.model)
 
 
 if __name__ == '__main__':

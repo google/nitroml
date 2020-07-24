@@ -35,7 +35,10 @@ class MetaFeatureGenSpec(ComponentSpec):
       'custom_config': ExecutionParameter(type=(str, str), optional=True),
   }
   INPUTS = {
-      'statistics': ChannelParameter(type=standard_artifacts.ExampleStatistics),
+      'statistics':
+          ChannelParameter(type=standard_artifacts.ExampleStatistics),
+      'transformed_examples':
+          ChannelParameter(type=standard_artifacts.Examples, optional=True),
   }
   OUTPUTS = {
       'meta_features': ChannelParameter(type=artifacts.MetaFeatures),
@@ -51,14 +54,16 @@ class MetaFeatureGen(base_component.BaseComponent):
 
   def __init__(self,
                statistics: types.Channel = None,
+               transformed_examples: Optional[types.Channel] = None,
                custom_config: Optional[Dict[str, Any]] = None,
                instance_name: Optional[str] = None):
     """Construct a MetaFeatureGen component.
 
     Args:
-      statistics: Output of StatisticsGen.
-      custom_config: A dict which contains addtional parameters.
-      instance_name: Optional unique instance name. Necessary iff multiple
+      statistics: Output channel from StatisticsGen.
+      transformed_examples: Optional channel from tfx Transform component.
+      custom_config: Optional dict which contains addtional parameters.
+      instance_name: Optional unique instance name. Necessary if multiple
         MetaFeatureGen components are declared in the same pipeline.
     """
 
@@ -66,6 +71,7 @@ class MetaFeatureGen(base_component.BaseComponent):
         type=artifacts.MetaFeatures, artifacts=[artifacts.MetaFeatures()])
     spec = MetaFeatureGenSpec(
         meta_features=meta_features,
+        transformed_examples=transformed_examples,
         statistics=statistics,
         custom_config=custom_config)
     super(MetaFeatureGen, self).__init__(spec=spec, instance_name=instance_name)

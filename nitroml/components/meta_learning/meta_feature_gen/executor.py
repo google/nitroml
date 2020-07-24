@@ -65,7 +65,6 @@ class MetaFeatureGenExecutor(base_executor.BaseExecutor):
       if not name:
         name = feature.path.step[0]
       logging.info('Feature Name: %s', name)
-      logging.info('Feature: %s', feature)
 
       if statistics_pb2.FeatureNameStatistics.FLOAT == feature.type:
         num_float_features += 1
@@ -80,6 +79,11 @@ class MetaFeatureGenExecutor(base_executor.BaseExecutor):
         'num_float_features': num_float_features,
         'num_categorical_features': num_categorical_features,
     }
+
+    meta_feature_dict['meta_feature'] = [
+        stats.num_examples, num_int_features, num_float_features,
+        num_categorical_features
+    ]
 
     meta_feature_path = os.path.join(
         artifact_utils.get_single_uri(output_dict['meta_features']),

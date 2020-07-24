@@ -41,10 +41,18 @@ class MetaLearnerSpec(ComponentSpec):
           'meta_train_features_%s' % input_id:
           ChannelParameter(type=artifacts.MetaFeatures, optional=True)
           for input_id in range(executor._MAX_INPUTS)
+      },
+      **{
+          'hparams_train_%s' % input_id: ChannelParameter(
+              type=standard_artifacts.HyperParameters, optional=True)
+          for input_id in range(executor._MAX_INPUTS)
       }
   }
   OUTPUTS = {
-      'metalearned_model': ChannelParameter(type=standard_artifacts.Model),
+      'metalearned_model':
+          ChannelParameter(type=standard_artifacts.Model),
+      'meta_hyperparameters':
+          ChannelParameter(type=standard_artifacts.HyperParameters),
   }
 
 
@@ -65,13 +73,17 @@ class MetaLearner(base_component.BaseComponent):
     """
 
     if not meta_train_data:
-      raise ValueError('Meta-train stats cannot be empty.')
+      raise ValueError('Meta-train data cannot be empty.')
 
     model = types.Channel(
         type=standard_artifacts.Model, artifacts=[standard_artifacts.Model()])
+    meta_hyperparameters = types.Channel(
+        type=standard_artifacts.HyperParameters,
+        artifacts=[standard_artifacts.HyperParameters()])
     spec = MetaLearnerSpec(
         algorithm=algorithm,
         metalearned_model=model,
+        meta_hyperparameters=meta_hyperparameters,
         custom_config=custom_config,
         **meta_train_data)
     super(MetaLearner, self).__init__(spec=spec)
