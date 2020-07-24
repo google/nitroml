@@ -52,13 +52,6 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
 
     datasets = openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data)
     dataset_indices = range(len(datasets.names))
-    # meta_datasets = ['adult', 'car', 'segment']
-    meta_datasets = [
-        'mockdata',
-        'mockdata',
-    ]
-    meta_train_datasets = meta_datasets[:1]
-    meta_test_datasets = meta_datasets[1:2]
 
     train_stat_gens = []
     train_transforms = []
@@ -67,30 +60,31 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
     pipeline = []
     meta_train_data = {}
 
-    for ix in [0, 1]:
+    if mock_data:
+      train_indices = [0, 1]
+      test_indices = [0]
+    else:
+      train_indices = range(21, 26)
+      test_indices = range(27, 28)
 
-      name = datasets.names[0]
-      task_dict = datasets.tasks[0].to_dict()
-      if name.lower() not in meta_datasets:
-        logging.info('Skipping %s', name)
-        continue
+    for ix, train_index in enumerate(train_indices):
 
-      example_gen = datasets.components[0]
-      if ix == 0:
-        pipeline.append(example_gen)
-
+      name = datasets.names[train_index]
+      logging.info(f'Train dataset: {name}')
+      task_dict = datasets.tasks[train_index].to_dict()
+      example_gen = datasets.components[train_index]
+      example_gen._instance_name = f'{example_gen._instance_name}.train_{name}'
       stats_gen = tfx.StatisticsGen(
-          examples=example_gen.outputs.examples,
-          instance_name=f'train_{name}_{ix}')
+          examples=example_gen.outputs.examples, instance_name=f'train_{name}')
       schema_gen = tfx.SchemaGen(
           statistics=stats_gen.outputs.statistics,
           infer_feature_shape=True,
-          instance_name=f'train_{name}_{ix}')
+          instance_name=f'train_{name}')
       transform = Transform(
           examples=example_gen.outputs.examples,
           schema=schema_gen.outputs.schema,
           preprocessing_fn='examples.auto_transform.preprocessing_fn',
-          instance_name=f'train_{name}_{ix}')
+          instance_name=f'train_{name}')
       tuner = tfx.Tuner(
           tuner_fn='examples.auto_trainer.tuner_fn',
           examples=transform.outputs.transformed_examples,
@@ -98,40 +92,39 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
           train_args=trainer_pb2.TrainArgs(num_steps=1),
           eval_args=trainer_pb2.EvalArgs(num_steps=1),
           custom_config=task_dict,
-          instance_name=f'train_{name}_{ix}')
+          instance_name=f'train_{name}')
 
-      pipeline.extend([stats_gen, schema_gen, transform, tuner])
+      pipeline.extend([example_gen, stats_gen, schema_gen, transform, tuner])
 
       train_stat_gens.append(stats_gen)
       train_transforms.append(transform)
       meta_train_data[
           f'hparams_train_{ix}'] = tuner.outputs.best_hyperparameters
 
-    # Define metalearner
     meta_learner_helper = meta_learning_wrapper.MetaLearningWrapper(
         train_transformed_examples=train_transforms,
         train_stats_gens=train_stat_gens,
         meta_train_data=meta_train_data)
     pipeline = pipeline + meta_learner_helper.pipeline
 
-    for ix in [0]:
+    for ix, test_index in enumerate(test_indices):
 
-      name = datasets.names[0]
-      task_dict = datasets.tasks[0].to_dict()
-      example_gen = datasets.components[0]
-
+      name = datasets.names[test_index]
+      logging.info(f'Test dataset: {name}')
+      task_dict = datasets.tasks[test_index].to_dict()
+      example_gen = datasets.components[test_index]
+      example_gen._instance_name = f'{example_gen._instance_name}.train_{name}'
       stats_gen = tfx.StatisticsGen(
-          examples=example_gen.outputs.examples,
-          instance_name=f'test_{name}_{ix}')
+          examples=example_gen.outputs.examples, instance_name=f'test_{name}')
       schema_gen = tfx.SchemaGen(
           statistics=stats_gen.outputs.statistics,
           infer_feature_shape=True,
-          instance_name=f'test_{name}_{ix}')
+          instance_name=f'test_{name}')
       transform = Transform(
           examples=example_gen.outputs.examples,
           schema=schema_gen.outputs.schema,
           preprocessing_fn='examples.auto_transform.preprocessing_fn',
-          instance_name=f'test_{name}_{ix}')
+          instance_name=f'test_{name}')
       trainer = tfx.Trainer(
           run_fn='examples.auto_trainer.run_fn',
           custom_executor_spec=(executor_spec.ExecutorClassSpec(
@@ -146,7 +139,7 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
 
       # test_stat_gens.append(stats_gen)
       # test_transforms.append(transform)
-      pipeline.extend([stats_gen, schema_gen, transform, trainer])
+      pipeline.extend([example_gen, stats_gen, schema_gen, transform, trainer])
 
       # self.test_without_evaluate(pipeline)
       # Finally, call evaluate() on the workflow DAG outputs, This will
@@ -165,12 +158,12 @@ if __name__ == '__main__':
     # validator used in `tfx create pipeline`.
     # Validator: https://github.com/tensorflow/tfx/blob/v0.22.0/tfx/tools/cli/handler/base_handler.py#L105
     nitroml.main(
-        pipeline_name=config.PIPELINE_NAME + '_openML',
+        pipeline_name=config.PIPELINE_NAME + '_metalearning',
         pipeline_root=config.PIPELINE_ROOT,
         data_dir=config.OTHER_DOWNLOAD_DIR,
         tfx_runner=nitroml.get_default_kubeflow_dag_runner())
   else:
     # This example has not been tested with engines other than Kubeflow.
     nitroml.main(
-        pipeline_name=config.PIPELINE_NAME + '_meta_learning',
+        pipeline_name=config.PIPELINE_NAME + '_metalearning',
         data_dir='/tmp/meta_learning_openML')

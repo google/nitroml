@@ -32,7 +32,7 @@ class MetaFeatureGenSpec(ComponentSpec):
   """MetaFeatureGenSpec component spec."""
 
   PARAMETERS = {
-      'custom_config': ExecutionParameter(type=(str, str), optional=True),
+      'custom_config': ExecutionParameter(type=Dict[str, Any], optional=True),
   }
   INPUTS = {
       'statistics':
