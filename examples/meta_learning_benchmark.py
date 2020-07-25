@@ -78,7 +78,6 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
       if train_index not in train_indices:
         continue
 
-      logging.info('Train: %s', task.name)
       autodata = nitroml.autodata.AutoData(
           task.problem_statement,
           examples=task.train_and_eval_examples,
@@ -123,7 +122,6 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
     for test_index, task in enumerate(
         nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data)):
 
-      logging.info('Test: %s', task.name)
       if test_index not in test_indices:
         continue
 
@@ -183,5 +181,5 @@ if __name__ == '__main__':
   else:
     # This example has not been tested with engines other than Kubeflow.
     nitroml.main(
-        pipeline_name=config.PIPELINE_NAME + '_metalearning',
-        data_dir='/tmp/meta_learning_openML')
+        pipeline_name=config.PIPELINE_NAME    + '_metalearning',
+        data_dir=config.OTHER_DOWNLOAD_DIR,)

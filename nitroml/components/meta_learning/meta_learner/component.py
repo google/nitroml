@@ -34,7 +34,7 @@ class MetaLearnerSpec(ComponentSpec):
 
   PARAMETERS = {
       'algorithm': ExecutionParameter(type=str),
-      'custom_config': ExecutionParameter(type=(str, str), optional=True),
+      'custom_config': ExecutionParameter(type=Dict[str, Any], optional=True),
   }
   INPUTS = {
       **{
