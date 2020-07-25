@@ -14,3 +14,6 @@
 # =============================================================================
 # Lint as: python3
 """Package nitroml.components."""
+
+from nitroml.components.meta_learning.meta_feature_gen.component import MetaFeatureGen
+from nitroml.components.meta_learning.meta_learner.component import MetaLearner

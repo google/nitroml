@@ -59,6 +59,10 @@ class OpenMLCC18(suite.Suite):
     if not mock_data and not api_key:
       raise ValueError("API_KEY cannot be ''")
 
+    if root_dir is None:
+      raise ValueError('root_dir cannot be None.')
+
+    self._components = []
     self._tasks = []
     self.root_dir = os.path.join(root_dir, 'openML_datasets')
     self.max_threads = max_threads

@@ -50,7 +50,8 @@ class OpenMLCC18BenchmarkTest(e2etest.TestCase):
       })
   def test(self, use_keras, enable_tuning):
     with requests_mock.Mocker() as mocker:
-      testing_utils.register_mock_urls(mocker)
+      dataset_id_list = [1, 2]
+      testing_utils.register_mock_urls(mocker, dataset_id_list)
       self.run_benchmarks(
           [openml_cc18_benchmark.OpenMLCC18Benchmark()],
           data_dir=os.path.join(self.pipeline_root, 'openML_mock_data'),
@@ -59,30 +60,35 @@ class OpenMLCC18BenchmarkTest(e2etest.TestCase):
           enable_tuning=enable_tuning,
       )
 
-    instance_name = '.'.join(['OpenMLCC18Benchmark', 'benchmark', 'mockdata'])
-    if enable_tuning:
-      self.assertComponentExecutionCount(8)
-      self.assertComponentSucceeded('.'.join(['Tuner', instance_name]))
-    else:
-      self.assertComponentExecutionCount(7)
-    self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
-    self.assertComponentSucceeded('.'.join(
-        ['SchemaGen.AutoData', instance_name]))
-    self.assertComponentSucceeded('.'.join(
-        ['StatisticsGen.AutoData', instance_name]))
-    self.assertComponentSucceeded('.'.join(
-        ['Transform.AutoData', instance_name]))
-    self.assertComponentSucceeded('.'.join(['Trainer', instance_name]))
-    self.assertComponentSucceeded('.'.join(['Evaluator', instance_name]))
-    self.assertComponentSucceeded('.'.join(
-        ['BenchmarkResultPublisher', instance_name]))
+    instance_names = []
+    for did in dataset_id_list:
+      instance_name = '.'.join(
+          ['OpenMLCC18Benchmark', 'benchmark', f'mockdata_{did}'])
+      instance_names.append(instance_name)
+
+      if enable_tuning:
+        self.assertComponentExecutionCount(8 * len(dataset_id_list))
+        self.assertComponentSucceeded('.'.join(['Tuner', instance_name]))
+      else:
+        self.assertComponentExecutionCount(7 * len(dataset_id_list))
+      self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
+      self.assertComponentSucceeded('.'.join(
+          ['SchemaGen.AutoData', instance_name]))
+      self.assertComponentSucceeded('.'.join(
+          ['StatisticsGen.AutoData', instance_name]))
+      self.assertComponentSucceeded('.'.join(
+          ['Transform.AutoData', instance_name]))
+      self.assertComponentSucceeded('.'.join(['Trainer', instance_name]))
+      self.assertComponentSucceeded('.'.join(['Evaluator', instance_name]))
+      self.assertComponentSucceeded('.'.join(
+          ['BenchmarkResultPublisher', instance_name]))
 
     # Load benchmark results.
     store = metadata_store.MetadataStore(self.metadata_config)
     df = results.overview(store)
 
     # Check benchmark results overview values.
-    self.assertEqual(len(df.index), 1)
+    self.assertEqual(len(df.index), len(dataset_id_list))
     self.assertContainsSubset([
         'benchmark',
         'run',
@@ -93,7 +99,7 @@ class OpenMLCC18BenchmarkTest(e2etest.TestCase):
     ], df.columns.values.tolist())
     self.assertSameElements([1], df['run'].tolist())
     self.assertSameElements([1], df['num_runs'].tolist())
-    self.assertSameElements([instance_name], df.benchmark.unique())
+    self.assertSameElements(instance_names, df.benchmark.unique())
 
 
 if __name__ == '__main__':

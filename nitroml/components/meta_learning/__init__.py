@@ -13,17 +13,4 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""NitroML config.
-
-This file defines environments for nitroml.
-"""
-import os
-
-USE_KUBEFLOW = True
-
-PIPELINE_NAME = 'examples'
-GCS_BUCKET_NAME = 'artifacts.nitroml-brain-xgcp.appspot.com'
-PIPELINE_ROOT = os.path.join('gs://', GCS_BUCKET_NAME, PIPELINE_NAME)
-TF_DOWNLOAD_DIR = os.path.join('gs://', GCS_BUCKET_NAME, 'tensorflow-datasets')
-OTHER_DOWNLOAD_DIR = os.path.join('gs://', GCS_BUCKET_NAME, 'other-datasets')
-TFX_IMAGE = 'tensorflow/tfx:0.23.0.dev20200716'
+"""Package nitroml.components.meta_learning"""
