@@ -35,40 +35,35 @@ class ExecutorTest(absltest.TestCase):
     super(ExecutorTest, self).setUp()
 
     source_data_dir = os.path.dirname(os.path.dirname(__file__))
-    input_data_dir = os.path.join(source_data_dir, 'testdata',
-                                  'meta_feature_gen')
+    input_data_dir = os.path.join(source_data_dir, 'testdata')
+
     statistics = standard_artifacts.ExampleStatistics()
     statistics.uri = os.path.join(input_data_dir,
                                   'StatisticsGen.train_mockdata_1',
                                   'statistics', '5')
     statistics.split_names = artifact_utils.encode_split_names(
         ['train', 'eval'])
-
     transformed_examples = standard_artifacts.Examples()
     transformed_examples.uri = os.path.join(input_data_dir,
                                             'Transform.train_mockdata_1',
                                             'transformed_examples', '10')
     transformed_examples.split_names = artifact_utils.encode_split_names(
         ['train', 'eval'])
-
     self._input_dict = {
         executor.EXAMPLES_KEY: [transformed_examples],
         executor.STATISTICS_KEY: [statistics],
     }
 
-    # Create output_dict.
     output_data_dir = os.path.join(
         os.environ.get('TEST_UNDECLARED_OUTPUTS_DIR',
                        tempfile.mkdtemp(dir=flags.FLAGS.test_tmpdir)),
         self._testMethodName)
-
     self._meta_features = artifacts.MetaFeatures()
     self._meta_features.uri = output_data_dir
     self._output_dict = {
         executor.META_FEATURES_KEY: [self._meta_features],
     }
 
-    # Create exec properties.
     self._exec_properties = {
         'custom_config': {
             'problem_statement_path': '/some/fake/path'

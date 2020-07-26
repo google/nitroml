@@ -33,6 +33,8 @@ import kerastuner
 _MAX_INPUTS = 10
 _DEFAULT_FILE_NAME = 'meta_hyperparameters.txt'
 
+OUTPUT_MODEL = 'metalearned_model'
+OUTPUT_HYPERPARAMS = 'meta_hyperparameters'
 MAJORITY_VOTING = 'majority_voting'
 META_LEARNING_ALGORITHMS = [
     MAJORITY_VOTING,
@@ -133,8 +135,6 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
             io_utils.read_string_file(hyperparameters_file))
         all_hparams.append(hparams_json['values'])
         logging.info('File %s.', hparams_json)
-      else:
-        logging.info('%s not found.', hparam_key)
 
     if algorithm == 'majority_voting':
 
