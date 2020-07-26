@@ -35,18 +35,17 @@ class MetaLearningTest(e2etest.TestCase):
     super(MetaLearningTest, self).setUp('nitroml_meta_learning_openml')
 
   @e2etest.parameterized.named_parameters({
-      'testcase_name': 'meta_learning_default',
-      'use_keras': True,
+      'testcase_name': 'meta_learning_algo_majority-voting',
+      'algorithm': 'majority_voting',
   })
-  def test(self, use_keras):
+  def test(self, algorithm):
     with requests_mock.Mocker() as mocker:
       testing_utils.register_mock_urls(mocker)
       self.run_benchmarks([meta_learning_benchmark.OpenMLCC18MetaLearning()],
                           data_dir=os.path.join(self.pipeline_root,
                                                 'mock_metalearning_openml'),
                           mock_data=True,
-                          use_keras=use_keras,
-                          enable_cache=False)
+                          algorithm=algorithm)
 
     # instance_names = []
     # train_dataset_ids = [1,2]

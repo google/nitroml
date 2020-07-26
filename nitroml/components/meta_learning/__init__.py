@@ -14,3 +14,5 @@
 # =============================================================================
 # Lint as: python3
 """Package nitroml.components.meta_learning"""
+
+from nitroml.components.meta_learning.meta_learner.executor import META_LEARNING_ALGORITHMS

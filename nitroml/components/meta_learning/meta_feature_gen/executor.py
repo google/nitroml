@@ -28,6 +28,10 @@ from tfx.types.artifact import Artifact
 import tensorflow_data_validation as tfdv
 from tensorflow_metadata.proto.v0 import statistics_pb2
 
+EXAMPLES_KEY = 'transformed_examples'
+STATISTICS_KEY = 'statistics'
+META_FEATURES_KEY = 'meta_features'
+
 
 class MetaFeatureGenExecutor(base_executor.BaseExecutor):
   """Executor for MetaFeatureGen."""
@@ -47,7 +51,7 @@ class MetaFeatureGenExecutor(base_executor.BaseExecutor):
     custom_config = exec_properties['custom_config']
 
     train_stats_uri = io_utils.get_only_uri_in_dir(
-        artifact_utils.get_split_uri(input_dict['statistics'], 'train'))
+        artifact_utils.get_split_uri(input_dict[STATISTICS_KEY], 'train'))
 
     stats = tfdv.load_statistics(train_stats_uri)
 
@@ -86,7 +90,7 @@ class MetaFeatureGenExecutor(base_executor.BaseExecutor):
     ]
 
     meta_feature_path = os.path.join(
-        artifact_utils.get_single_uri(output_dict['meta_features']),
+        artifact_utils.get_single_uri(output_dict[META_FEATURES_KEY]),
         artifacts.MetaFeatures.DEFAULT_FILE_NAME)
 
     io_utils.write_string_file(meta_feature_path, json.dumps(meta_feature_dict))

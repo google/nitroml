@@ -35,9 +35,9 @@ class MetaFeatureGenSpec(ComponentSpec):
       'custom_config': ExecutionParameter(type=Dict[str, Any], optional=True),
   }
   INPUTS = {
-      'statistics':
+      executor.STATISTICS_KEY:
           ChannelParameter(type=standard_artifacts.ExampleStatistics),
-      'transformed_examples':
+      executor.EXAMPLES_KEY:
           ChannelParameter(type=standard_artifacts.Examples, optional=True),
   }
   OUTPUTS = {

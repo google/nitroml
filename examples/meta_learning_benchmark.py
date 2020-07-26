@@ -38,6 +38,7 @@ from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
 from tfx.components.base import base_component
 from nitroml.components.meta_learning import meta_learning_wrapper
+from nitroml.components.meta_learning import META_LEARNING_ALGORITHMS
 
 from google.protobuf import text_format
 
@@ -51,9 +52,14 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
     component._instance_name = f'{component._instance_name}.{suffix}'
 
   def benchmark(self,
+                algorithm: str = None,
                 mock_data: bool = False,
-                data_dir: str = None,
-                use_keras: bool = True):
+                data_dir: str = None):
+
+    if not algorithm or algorithm not in META_LEARNING_ALGORITHMS:
+      raise ValueError(
+          f'Required a valid meta learning algorithm. Found "{algorithm}", Expected one of {META_LEARNING_ALGORITHMS}'
+      )
 
     train_stat_gens = []
     train_transforms = []
@@ -181,5 +187,6 @@ if __name__ == '__main__':
   else:
     # This example has not been tested with engines other than Kubeflow.
     nitroml.main(
-        pipeline_name=config.PIPELINE_NAME    + '_metalearning',
-        data_dir=config.OTHER_DOWNLOAD_DIR,)
+        pipeline_name=config.PIPELINE_NAME + '_metalearning',
+        data_dir=config.OTHER_DOWNLOAD_DIR,
+    )

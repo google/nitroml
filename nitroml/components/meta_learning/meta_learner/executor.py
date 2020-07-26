@@ -33,6 +33,11 @@ import kerastuner
 _MAX_INPUTS = 10
 _DEFAULT_FILE_NAME = 'meta_hyperparameters.txt'
 
+MAJORITY_VOTING = 'majority_voting'
+META_LEARNING_ALGORITHMS = [
+    MAJORITY_VOTING,
+]
+
 
 class MetaLearnerExecutor(base_executor.BaseExecutor):
   """Executor for MetaLearnerExecutor."""
