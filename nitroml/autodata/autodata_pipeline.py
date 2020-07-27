@@ -59,29 +59,30 @@ class AutoData:
         AutoDataPipeline instances are declared in the same pipeline.
     """
 
-
     if not preprocessor:
       logging.info('Using default preprocessor: BasicPreprocessor.')
       preprocessor = basic_preprocessor.BasicPreprocessor()
 
     self._preprocessor = preprocessor
-
-    self.instance_name = instance_name
-    autodata_instance_name = 'AutoData'
-    if instance_name:
-      autodata_instance_name = f'{autodata_instance_name}.{instance_name}'
+    self._instance_name = instance_name
 
     # Computes statistics over data for visualization and example validation.
-    self._statistics_gen = self._build_statistics_gen(examples,
-                                                      autodata_instance_name)
+    self._statistics_gen = self._build_statistics_gen(examples, self.id)
 
     # Generates schema based on statistics files.
     self._schema_gen = self._build_schema_gen(
-        self._statistics_gen.outputs.statistics, autodata_instance_name)
+        self._statistics_gen.outputs.statistics, self.id)
 
     self._transform = self._build_transform(problem_statement, examples,
                                             self._schema_gen.outputs.schema,
-                                            autodata_instance_name)
+                                            self.id)
+
+  @property
+  def id(self) -> str:
+    autodata_instance_name = 'AutoData'
+    if self._instance_name:
+      autodata_instance_name = f'{autodata_instance_name}.{self._instance_name}'
+    return autodata_instance_name
 
   @property
   def components(self) -> List[base_component.BaseComponent]:
