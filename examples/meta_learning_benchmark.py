@@ -49,7 +49,6 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
   def set_instance_name(self,
                         component: base_component.BaseComponent,
                         suffix: str = ''):
-    logging.info(component._instance_name)
     if component._instance_name:
       component._instance_name = f'{component._instance_name}.{suffix}'
     else:
@@ -69,22 +68,25 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
     meta_train_data = {}
     train_autodata_list = []
 
-    # TODO: Think of a better way to create this experiment,
-    # Create train/test datasets.
     if mock_data:
-      train_indices = [0, 1]
-      test_indices = [0]
+      # Used for unit testing.
+      train_datasets = ['mockdata_1', 'mockdata_2']
+      test_datasets = ['mockdata_1']
     else:
-      train_indices = range(21, 26)
-      test_indices = range(27, 28)
+      train_datasets = [
+          'connect4', 'creditapproval', 'creditg', 'cylinderbands', 'diabetes'
+      ]
+      test_datasets = ['dressessales']
 
     pipeline = []
     for train_index, task in enumerate(
         nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data)):
+      logging.info(task.name)
 
-      if train_index not in train_indices:
+      if task.name not in train_datasets:
         continue
 
+      logging.info(task.name)
       instance_name = f'train_{task.name}'
       autodata = nitroml.autodata.AutoData(
           task.problem_statement,
@@ -123,7 +125,7 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
     for test_index, task in enumerate(
         nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data)):
 
-      if test_index not in test_indices:
+      if task.name not in test_datasets:
         continue
 
       instance_name = f'test_{task.name}'
@@ -174,10 +176,11 @@ if __name__ == '__main__':
         pipeline_name=config.PIPELINE_NAME + '_metalearning',
         pipeline_root=config.PIPELINE_ROOT,
         data_dir=config.OTHER_DOWNLOAD_DIR,
-        tfx_runner=nitroml.get_default_kubeflow_dag_runner())
+        tfx_runner=nitroml.get_default_kubeflow_dag_runner(),
+        algorithm='majority_voting')
   else:
     # This example has not been tested with engines other than Kubeflow.
     nitroml.main(
         pipeline_name=config.PIPELINE_NAME + '_metalearning',
         data_dir=config.OTHER_DOWNLOAD_DIR,
-    )
+        algorithm='majority_voting')
