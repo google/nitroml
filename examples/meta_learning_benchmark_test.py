@@ -13,10 +13,7 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Tests for nitroml.examples.openml_cc18_benchmark.
-
-  This test assumes that the openml_cc18 datasets exist.
-"""
+"""Tests for nitroml.examples.meta_learning_benchmark."""
 
 import os
 

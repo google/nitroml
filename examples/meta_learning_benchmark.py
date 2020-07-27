@@ -14,11 +14,11 @@
 # =============================================================================
 # Lint as: python3
 # pyformat: disable
-r"""Demos a basic NitroML benchmark on 'OpenMLCC18' datasets from OpenML.
+"""Demos a metalearning pipeline as a NitroML benchmark on 'OpenMLCC18' datasets.
 
 To run in open-source:
 
-  python examples/openml_cc18_benchmark.py
+  python -m examples.meta_learning_benchmark.py
 
 """  # pylint: disable=line-too-long
 # pyformat: enable
@@ -81,7 +81,6 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
     pipeline = []
     for train_index, task in enumerate(
         nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data)):
-      logging.info(task.name)
 
       if task.name not in train_datasets:
         continue
