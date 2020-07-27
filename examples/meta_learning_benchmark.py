@@ -65,12 +65,9 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
           f'Required a valid meta learning algorithm. Found "{algorithm}", Expected one of {META_LEARNING_ALGORITHMS}'
       )
 
-    train_stat_gens = []
-    train_transforms = []
-    test_stat_gens = []
-    test_transforms = []
     pipeline = []
     meta_train_data = {}
+    train_autodata_list = []
 
     # TODO: Think of a better way to create this experiment,
     # Create train/test datasets.
@@ -114,15 +111,12 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
           instance_name=f'train_{task.name}')
       pipeline.append(tuner)
 
-      # TODO: Work with channels instead of components
-      train_stat_gens.append(autodata._statistics_gen)
-      train_transforms.append(autodata._transform)
+      train_autodata_list.append(autodata)
       meta_train_data[
-          f'hparams_train_{len(train_stat_gens)}'] = tuner.outputs.best_hyperparameters
+          f'hparams_train_{len(train_autodata_list)}'] = tuner.outputs.best_hyperparameters
 
     meta_learner_helper = meta_learning_wrapper.MetaLearningWrapper(
-        train_transformed_examples=train_transforms,
-        train_stats_gens=train_stat_gens,
+        train_autodata_list=train_autodata_list,
         meta_train_data=meta_train_data)
     pipeline += pipeline + meta_learner_helper.pipeline
 
@@ -161,7 +155,6 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
           })
       pipeline.append(trainer)
 
-      # self.test_without_evaluate(pipeline)
       # Finally, call evaluate() on the workflow DAG outputs, This will
       # automatically append Evaluators to compute metrics from the given
       # SavedModel and 'eval' TF Examples.ss

@@ -66,6 +66,7 @@ class AutoData:
 
     self._preprocessor = preprocessor
 
+    self.instance_name = instance_name
     autodata_instance_name = 'AutoData'
     if instance_name:
       autodata_instance_name = f'{autodata_instance_name}.{instance_name}'

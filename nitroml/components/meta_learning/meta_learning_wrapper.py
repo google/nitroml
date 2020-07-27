@@ -19,6 +19,7 @@ from typing import Any, Dict, Optional, Text, List
 
 from nitroml.components import MetaFeatureGen
 from nitroml.components import MetaLearner
+from nitroml import autodata
 from tfx.components.base import base_component
 from tfx import types
 import kerastuner
@@ -28,13 +29,11 @@ class MetaLearningWrapper(object):
   """A helper class that wraps definition of meta learning sub-pipeline."""
 
   def __init__(self,
-               train_transformed_examples: List[base_component.BaseComponent],
-               train_stats_gens: List[base_component.BaseComponent],
+               train_autodata_list: List[autodata.AutoData],
                meta_train_data: Dict[str, Any],
                algorithm: str = 'majority_voting'):
 
-    self._train_transformed_examples = train_transformed_examples
-    self._train_stats_gens = train_stats_gens
+    self._train_autodata_list = train_autodata_list
     self._meta_train_data = meta_train_data
     self._pipeline = []
     self._algorithm = algorithm
@@ -54,34 +53,36 @@ class MetaLearningWrapper(object):
 
     self._pipeline = []
     train_meta_features = {}
-    for ix, stats_gen in enumerate(self._train_stats_gens):
+
+    for ix, autodata in enumerate(self._train_autodata_list):
+      meta_feature_gen = self._create_meta_feature_gen(
+          statistics=autodata.statistics,
+          transformed_examples=autodata.transformed_examples,
+          instance_name=f'train_{autodata.instance_name}')
+      self._pipeline.append(meta_feature_gen)
       self._meta_train_data[
-          f'meta_train_features_{ix}'] = self._get_meta_feature_channel(
-              stats_gen, instance_name=f'train_{ix}')
+          f'meta_train_features_{ix}'] = meta_feature_gen.outputs.meta_features
 
     learner = MetaLearner(algorithm=self._algorithm, **self._meta_train_data)
     self._pipeline.append(learner)
     self._recommended_search_space = learner.outputs.meta_hyperparameters
 
-  def _get_meta_feature_channel(self,
-                                statistics_gen: base_component.BaseComponent,
-                                transform: Optional[
-                                    base_component.BaseComponent] = None,
-                                instance_name: str = None) -> types.Channel:
-    """Creates the `MetaFeatureGen` component and returns the output channel.
+  def _create_meta_feature_gen(self,
+                               statistics: types.Channel,
+                               transformed_examples: Optional[
+                                   types.Channel] = None,
+                               instance_name: str = None) -> types.Channel:
+    """Creates and returns the `MetaFeatureGen` component.
 
       Args:
-        statistics_gen: The tfx StatisticsGen component to create MetaFeatures.
-        transformed_examples: The tfx Transform component
+        statistics: Channel containing the dataset statistics proto path.
+        transformed_examples: Channel containing the transformed examples paths.
 
       Returns:
-        meta_features: MetaFeatures channel
+        The MetaFeatureGen component
     """
 
-    meta_feature_gen = MetaFeatureGen(
-        statistics=statistics_gen.outputs.statistics,
-        transformed_examples=(transform.outputs.transformed_examples
-                              if transform else None),
+    return MetaFeatureGen(
+        statistics=statistics,
+        transformed_examples=(transformed_examples),
         instance_name=instance_name)
-    self._pipeline.append(meta_feature_gen)
-    return meta_feature_gen.outputs.meta_features
