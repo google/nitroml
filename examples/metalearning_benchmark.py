@@ -43,7 +43,7 @@ from nitroml.components.metalearning import METALEARNING_ALGORITHMS
 from google.protobuf import text_format
 
 
-class OpenMLCC18MetaLearning(nitroml.Benchmark):
+class MetaLearningBenchmark(nitroml.Benchmark):
   r"""Demos a metalearning pipeline using 'OpenML-CC18' classification datasets."""
 
   def set_instance_name(self,

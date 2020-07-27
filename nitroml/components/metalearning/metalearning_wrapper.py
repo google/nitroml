@@ -59,7 +59,7 @@ class MetaLearningWrapper(object):
       metafeature_gen = self._create_metafeature_gen(
           statistics=autodata.statistics,
           transformed_examples=autodata.transformed_examples,
-          instance_name=f'train_{autodata.instance_name}')
+          instance_name=f'train_{autodata.id}')
       self._pipeline.append(metafeature_gen)
       self._meta_train_data[
           f'meta_train_features_{ix}'] = metafeature_gen.outputs.metafeatures

@@ -39,7 +39,7 @@ class MetaLearningTest(e2etest.TestCase):
   def test(self, algorithm):
     with requests_mock.Mocker() as mocker:
       testing_utils.register_mock_urls(mocker)
-      self.run_benchmarks([metalearning_benchmark.OpenMLCC18MetaLearning()],
+      self.run_benchmarks([metalearning_benchmark.MetaLearningBenchmark()],
                           data_dir=os.path.join(self.pipeline_root,
                                                 'mock_metalearning_openml'),
                           mock_data=True,
@@ -50,7 +50,7 @@ class MetaLearningTest(e2etest.TestCase):
     train_dataset_ids = [1, 2]
     for ix in train_dataset_ids:
       instance_name = '.'.join(
-          [f'train_mockdata_{ix}', 'OpenMLCC18MetaLearning', 'benchmark'])
+          [f'train_mockdata_{ix}', 'MetaLearningBenchmark', 'benchmark'])
       self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
       self.assertComponentSucceeded('.'.join(['Tuner', instance_name]))
       self.assertComponentSucceeded('.'.join(
@@ -63,7 +63,7 @@ class MetaLearningTest(e2etest.TestCase):
     test_dataset_ids = [1]
     for ix in test_dataset_ids:
       instance_name = '.'.join(
-          [f'test_mockdata_{ix}', 'OpenMLCC18MetaLearning', 'benchmark'])
+          [f'test_mockdata_{ix}', 'MetaLearningBenchmark', 'benchmark'])
       self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
       self.assertComponentSucceeded('.'.join(
           ['SchemaGen.AutoData', instance_name]))
@@ -72,7 +72,7 @@ class MetaLearningTest(e2etest.TestCase):
       self.assertComponentSucceeded('.'.join(
           ['Transform.AutoData', instance_name]))
 
-    instance_name = '.'.join(['OpenMLCC18MetaLearning', 'benchmark'])
+    instance_name = '.'.join(['MetaLearningBenchmark', 'benchmark'])
     self.assertComponentSucceeded('.'.join(['Evaluator', instance_name]))
     self.assertComponentSucceeded('.'.join(
         ['BenchmarkResultPublisher', instance_name]))
