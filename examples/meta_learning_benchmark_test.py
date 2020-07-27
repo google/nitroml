@@ -20,6 +20,7 @@
 
 import os
 
+from absl import logging
 from nitroml import results
 from nitroml.suites import testing_utils
 from nitroml.testing import e2etest
@@ -47,44 +48,53 @@ class MetaLearningTest(e2etest.TestCase):
                           mock_data=True,
                           algorithm=algorithm)
 
-    # instance_names = []
-    # train_dataset_ids = [1,2]
-    # for ix in train_dataset_ids:
-    #   instance_name = '.'.join(['OpenMLCC18Benchmark', 'benchmark', 'mockdata_{ix}'])
-    #   instance_names.append(instance_name)
-    #   self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
-    # if enable_tuning:
+    self.assertComponentExecutionCount(20)
 
-    #   self.assertComponentSucceeded('.'.join(['Tuner', instance_name]))
-    # else:
-    #   self.assertComponentExecutionCount(7)
-    # self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
-    # self.assertComponentSucceeded('.'.join(['SchemaGen', instance_name]))
-    # self.assertComponentSucceeded('.'.join(['StatisticsGen', instance_name]))
-    # self.assertComponentSucceeded('.'.join(['Transform', instance_name]))
-    # self.assertComponentSucceeded('.'.join(['Trainer', instance_name]))
-    # self.assertComponentSucceeded('.'.join(['Evaluator', instance_name]))
-    # self.assertComponentSucceeded('.'.join(
-    #     ['BenchmarkResultPublisher', instance_name]))
+    train_dataset_ids = [1, 2]
+    for ix in train_dataset_ids:
+      instance_name = '.'.join(
+          [f'train_mockdata_{ix}', 'OpenMLCC18MetaLearning', 'benchmark'])
+      self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
+      self.assertComponentSucceeded('.'.join(['Tuner', instance_name]))
+      self.assertComponentSucceeded('.'.join(
+          ['SchemaGen.AutoData', instance_name]))
+      self.assertComponentSucceeded('.'.join(
+          ['StatisticsGen.AutoData', instance_name]))
+      self.assertComponentSucceeded('.'.join(
+          ['Transform.AutoData', instance_name]))
 
-    # # Load benchmark results.
-    # store = metadata_store.MetadataStore(self.metadata_config)
-    # df = results.overview(store)
+    test_dataset_ids = [1]
+    for ix in test_dataset_ids:
+      instance_name = '.'.join(
+          [f'test_mockdata_{ix}', 'OpenMLCC18MetaLearning', 'benchmark'])
+      self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
+      self.assertComponentSucceeded('.'.join(
+          ['SchemaGen.AutoData', instance_name]))
+      self.assertComponentSucceeded('.'.join(
+          ['StatisticsGen.AutoData', instance_name]))
+      self.assertComponentSucceeded('.'.join(
+          ['Transform.AutoData', instance_name]))
 
-    # # Check benchmark results overview values.
-    # self.assertEqual(len(df.index), 1)
-    # self.assertContainsSubset([
-    #     'benchmark',
-    #     'run',
-    #     'num_runs',
-    #     'accuracy',
-    #     'average_loss',
-    #     'post_export_metrics/example_count',
-    # ], df.columns.values.tolist())
-    # self.assertSameElements([1], df['run'].tolist())
-    # self.assertSameElements([1], df['num_runs'].tolist())
-    # self.assertSameElements(instance_names, df.benchmark.unique())
-    # self.assertComponentExecutionCount(11)
+    instance_name = '.'.join(['OpenMLCC18MetaLearning', 'benchmark'])
+    self.assertComponentSucceeded('.'.join(['Evaluator', instance_name]))
+    self.assertComponentSucceeded('.'.join(
+        ['BenchmarkResultPublisher', instance_name]))
+    # Load benchmark results.
+    store = metadata_store.MetadataStore(self.metadata_config)
+    df = results.overview(store)
+    # Check benchmark results overview values.
+    self.assertEqual(len(df.index), 1)
+    self.assertContainsSubset([
+        'benchmark',
+        'run',
+        'num_runs',
+        'accuracy',
+        'average_loss',
+        'post_export_metrics/example_count',
+    ], df.columns.values.tolist())
+    self.assertSameElements([1], df['run'].tolist())
+    self.assertSameElements([1], df['num_runs'].tolist())
+    self.assertSameElements([instance_name], df.benchmark.unique())
 
 
 if __name__ == '__main__':

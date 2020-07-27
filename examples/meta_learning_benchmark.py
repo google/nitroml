@@ -49,7 +49,11 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
   def set_instance_name(self,
                         component: base_component.BaseComponent,
                         suffix: str = ''):
-    component._instance_name = f'{component._instance_name}.{suffix}'
+    logging.info(component._instance_name)
+    if component._instance_name:
+      component._instance_name = f'{component._instance_name}.{suffix}'
+    else:
+      component._instance_name = suffix
 
   def benchmark(self,
                 algorithm: str = None,
@@ -84,17 +88,14 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
       if train_index not in train_indices:
         continue
 
+      instance_name = f'train_{task.name}'
       autodata = nitroml.autodata.AutoData(
           task.problem_statement,
           examples=task.train_and_eval_examples,
-          preprocessor=nitroml.autodata.BasicPreprocessor())
+          preprocessor=nitroml.autodata.BasicPreprocessor(),
+          instance_name=instance_name)
 
-      ## TODO: Move this autodata
-      suffix = f'train_{task.name}'
-      self.set_instance_name(task.components[0], suffix)
-      self.set_instance_name(autodata._schema_gen, suffix)
-      self.set_instance_name(autodata._statistics_gen, suffix)
-      self.set_instance_name(autodata._transform, suffix)
+      self.set_instance_name(task.components[0], instance_name)
       pipeline += task.components + autodata.components
 
       tuner = tfx.Tuner(
@@ -131,17 +132,14 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
       if test_index not in test_indices:
         continue
 
+      instance_name = f'test_{task.name}'
       autodata = nitroml.autodata.AutoData(
           task.problem_statement,
           examples=task.train_and_eval_examples,
-          preprocessor=nitroml.autodata.BasicPreprocessor())
+          preprocessor=nitroml.autodata.BasicPreprocessor(),
+          instance_name=instance_name)
 
-      ## TODO: Move this autodata
-      suffix = f'test_{task.name}'
-      self.set_instance_name(task.components[0], suffix)
-      self.set_instance_name(autodata._schema_gen, suffix)
-      self.set_instance_name(autodata._statistics_gen, suffix)
-      self.set_instance_name(autodata._transform, suffix)
+      self.set_instance_name(task.components[0], instance_name)
       pipeline += task.components + autodata.components
 
       trainer = tfx.Trainer(
