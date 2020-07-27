@@ -18,7 +18,7 @@
 
 To run in open-source:
 
-  python -m examples.meta_learning_benchmark.py
+  python -m examples.metalearning_benchmark.py
 
 """  # pylint: disable=line-too-long
 # pyformat: enable
@@ -37,8 +37,8 @@ from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
 from tfx.components.base import base_component
-from nitroml.components.meta_learning import meta_learning_wrapper
-from nitroml.components.meta_learning import META_LEARNING_ALGORITHMS
+from nitroml.components.metalearning import metalearning_wrapper
+from nitroml.components.metalearning import METALEARNING_ALGORITHMS
 
 from google.protobuf import text_format
 
@@ -59,9 +59,9 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
                 mock_data: bool = False,
                 data_dir: str = None):
 
-    if not algorithm or algorithm not in META_LEARNING_ALGORITHMS:
+    if not algorithm or algorithm not in METALEARNING_ALGORITHMS:
       raise ValueError(
-          f'Required a valid meta learning algorithm. Found "{algorithm}", Expected one of {META_LEARNING_ALGORITHMS}'
+          f'Required a valid meta learning algorithm. Found "{algorithm}", Expected one of {METALEARNING_ALGORITHMS}'
       )
 
     pipeline = []
@@ -116,10 +116,10 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
       meta_train_data[
           f'hparams_train_{len(train_autodata_list)}'] = tuner.outputs.best_hyperparameters
 
-    meta_learner_helper = meta_learning_wrapper.MetaLearningWrapper(
+    metalearner_helper = metalearning_wrapper.MetaLearningWrapper(
         train_autodata_list=train_autodata_list,
         meta_train_data=meta_train_data)
-    pipeline += pipeline + meta_learner_helper.pipeline
+    pipeline += pipeline + metalearner_helper.pipeline
 
     for test_index, task in enumerate(
         nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data)):
@@ -146,7 +146,7 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
           schema=autodata.schema,
           train_args=trainer_pb2.TrainArgs(num_steps=1),
           eval_args=trainer_pb2.EvalArgs(num_steps=1),
-          hyperparameters=meta_learner_helper.recommended_search_space,
+          hyperparameters=metalearner_helper.recommended_search_space,
           custom_config={
               # Pass the problem statement proto as a text proto. Required
               # since custom_config must be JSON-serializable.

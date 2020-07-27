@@ -13,7 +13,7 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Tests for nitroml.components.meta_learning.meta_feature_gen.executor."""
+"""Tests for nitroml.components.metalearning.metafeature_gen.executor."""
 
 import os
 import tempfile
@@ -21,8 +21,8 @@ import tempfile
 from absl import flags
 from absl import logging
 from absl.testing import absltest
-from nitroml.components.meta_learning.meta_feature_gen import executor
-from nitroml.components.meta_learning import artifacts
+from nitroml.components.metalearning.metafeature_gen import executor
+from nitroml.components.metalearning import artifacts
 from tfx import types
 import tensorflow as tf
 from tfx.types import artifact_utils
@@ -58,10 +58,10 @@ class ExecutorTest(absltest.TestCase):
         os.environ.get('TEST_UNDECLARED_OUTPUTS_DIR',
                        tempfile.mkdtemp(dir=flags.FLAGS.test_tmpdir)),
         self._testMethodName)
-    self._meta_features = artifacts.MetaFeatures()
-    self._meta_features.uri = output_data_dir
+    self._metafeatures = artifacts.MetaFeatures()
+    self._metafeatures.uri = output_data_dir
     self._output_dict = {
-        executor.META_FEATURES_KEY: [self._meta_features],
+        executor.METAFEATURES_KEY: [self._metafeatures],
     }
 
     self._exec_properties = {
@@ -70,14 +70,14 @@ class ExecutorTest(absltest.TestCase):
         }
     }
 
-  def _verify_meta_feature_gen_outputs(self):
-    self.assertNotEmpty(tf.io.gfile.listdir(self._meta_features.uri))
+  def _verify_metafeature_gen_outputs(self):
+    self.assertNotEmpty(tf.io.gfile.listdir(self._metafeatures.uri))
 
-  def test_meta_feature_gen_do(self):
+  def test_metafeature_gen_do(self):
 
     exec = executor.MetaFeatureGenExecutor()
     exec.Do(self._input_dict, self._output_dict, self._exec_properties)
-    self._verify_meta_feature_gen_outputs()
+    self._verify_metafeature_gen_outputs()
 
 
 if __name__ == '__main__':

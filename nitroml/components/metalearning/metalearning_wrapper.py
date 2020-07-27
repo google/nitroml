@@ -17,12 +17,14 @@ r"""Meta Learning helper class the defines the meta learning DAG."""
 
 from typing import Any, Dict, Optional, Text, List
 
-from nitroml.components import MetaFeatureGen
-from nitroml.components import MetaLearner
+from nitroml.components import metafeature_gen
+from nitroml.components import metalearner
 from nitroml import autodata
 from tfx.components.base import base_component
 from tfx import types
 import kerastuner
+
+from nitroml.components.transform import component as transform
 
 
 class MetaLearningWrapper(object):
@@ -38,7 +40,7 @@ class MetaLearningWrapper(object):
     self._pipeline = []
     self._algorithm = algorithm
     self._recommended_search_space = None
-    self._build_meta_learner()
+    self._build_metalearner()
 
   @property
   def pipeline(self) -> List[base_component.BaseComponent]:
@@ -48,30 +50,30 @@ class MetaLearningWrapper(object):
   def recommended_search_space(self) -> kerastuner.HyperParameters:
     return self._recommended_search_space
 
-  def _build_meta_learner(self) -> None:
+  def _build_metalearner(self) -> None:
     """Builds the meta-learning pipeline."""
 
     self._pipeline = []
-    train_meta_features = {}
 
     for ix, autodata in enumerate(self._train_autodata_list):
-      meta_feature_gen = self._create_meta_feature_gen(
+      metafeature_gen = self._create_metafeature_gen(
           statistics=autodata.statistics,
           transformed_examples=autodata.transformed_examples,
           instance_name=f'train_{autodata.instance_name}')
-      self._pipeline.append(meta_feature_gen)
+      self._pipeline.append(metafeature_gen)
       self._meta_train_data[
-          f'meta_train_features_{ix}'] = meta_feature_gen.outputs.meta_features
+          f'meta_train_features_{ix}'] = metafeature_gen.outputs.metafeatures
 
-    learner = MetaLearner(algorithm=self._algorithm, **self._meta_train_data)
+    learner = metalearner.MetaLearner(
+        algorithm=self._algorithm, **self._meta_train_data)
     self._pipeline.append(learner)
     self._recommended_search_space = learner.outputs.meta_hyperparameters
 
-  def _create_meta_feature_gen(self,
-                               statistics: types.Channel,
-                               transformed_examples: Optional[
-                                   types.Channel] = None,
-                               instance_name: str = None) -> types.Channel:
+  def _create_metafeature_gen(self,
+                              statistics: types.Channel,
+                              transformed_examples: Optional[
+                                  types.Channel] = None,
+                              instance_name: str = None) -> types.Channel:
     """Creates and returns the `MetaFeatureGen` component.
 
       Args:
@@ -82,7 +84,7 @@ class MetaLearningWrapper(object):
         The MetaFeatureGen component
     """
 
-    return MetaFeatureGen(
+    return metafeature_gen.MetaFeatureGen(
         statistics=statistics,
         transformed_examples=(transformed_examples),
         instance_name=instance_name)

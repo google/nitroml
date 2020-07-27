@@ -13,7 +13,7 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Tests for nitroml.examples.meta_learning_benchmark."""
+"""Tests for nitroml.examples.metalearning_benchmark."""
 
 import os
 
@@ -21,7 +21,7 @@ from absl import logging
 from nitroml import results
 from nitroml.suites import testing_utils
 from nitroml.testing import e2etest
-from examples import meta_learning_benchmark
+from examples import metalearning_benchmark
 import requests_mock
 
 from ml_metadata import metadata_store
@@ -30,16 +30,16 @@ from ml_metadata import metadata_store
 class MetaLearningTest(e2etest.TestCase):
 
   def setUp(self):
-    super(MetaLearningTest, self).setUp('nitroml_meta_learning_openml')
+    super(MetaLearningTest, self).setUp('nitroml_metalearning_openml')
 
   @e2etest.parameterized.named_parameters({
-      'testcase_name': 'meta_learning_algo_majority-voting',
+      'testcase_name': 'metalearning_algo_majority-voting',
       'algorithm': 'majority_voting',
   })
   def test(self, algorithm):
     with requests_mock.Mocker() as mocker:
       testing_utils.register_mock_urls(mocker)
-      self.run_benchmarks([meta_learning_benchmark.OpenMLCC18MetaLearning()],
+      self.run_benchmarks([metalearning_benchmark.OpenMLCC18MetaLearning()],
                           data_dir=os.path.join(self.pipeline_root,
                                                 'mock_metalearning_openml'),
                           mock_data=True,

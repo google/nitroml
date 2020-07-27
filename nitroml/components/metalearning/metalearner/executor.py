@@ -21,7 +21,7 @@ import json
 import collections
 from typing import Any, Dict, List, Tuple
 
-from nitroml.components.meta_learning import artifacts
+from nitroml.components.metalearning import artifacts
 from absl import logging
 from tfx.components.base import base_executor
 from tfx.types import artifact_utils
@@ -36,7 +36,7 @@ _DEFAULT_FILE_NAME = 'meta_hyperparameters.txt'
 OUTPUT_MODEL = 'metalearned_model'
 OUTPUT_HYPERPARAMS = 'meta_hyperparameters'
 MAJORITY_VOTING = 'majority_voting'
-META_LEARNING_ALGORITHMS = [
+METALEARNING_ALGORITHMS = [
     MAJORITY_VOTING,
 ]
 
@@ -115,14 +115,14 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
     train_stats = {}
     # This should be agnostic to meta-feature type.
     for ix in range(_MAX_INPUTS):
-      meta_feature_key = f'meta_train_features_{ix}'
-      if (meta_feature_key in input_dict):
-        meta_feature_uri = os.path.join(
-            artifact_utils.get_single_uri(input_dict[meta_feature_key]),
+      metafeature_key = f'meta_train_features_{ix}'
+      if (metafeature_key in input_dict):
+        metafeature_uri = os.path.join(
+            artifact_utils.get_single_uri(input_dict[metafeature_key]),
             artifacts.MetaFeatures.DEFAULT_FILE_NAME)
-        logging.info('Found %s at %s.', meta_feature_key, meta_feature_uri)
-        meta_features = json.loads(io_utils.read_string_file(meta_feature_uri))
-        logging.info('meta_features %s.', meta_features['meta_feature'])
+        logging.info('Found %s at %s.', metafeature_key, metafeature_uri)
+        metafeatures = json.loads(io_utils.read_string_file(metafeature_uri))
+        logging.info('metafeatures %s.', metafeatures['metafeature'])
 
     all_hparams = []
     for ix in range(_MAX_INPUTS):

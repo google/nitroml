@@ -13,7 +13,7 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Tests for nitroml.components.meta_learning.meta_learner.executor."""
+"""Tests for nitroml.components.metalearning.metalearner.executor."""
 
 import os
 import tempfile
@@ -21,8 +21,8 @@ import tempfile
 from absl import flags
 from absl import logging
 from absl.testing import absltest
-from nitroml.components.meta_learning.meta_learner import executor
-from nitroml.components.meta_learning import artifacts
+from nitroml.components.metalearning.metalearner import executor
+from nitroml.components.metalearning import artifacts
 from tfx import types
 import tensorflow as tf
 from tfx.types import artifact_utils
@@ -39,15 +39,15 @@ class ExecutorTest(absltest.TestCase):
     meta_train_data = {}
     metadata_indices = [1, 2]
     for ix, dataset_id in enumerate(metadata_indices):
-      meta_features = artifacts.MetaFeatures()
-      meta_features.uri = os.path.join(
+      metafeatures = artifacts.MetaFeatures()
+      metafeatures.uri = os.path.join(
           input_data_dir, f'MetaFeatureGen.train_mockdata_{dataset_id}',
-          'meta_features', '1')
+          'metafeatures', '1')
       hparams = standard_artifacts.HyperParameters()
       hparams.uri = os.path.join(input_data_dir,
                                  f'Tuner.train_mockdata_{dataset_id}',
                                  'best_hyperparameters', '1')
-      meta_train_data[f'meta_train_features_{ix}'] = [meta_features]
+      meta_train_data[f'meta_train_features_{ix}'] = [metafeatures]
       meta_train_data[f'hparams_train_{ix}'] = [hparams]
     self._input_dict = {
         **meta_train_data,
@@ -76,7 +76,7 @@ class ExecutorTest(absltest.TestCase):
   def _verify_hparams_outputs(self):
     self.assertNotEmpty(tf.io.gfile.listdir(self._hparams_out.uri))
 
-  def test_meta_learner_majority_voting(self):
+  def test_metalearner_majority_voting(self):
     exec_properties = self._exec_properties
     exec_properties['algorithm'] = executor.MAJORITY_VOTING
     exec = executor.MetaLearnerExecutor()

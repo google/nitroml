@@ -17,8 +17,8 @@
 
 from typing import Any, Dict, Optional, Text, Union
 
-from nitroml.components.meta_learning.meta_learner import executor
-from nitroml.components.meta_learning import artifacts
+from nitroml.components.metalearning.metalearner import executor
+from nitroml.components.metalearning import artifacts
 from tfx import types
 from tfx.components.base import base_component
 from tfx.components.base import executor_spec

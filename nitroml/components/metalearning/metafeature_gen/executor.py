@@ -19,7 +19,7 @@ import os
 import json
 from typing import Any, Dict, List, Text
 
-from nitroml.components.meta_learning import artifacts
+from nitroml.components.metalearning import artifacts
 from absl import logging
 from tfx.types import artifact_utils
 from tfx.utils import io_utils
@@ -30,7 +30,7 @@ from tensorflow_metadata.proto.v0 import statistics_pb2
 
 EXAMPLES_KEY = 'transformed_examples'
 STATISTICS_KEY = 'statistics'
-META_FEATURES_KEY = 'meta_features'
+METAFEATURES_KEY = 'metafeatures'
 
 
 class MetaFeatureGenExecutor(base_executor.BaseExecutor):
@@ -77,21 +77,21 @@ class MetaFeatureGenExecutor(base_executor.BaseExecutor):
       else:
         num_categorical_features += 1
 
-    meta_feature_dict = {
+    metafeature_dict = {
         'num_examples': stats.num_examples,
         'num_int_features': num_int_features,
         'num_float_features': num_float_features,
         'num_categorical_features': num_categorical_features,
     }
 
-    meta_feature_dict['meta_feature'] = [
+    metafeature_dict['metafeature'] = [
         stats.num_examples, num_int_features, num_float_features,
         num_categorical_features
     ]
 
-    meta_feature_path = os.path.join(
-        artifact_utils.get_single_uri(output_dict[META_FEATURES_KEY]),
+    metafeature_path = os.path.join(
+        artifact_utils.get_single_uri(output_dict[METAFEATURES_KEY]),
         artifacts.MetaFeatures.DEFAULT_FILE_NAME)
 
-    io_utils.write_string_file(meta_feature_path, json.dumps(meta_feature_dict))
-    logging.info('MetaFeature saved at %s', meta_feature_path)
+    io_utils.write_string_file(metafeature_path, json.dumps(metafeature_dict))
+    logging.info('MetaFeature saved at %s', metafeature_path)

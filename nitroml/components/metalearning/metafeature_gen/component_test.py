@@ -13,13 +13,13 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Tests for nitroml.components.meta_learning.meta_feature_gen.component."""
+"""Tests for nitroml.components.metalearning.metafeature_gen.component."""
 
 from typing import Text
 
 from absl.testing import absltest
 from nitroml.components import MetaFeatureGen
-from nitroml.components.meta_learning import artifacts
+from nitroml.components.metalearning import artifacts
 from tfx.orchestration import data_types
 from tfx.types import artifact_utils
 from tfx.types import channel_utils
@@ -42,22 +42,21 @@ class ComponentTest(absltest.TestCase):
     self.statistics = channel_utils.as_channel([statistics_artifact])
     self.custom_config = {'some': 'thing', 'some other': 1, 'thing': 2}
 
-  def _verify_outputs(self, meta_feature_gen):
+  def _verify_outputs(self, metafeature_gen):
     self.assertEqual(artifacts.MetaFeatures.TYPE_NAME,
-                     meta_feature_gen.outputs['meta_features'].type_name)
+                     metafeature_gen.outputs['metafeatures'].type_name)
 
   def testConstruct(self):
-    meta_feature_gen = MetaFeatureGen(
-        statistics=self.statistics,
-        custom_config=self.custom_config)
-    self._verify_outputs(meta_feature_gen)
+    metafeature_gen = MetaFeatureGen(
+        statistics=self.statistics, custom_config=self.custom_config)
+    self._verify_outputs(metafeature_gen)
 
   def testConstructWithExamples(self):
-    meta_feature_gen = MetaFeatureGen(
+    metafeature_gen = MetaFeatureGen(
         statistics=self.statistics,
         transformed_examples=self.examples,
         custom_config=self.custom_config)
-    self._verify_outputs(meta_feature_gen)
+    self._verify_outputs(metafeature_gen)
 
 
 if __name__ == '__main__':

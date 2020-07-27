@@ -13,13 +13,13 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Tests for nitroml.components.meta_learning.meta_learner.component."""
+"""Tests for nitroml.components.metalearning.metalearner.component."""
 
 from typing import Text
 
 from absl.testing import absltest
 from nitroml.components import MetaLearner
-from nitroml.components.meta_learning import artifacts
+from nitroml.components.metalearning import artifacts
 from tfx.orchestration import data_types
 from tfx.types import artifact_utils
 from tfx.types import channel_utils
@@ -42,19 +42,19 @@ class ComponentTest(absltest.TestCase):
 
     self.custom_config = {'some': 'thing', 'some other': 1, 'thing': 2}
 
-  def _verify_outputs(self, meta_learner):
+  def _verify_outputs(self, metalearner):
     self.assertEqual(standard_artifacts.HyperParameters.TYPE_NAME,
-                     meta_learner.outputs['meta_hyperparameters'].type_name)
+                     metalearner.outputs['meta_hyperparameters'].type_name)
     self.assertEqual(standard_artifacts.Model.TYPE_NAME,
-                     meta_learner.outputs['metalearned_model'].type_name)
+                     metalearner.outputs['metalearned_model'].type_name)
 
   def testConstruct(self):
     algorithm = 'majority_voting'
-    meta_learner = MetaLearner(
+    metalearner = MetaLearner(
         algorithm=algorithm,
         custom_config=self.custom_config,
         **self.meta_train_data)
-    self._verify_outputs(meta_learner)
+    self._verify_outputs(metalearner)
 
 
 if __name__ == '__main__':

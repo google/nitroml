@@ -13,6 +13,10 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Package nitroml.components.meta_learning"""
+"""Package nitroml.components.metalearning"""
 
-from nitroml.components.meta_learning.meta_learner.executor import META_LEARNING_ALGORITHMS
+from nitroml.components.metalearning.metalearner.executor import METALEARNING_ALGORITHMS
+
+__all__ = [
+    METALEARNING_ALGORITHMS,
+]

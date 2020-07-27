@@ -17,8 +17,8 @@
 
 from typing import Any, Dict, Optional, Text, Union
 
-from nitroml.components.meta_learning.meta_feature_gen import executor
-from nitroml.components.meta_learning import artifacts
+from nitroml.components.metalearning.metafeature_gen import executor
+from nitroml.components.metalearning import artifacts
 from tfx import types
 from tfx.components.base import base_component
 from tfx.components.base import executor_spec
@@ -41,7 +41,7 @@ class MetaFeatureGenSpec(ComponentSpec):
           ChannelParameter(type=standard_artifacts.Examples, optional=True),
   }
   OUTPUTS = {
-      'meta_features': ChannelParameter(type=artifacts.MetaFeatures),
+      'metafeatures': ChannelParameter(type=artifacts.MetaFeatures),
   }
 
 
@@ -67,10 +67,10 @@ class MetaFeatureGen(base_component.BaseComponent):
         MetaFeatureGen components are declared in the same pipeline.
     """
 
-    meta_features = types.Channel(
+    metafeatures = types.Channel(
         type=artifacts.MetaFeatures, artifacts=[artifacts.MetaFeatures()])
     spec = MetaFeatureGenSpec(
-        meta_features=meta_features,
+        metafeatures=metafeatures,
         transformed_examples=transformed_examples,
         statistics=statistics,
         custom_config=custom_config)
