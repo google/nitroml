@@ -46,3 +46,4 @@ dist/
 **/Dockerfile
 **/build.yaml
 *.tar.gz
+**/.gitattributes

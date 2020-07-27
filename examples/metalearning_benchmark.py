@@ -167,19 +167,19 @@ class OpenMLCC18MetaLearning(nitroml.Benchmark):
 
 if __name__ == '__main__':
 
+  run_config = dict(
+      pipeline_name=config.PIPELINE_NAME + '_metalearning',
+      data_dir=config.OTHER_DOWNLOAD_DIR,
+      algorithm='majority_voting')
+
   if config.USE_KUBEFLOW:
     # We need the string "KubeflowDagRunner" in this file to appease the
     # validator used in `tfx create pipeline`.
     # Validator: https://github.com/tensorflow/tfx/blob/v0.22.0/tfx/tools/cli/handler/base_handler.py#L105
     nitroml.main(
-        pipeline_name=config.PIPELINE_NAME + '_metalearning',
         pipeline_root=config.PIPELINE_ROOT,
-        data_dir=config.OTHER_DOWNLOAD_DIR,
         tfx_runner=nitroml.get_default_kubeflow_dag_runner(),
-        algorithm='majority_voting')
+        **run_config)
   else:
     # This example has not been tested with engines other than Kubeflow.
-    nitroml.main(
-        pipeline_name=config.PIPELINE_NAME + '_metalearning',
-        data_dir=config.OTHER_DOWNLOAD_DIR,
-        algorithm='majority_voting')
+    nitroml.main(**run_config)
