@@ -48,6 +48,7 @@ tuner_fn returns a TunerFnResult that contains:
 
 class TunerData(Artifact):
   """NitroML's custom Artifact to store Tuner data for plotting."""
+
   TYPE_NAME = 'NitroML.TunerData'
 
 
@@ -55,12 +56,12 @@ class TunerSpec(ComponentSpec):
   """ComponentSpec for TFX Tuner Component."""
 
   PARAMETERS = {
-      'module_file': ExecutionParameter(type=(str, Text), optional=True),
-      'tuner_fn': ExecutionParameter(type=(str, Text), optional=True),
+      'module_file': ExecutionParameter(type=(str, str), optional=True),
+      'tuner_fn': ExecutionParameter(type=(str, str), optional=True),
       'train_args': ExecutionParameter(type=trainer_pb2.TrainArgs),
       'eval_args': ExecutionParameter(type=trainer_pb2.EvalArgs),
       'tune_args': ExecutionParameter(type=tuner_pb2.TuneArgs, optional=True),
-      'custom_config': ExecutionParameter(type=(str, Text), optional=True),
+      'custom_config': ExecutionParameter(type=(str, Any), optional=True),
   }
   INPUTS = {
       'examples':
@@ -89,14 +90,14 @@ class Tuner(base_component.BaseComponent):
                examples: types.Channel = None,
                schema: Optional[types.Channel] = None,
                transform_graph: Optional[types.Channel] = None,
-               module_file: Optional[Text] = None,
-               tuner_fn: Optional[Text] = None,
+               module_file: Optional[str] = None,
+               tuner_fn: Optional[str] = None,
                train_args: trainer_pb2.TrainArgs = None,
                eval_args: trainer_pb2.EvalArgs = None,
                tune_args: Optional[tuner_pb2.TuneArgs] = None,
-               custom_config: Optional[Dict[Text, Any]] = None,
+               custom_config: Optional[Dict[str, Any]] = None,
                best_hyperparameters: Optional[types.Channel] = None,
-               instance_name: Optional[Text] = None):
+               instance_name: Optional[str] = None):
     """Construct a Tuner component.
 
     Args:
