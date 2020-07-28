@@ -49,33 +49,25 @@ class MetaLearningTest(e2etest.TestCase):
 
     train_dataset_ids = [1, 2]
     for ix in train_dataset_ids:
-      instance_name = '.'.join(
-          [f'train_mockdata_{ix}', 'MetaLearningBenchmark', 'benchmark'])
-      self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
-      self.assertComponentSucceeded('.'.join(['Tuner', instance_name]))
-      self.assertComponentSucceeded('.'.join(
-          ['SchemaGen.AutoData', instance_name]))
-      self.assertComponentSucceeded('.'.join(
-          ['StatisticsGen.AutoData', instance_name]))
-      self.assertComponentSucceeded('.'.join(
-          ['Transform.AutoData', instance_name]))
+      instance_name = f'train_mockdata_{ix}.MetaLearningBenchmark.benchmark'
+      self.assertComponentSucceeded(f'CsvExampleGen.{instance_name}')
+      self.assertComponentSucceeded(f'Tuner.{instance_name}')
+      self.assertComponentSucceeded(f'SchemaGen.AutoData.{instance_name}')
+      self.assertComponentSucceeded(f'StatisticsGen.AutoData.{instance_name}')
+      self.assertComponentSucceeded(f'Transform.AutoData.{instance_name}')
 
     test_dataset_ids = [1]
     for ix in test_dataset_ids:
-      instance_name = '.'.join(
-          [f'test_mockdata_{ix}', 'MetaLearningBenchmark', 'benchmark'])
-      self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
-      self.assertComponentSucceeded('.'.join(
-          ['SchemaGen.AutoData', instance_name]))
-      self.assertComponentSucceeded('.'.join(
-          ['StatisticsGen.AutoData', instance_name]))
-      self.assertComponentSucceeded('.'.join(
-          ['Transform.AutoData', instance_name]))
+      instance_name = f'test_mockdata_{ix}.MetaLearningBenchmark.benchmark'
+      self.assertComponentSucceeded(f'CsvExampleGen.{instance_name}')
+      self.assertComponentSucceeded(f'SchemaGen.AutoData.{instance_name}')
+      self.assertComponentSucceeded(f'StatisticsGen.AutoData.{instance_name}')
+      self.assertComponentSucceeded(f'Transform.AutoData.{instance_name}')
 
-    instance_name = '.'.join(['MetaLearningBenchmark', 'benchmark'])
-    self.assertComponentSucceeded('.'.join(['Evaluator', instance_name]))
-    self.assertComponentSucceeded('.'.join(
-        ['BenchmarkResultPublisher', instance_name]))
+    instance_name = 'MetaLearningBenchmark.benchmark'
+    self.assertComponentSucceeded(f'Evaluator.{instance_name}')
+    self.assertComponentSucceeded(f'BenchmarkResultPublisher.{instance_name}')
+
     # Load benchmark results.
     store = metadata_store.MetadataStore(self.metadata_config)
     df = results.overview(store)

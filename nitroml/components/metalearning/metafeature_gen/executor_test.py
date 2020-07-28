@@ -17,6 +17,7 @@
 
 import os
 import tempfile
+import json
 
 from absl import flags
 from absl import logging
@@ -27,6 +28,7 @@ from tfx import types
 import tensorflow as tf
 from tfx.types import artifact_utils
 from tfx.types import standard_artifacts
+from tfx.utils import io_utils
 
 
 class ExecutorTest(absltest.TestCase):
@@ -72,7 +74,14 @@ class ExecutorTest(absltest.TestCase):
 
   def _verify_metafeature_gen_outputs(self):
     self.assertNotEmpty(tf.io.gfile.listdir(self._metafeatures.uri))
-
+    metafeature_path = os.path.join(self._metafeatures.uri,
+                                    artifacts.MetaFeatures.DEFAULT_FILE_NAME)
+    metafeature = json.loads(io_utils.read_string_file(metafeature_path))
+    self.assertEqual(metafeature['num_examples'], 3)
+    self.assertEqual(metafeature['num_int_features'], 1)
+    self.assertEqual(metafeature['num_float_features'], 1)
+    self.assertEqual(metafeature['num_categorical_features'], 2)
+    
   def test_metafeature_gen_do(self):
 
     exec = executor.MetaFeatureGenExecutor()

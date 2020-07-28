@@ -48,14 +48,6 @@ from google.protobuf import text_format
 class MetaLearningBenchmark(nitroml.Benchmark):
   r"""Demos a metalearning pipeline using 'OpenML-CC18' classification datasets."""
 
-  def set_instance_name(self,
-                        component: base_component.BaseComponent,
-                        suffix: str = ''):
-    if component._instance_name:
-      component._instance_name = f'{component._instance_name}.{suffix}'
-    else:
-      component._instance_name = suffix
-
   def benchmark(self,
                 algorithm: str = None,
                 mock_data: bool = False,
@@ -70,15 +62,16 @@ class MetaLearningBenchmark(nitroml.Benchmark):
     meta_train_data = {}
     train_autodata_list = []
 
+    # TODO(nikhilmehta): Extend this to multiple test datasets using subbenchmarks.
     if mock_data:
       # Used for unit testing.
-      train_datasets = ['mockdata_1', 'mockdata_2']
-      test_datasets = ['mockdata_1']
+      train_datasets = frozenset(['mockdata_1', 'mockdata_2'])
+      test_datasets = frozenset(['mockdata_1'])
     else:
-      train_datasets = [
+      train_datasets = frozenset([
           'connect4', 'creditapproval', 'creditg', 'cylinderbands', 'diabetes'
-      ]
-      test_datasets = ['dressessales']
+      ])
+      test_datasets = frozenset(['dressessales'])
 
     pipeline = []
     for train_index, task in enumerate(
@@ -87,7 +80,9 @@ class MetaLearningBenchmark(nitroml.Benchmark):
       if task.name not in train_datasets:
         continue
 
-      logging.info(task.name)
+      # Create the autodata instance for this task, which creates Transform,
+      # StatisticsGen and SchemaGen component.
+      logging.info(f'Training task: {task.name}')
       instance_name = f'train_{task.name}'
       autodata = nitroml.autodata.AutoData(
           task.problem_statement,
@@ -95,9 +90,11 @@ class MetaLearningBenchmark(nitroml.Benchmark):
           preprocessor=nitroml.autodata.BasicPreprocessor(),
           instance_name=instance_name)
 
-      self.set_instance_name(task.components[0], instance_name)
+      # Set a unique instance_name for this task's ExampleGen component.
+      task.set_instance_name(instance_name)
       pipeline += task.components + autodata.components
 
+      # Add a tuner component for each training dataset that finds the optimum HParams.
       tuner = tfx.Tuner(
           tuner_fn='examples.auto_trainer.tuner_fn',
           examples=autodata.transformed_examples,
@@ -118,6 +115,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
       meta_train_data[
           f'hparams_train_{len(train_autodata_list)}'] = tuner.outputs.best_hyperparameters
 
+    # Construct a MetaLearningHelper that creates the metalearning subpipeline.
     metalearner_helper = metalearning_wrapper.MetaLearningWrapper(
         train_autodata_list=train_autodata_list,
         meta_train_data=meta_train_data)
@@ -129,6 +127,11 @@ class MetaLearningBenchmark(nitroml.Benchmark):
       if task.name not in test_datasets:
         continue
 
+      task_pipeline = []
+      task_pipeline.extend(pipeline)
+
+      # Create the autodata instance for the test task.
+      logging.info(f'Testing task: {task.name}')
       instance_name = f'test_{task.name}'
       autodata = nitroml.autodata.AutoData(
           task.problem_statement,
@@ -136,9 +139,11 @@ class MetaLearningBenchmark(nitroml.Benchmark):
           preprocessor=nitroml.autodata.BasicPreprocessor(),
           instance_name=instance_name)
 
-      self.set_instance_name(task.components[0], instance_name)
-      pipeline += task.components + autodata.components
+      task.set_instance_name(instance_name)
+      task_pipeline += task.components + autodata.components
 
+      # Create a trainer component that utilizes the recommended HParams
+      # from the metalearning subpipeline.
       trainer = tfx.Trainer(
           run_fn='examples.auto_trainer.run_fn',
           custom_executor_spec=(executor_spec.ExecutorClassSpec(
@@ -156,13 +161,13 @@ class MetaLearningBenchmark(nitroml.Benchmark):
                   text_format.MessageToString(
                       message=task.problem_statement, as_utf8=True),
           })
-      pipeline.append(trainer)
+      task_pipeline.append(trainer)
 
       # Finally, call evaluate() on the workflow DAG outputs, This will
       # automatically append Evaluators to compute metrics from the given
       # SavedModel and 'eval' TF Examples.ss
       self.evaluate(
-          pipeline,
+          task_pipeline,
           examples=task.train_and_eval_examples,
           model=trainer.outputs.model)
 

@@ -122,3 +122,16 @@ class OpenMLTask(task.Task):
     return ps_pb2.Type(
         multi_class_classification=ps_pb2.MultiClassClassification(
             label=self._label_key))
+
+  def set_instance_name(self, suffix: str = ''):
+    """Sets the instance name of the components.
+
+      Args:
+        suffix: The suffix string appends to the existing instance_name.
+    """
+
+    for component in self.components:
+      if component._instance_name:
+        component._instance_name = f'{component._instance_name}.{suffix}'
+      else:
+        component._instance_name = suffix

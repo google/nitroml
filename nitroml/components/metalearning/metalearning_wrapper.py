@@ -67,7 +67,7 @@ class MetaLearningWrapper(object):
     learner = metalearner.MetaLearner(
         algorithm=self._algorithm, **self._meta_train_data)
     self._pipeline.append(learner)
-    self._recommended_search_space = learner.outputs.meta_hyperparameters
+    self._recommended_search_space = learner.outputs.output_hyperparameters
 
   def _create_metafeature_gen(self,
                               statistics: types.Channel,

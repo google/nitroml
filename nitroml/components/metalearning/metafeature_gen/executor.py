@@ -48,8 +48,6 @@ class MetaFeatureGenExecutor(base_executor.BaseExecutor):
       exec_properties: A dict of execution properties
     """
 
-    custom_config = exec_properties['custom_config']
-
     train_stats_uri = io_utils.get_only_uri_in_dir(
         artifact_utils.get_split_uri(input_dict[STATISTICS_KEY], 'train'))
 
@@ -65,7 +63,10 @@ class MetaFeatureGenExecutor(base_executor.BaseExecutor):
     num_int_features = 0
     num_categorical_features = 0
     for feature in stats.features:
+
       name = feature.name
+
+      # For structured fields, name is set by path and is not in the name attribute.
       if not name:
         name = feature.path.step[0]
       logging.info('Feature Name: %s', name)
