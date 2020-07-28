@@ -43,21 +43,6 @@ from nitroml.components.metalearning import METALEARNING_ALGORITHMS
 from google.protobuf import text_format
 
 
-def set_instance_name(component: base_component.BaseComponent,
-                      suffix: str = ''):
-  """Sets the instance name for the component.
-
-    Args:
-      component: The component for which we set the instance_name.
-      suffix: The suffix string appends to the existing instance_name.
-  """
-
-  if component._instance_name:
-    component._instance_name = f'{component._instance_name}.{suffix}'
-  else:
-    component._instance_name = suffix
-
-
 class MetaLearningBenchmark(nitroml.Benchmark):
   r"""Demos a metalearning pipeline using 'OpenML-CC18' classification datasets."""
 
@@ -103,7 +88,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
           instance_name=instance_name)
 
       # Set a unique instance_name for this task's ExampleGen component.
-      set_instance_name(task.components[0], instance_name)
+      task.set_instance_name(instance_name)
       pipeline += task.components + autodata.components
 
       # Add a tuner component for each training dataset that finds the optimum HParams.
@@ -148,7 +133,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
           preprocessor=nitroml.autodata.BasicPreprocessor(),
           instance_name=instance_name)
 
-      set_instance_name(task.components[0], instance_name)
+      task.set_instance_name(instance_name)
       pipeline += task.components + autodata.components
 
       # Create a trainer component that utilizes the recommended HParams
