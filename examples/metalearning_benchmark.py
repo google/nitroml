@@ -60,6 +60,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
     meta_train_data = {}
     train_autodata_list = []
 
+    # TODO(nikhilmehta): Extend this to multiple test datasets using subbenchmarks.
     if mock_data:
       # Used for unit testing.
       train_datasets = frozenset(['mockdata_1', 'mockdata_2'])
@@ -79,7 +80,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
 
       # Create the autodata instance for this task, which creates Transform,
       # StatisticsGen and SchemaGen component.
-      logging.info('Training task: {task.name}')
+      logging.info(f'Training task: {task.name}')
       instance_name = f'train_{task.name}'
       autodata = nitroml.autodata.AutoData(
           task.problem_statement,
@@ -124,8 +125,11 @@ class MetaLearningBenchmark(nitroml.Benchmark):
       if task.name not in test_datasets:
         continue
 
+      task_pipeline = []
+      task_pipeline.extend(pipeline)
+
       # Create the autodata instance for the test task.
-      logging.info('Testing task: {task.name}')
+      logging.info(f'Testing task: {task.name}')
       instance_name = f'test_{task.name}'
       autodata = nitroml.autodata.AutoData(
           task.problem_statement,
@@ -134,7 +138,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
           instance_name=instance_name)
 
       task.set_instance_name(instance_name)
-      pipeline += task.components + autodata.components
+      task_pipeline += task.components + autodata.components
 
       # Create a trainer component that utilizes the recommended HParams
       # from the metalearning subpipeline.
@@ -155,13 +159,13 @@ class MetaLearningBenchmark(nitroml.Benchmark):
                   text_format.MessageToString(
                       message=task.problem_statement, as_utf8=True),
           })
-      pipeline.append(trainer)
+      task_pipeline.append(trainer)
 
       # Finally, call evaluate() on the workflow DAG outputs, This will
       # automatically append Evaluators to compute metrics from the given
       # SavedModel and 'eval' TF Examples.ss
       self.evaluate(
-          pipeline,
+          task_pipeline,
           examples=task.train_and_eval_examples,
           model=trainer.outputs.model)
 

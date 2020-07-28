@@ -49,9 +49,9 @@ class MetaLearnerSpec(ComponentSpec):
       }
   }
   OUTPUTS = {
-      executor.OUTPUT_MODEL:
+      'metalearned_model':
           ChannelParameter(type=standard_artifacts.Model),
-      executor.OUTPUT_HYPERPARAMS:
+      'output_hyperparameters':
           ChannelParameter(type=standard_artifacts.HyperParameters),
   }
 
