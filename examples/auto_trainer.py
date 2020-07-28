@@ -33,6 +33,7 @@ from tfx.components.tuner.component import TunerFnResult
 
 from google.protobuf import text_format
 from nitroml.protos import problem_statement_pb2 as ps_pb2
+from nitroml.components.tuner.executor import get_tuner_cls_with_callbacks
 from tensorflow_metadata.proto.v0 import schema_pb2
 
 FeatureColumn = Any
@@ -40,6 +41,7 @@ FeatureColumn = Any
 
 def _get_hyperparameters() -> kerastuner.HyperParameters:
   """Returns hyperparameters for building Keras model."""
+
   hp = kerastuner.HyperParameters()
   hp.Choice('learning_rate', [1e-2, 1e-3], default=1e-2)
   hp.Int('num_layers', min_value=1, max_value=5, step=1, default=2)
@@ -80,9 +82,10 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
       transform_graph_dir=fn_args.transform_graph_path)
 
   build_keras_model = lambda hparams: _build_keras_model(data_provider, hparams)
-  tuner = kerastuner.RandomSearch(
+  tuner_cls = get_tuner_cls_with_callbacks(kerastuner.RandomSearch)
+  tuner = tuner_cls(
       build_keras_model,
-      max_trials=10,
+      max_trials=fn_args.custom_config.get('max_trials', 10),
       hyperparameters=_get_hyperparameters(),
       allow_new_entries=False,
       objective=kerastuner.Objective('val_accuracy', 'max'),
