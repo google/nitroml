@@ -80,7 +80,6 @@ class MetaLearningBenchmark(nitroml.Benchmark):
 
       # Create the autodata instance for this task, which creates Transform,
       # StatisticsGen and SchemaGen component.
-      logging.info(f'Training task: {task.name}')
       instance_name = f'train_{task.name}'
       autodata = nitroml.autodata.AutoData(
           task.problem_statement,
@@ -129,7 +128,6 @@ class MetaLearningBenchmark(nitroml.Benchmark):
       task_pipeline.extend(pipeline)
 
       # Create the autodata instance for the test task.
-      logging.info(f'Testing task: {task.name}')
       instance_name = f'test_{task.name}'
       autodata = nitroml.autodata.AutoData(
           task.problem_statement,
