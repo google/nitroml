@@ -124,6 +124,8 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
             artifacts.MetaFeatures.DEFAULT_FILE_NAME)
         logging.info('Found %s at %s.', metafeature_key, metafeature_uri)
         metafeatures = json.loads(io_utils.read_string_file(metafeature_uri))
+        # Only logging metafeatures for now. MetaFeature will be used in upcoming
+        # algorithms.
         logging.info('metafeatures %s.', metafeatures['metafeature'])
 
     all_hparams = []
