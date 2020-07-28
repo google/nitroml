@@ -100,7 +100,7 @@ class ExecutorTest(absltest.TestCase):
     best_hparams_config = json.loads(
         file_io.read_file_to_string(best_hparams_path))
     best_hparams = HyperParameters.from_config(best_hparams_config)
-    self.assertIn(best_hparams.get('learning_rate'), (1e-2, 1e-3))
+    self.assertIn(best_hparams.get('learning_rate'), (1e-1, 1e-2, 1e-3))
     self.assertBetween(best_hparams.get('num_layers'), 1, 5)
 
   def testDoWithTunerFn(self):

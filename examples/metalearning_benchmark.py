@@ -37,6 +37,8 @@ from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
 from tfx.components.base import base_component
+
+from nitroml.components.tuner import component as custom_tuner
 from nitroml.components.metalearning import metalearning_wrapper
 from nitroml.components.metalearning import METALEARNING_ALGORITHMS
 

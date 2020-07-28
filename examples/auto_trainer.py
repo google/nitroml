@@ -43,7 +43,7 @@ def _get_hyperparameters() -> kerastuner.HyperParameters:
   """Returns hyperparameters for building Keras model."""
 
   hp = kerastuner.HyperParameters()
-  hp.Choice('learning_rate', [1e-2, 1e-3], default=1e-2)
+  hp.Choice('learning_rate', [1e-1, 1e-2, 1e-3], default=1e-2)
   hp.Int('num_layers', min_value=1, max_value=5, step=1, default=2)
   hp.Int('num_nodes', min_value=32, max_value=512, step=32, default=128)
   return hp
