@@ -34,7 +34,7 @@ _MAX_INPUTS = 10
 _DEFAULT_FILE_NAME = 'meta_hyperparameters.txt'
 
 OUTPUT_MODEL = 'metalearned_model'
-OUTPUT_HYPERPARAMS = 'meta_hyperparameters'
+OUTPUT_HYPERPARAMS = 'output_hyperparameters'
 MAJORITY_VOTING = 'majority_voting'
 METALEARNING_ALGORITHMS = [
     MAJORITY_VOTING,
@@ -103,10 +103,12 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
 
     Args:
       input_dict: Input dict from input key to a list of artifacts, including:
-        - meta_train_statistics: list of statistics of train datasets
-        - meta_test_statistics: list of statistics of test datasets
-      output_dict: Output dict from key to a list of artifacts, currently unused.
-      exec_properties: A dict of execution properties
+        - meta_train_features_N: MetaFeatures for Nth train dataset.
+        - hparams_train_N: HParms for Nth train dataset.
+        The maximum value `N` being _MAX_INPUTS.
+      output_dict: Output dict from key to a list of artifacts.
+      exec_properties: A dict of execution properties.
+    Raises:
     """
 
     algorithm = exec_properties['algorithm']
@@ -144,7 +146,7 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
       logging.info('Discrete Search Space: %s', voted_hparams_config)
 
       meta_hparams_path = os.path.join(
-          artifact_utils.get_single_uri(output_dict['meta_hyperparameters']),
+          artifact_utils.get_single_uri(output_dict[OUTPUT_HYPERPARAMS]),
           _DEFAULT_FILE_NAME)
 
       io_utils.write_string_file(meta_hparams_path,

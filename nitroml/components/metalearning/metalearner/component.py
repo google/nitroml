@@ -69,7 +69,21 @@ class MetaLearner(base_component.BaseComponent):
     """Construct a MetaLearner component.
 
     Args:
-      meta_train_data: Dict of output of StatisticsGen for train datasets.
+      custom_config: MetaLearning algorithm specific options.
+      algorithm: The MetaLearning algorithm to use.
+      meta_train_data: Expected to have the following form:
+        meta_train_data = {
+          'hparams_train_1': Output Channel of Tuner of train dataset 1,
+          'meta_train_features_1': Output Channel of MetaFeatureGen of train dataset 1,
+          .
+          .
+          .
+          'hparams_train_N': Output Channel of Tuner of train dataset N,
+          'meta_train_features_N': Output Channel of MetaFeatureGen of train dataset N,
+        }
+
+    Raises:
+      ValueError: If meta_train_data is not present.
     """
 
     if not meta_train_data:
@@ -77,13 +91,13 @@ class MetaLearner(base_component.BaseComponent):
 
     model = types.Channel(
         type=standard_artifacts.Model, artifacts=[standard_artifacts.Model()])
-    meta_hyperparameters = types.Channel(
+    output_hyperparameters = types.Channel(
         type=standard_artifacts.HyperParameters,
         artifacts=[standard_artifacts.HyperParameters()])
     spec = MetaLearnerSpec(
         algorithm=algorithm,
         metalearned_model=model,
-        meta_hyperparameters=meta_hyperparameters,
+        output_hyperparameters=output_hyperparameters,
         custom_config=custom_config,
         **meta_train_data)
     super(MetaLearner, self).__init__(spec=spec)
