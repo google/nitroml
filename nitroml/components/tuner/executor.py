@@ -1,18 +1,19 @@
-# Lint as: python3
-# Copyright 2019 Google LLC. All Rights Reserved.
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""The TFX tuner executor for custom tuner component with on_trial_end callback."""
+# =============================================================================
+# Lint as: python3
+"""The tuner executor for tuner component with trial callbacks for tracking trial data."""
 
 import json
 import os
@@ -35,10 +36,14 @@ from tfx.components.util import udf_utils
 from tfx.components.trainer import fn_args_utils
 
 
-def get_tuner_cls_with_callbacks(class_name):
-  """A Tuner class that extends the keras base_tuner.BaseTuner class."""
+def get_tuner_cls_with_callbacks(tuner_class: Type[base_tuner.BaseTuner]):
+  """Returns a CustomTuner class which overrides the tuner trial callbacks.
 
-  class CustomTuner(class_name):
+    Args:
+      tuner_class: An existing tuner class that extends the base_tuner.BaseTuner.
+  """
+
+  class CustomTuner(tuner_class):
 
     def on_search_begin(self):
       super(CustomTuner, self).on_search_begin()
@@ -57,10 +62,7 @@ def get_tuner_cls_with_callbacks(class_name):
 
 
 class Executor(tfx_tuner.Executor):
-  """The executor for nitroml.components.tuner.components.Tuner.
-
-    The code has been adapted from https://github.com/tensorflow/tfx/blob/da1929fa1ac15f6f2588d759b2bc8e6b0f22a420/tfx/components/tuner/executor.py.
-  """
+  """The executor for nitroml.components.tuner.components.Tuner."""
 
   def search(self, input_dict: Dict[Text, List[types.Artifact]],
              exec_properties: Dict[Text, Any],
