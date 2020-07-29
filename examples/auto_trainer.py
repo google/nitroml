@@ -110,7 +110,7 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
           'x': train_dataset,
           'validation_data': eval_dataset,
           'steps_per_epoch': fn_args.train_steps,
-          'validation_steps': fn_args.eval_steps
+          'validation_steps': fn_args.eval_steps,
       })
 
 

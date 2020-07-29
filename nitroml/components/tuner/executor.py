@@ -17,7 +17,7 @@
 
 import json
 import os
-from typing import Any, Callable, Dict, List, Text, Optional
+from typing import Any, Callable, Dict, List, Text, Optional, Type
 from absl import logging
 from kerastuner.engine import base_tuner
 from inspect import ismethod
@@ -98,7 +98,7 @@ class Executor(tfx_tuner.Executor):
         getattr(tuner, 'get_tuner_plot_data')):
 
       tuner_plot_path = os.path.join(
-          artifact_utils.get_single_uri(output_dict['tuner_plot_data']),
+          artifact_utils.get_single_uri(output_dict['trial_summary_plot']),
           'tuner_plot_data.txt')
       io_utils.write_string_file(tuner_plot_path,
                                  json.dumps(tuner.get_tuner_plot_data()))
