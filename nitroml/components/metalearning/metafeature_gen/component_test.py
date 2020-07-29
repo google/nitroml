@@ -15,12 +15,9 @@
 # Lint as: python3
 """Tests for nitroml.components.metalearning.metafeature_gen.component."""
 
-from typing import Text
-
 from absl.testing import absltest
-from nitroml.components import MetaFeatureGen
 from nitroml.components.metalearning import artifacts
-from tfx.orchestration import data_types
+from nitroml.components.metalearning.metafeature_gen.component import MetaFeatureGen
 from tfx.types import artifact_utils
 from tfx.types import channel_utils
 from tfx.types import standard_artifacts

@@ -13,4 +13,4 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Package nitroml.components.metalearning.metalearner"""
+"""Package nitroml.components.metalearning.metalearner."""

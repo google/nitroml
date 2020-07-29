@@ -15,23 +15,20 @@
 # Lint as: python3
 r"""Meta Learning helper class the defines the meta learning DAG."""
 
-from typing import Any, Dict, Optional, Text, List
+from typing import Any, Dict, Optional, List
 
-from nitroml.components import metafeature_gen
-from nitroml.components import metalearner
-from nitroml import autodata
-from tfx.components.base import base_component
+from nitroml.autodata.autodata_pipeline import AutoData
+from nitroml.components.metalearning.metafeature_gen.component import MetaFeatureGen
+from nitroml.components.metalearning.metalearner import component as metalearner
 from tfx import types
-import kerastuner
-
-from nitroml.components.transform import component as transform
+from tfx.components.base import base_component
 
 
 class MetaLearningWrapper(object):
   """A helper class that wraps definition of meta learning sub-pipeline."""
 
   def __init__(self,
-               train_autodata_list: List[autodata.AutoData],
+               train_autodata_list: List[AutoData],
                meta_train_data: Dict[str, Any],
                algorithm: str = 'majority_voting'):
 
@@ -47,7 +44,7 @@ class MetaLearningWrapper(object):
     return self._pipeline
 
   @property
-  def recommended_search_space(self) -> kerastuner.HyperParameters:
+  def recommended_search_space(self) -> types.Channel:
     return self._recommended_search_space
 
   def _build_metalearner(self) -> None:
@@ -73,18 +70,20 @@ class MetaLearningWrapper(object):
                               statistics: types.Channel,
                               transformed_examples: Optional[
                                   types.Channel] = None,
-                              instance_name: str = None) -> types.Channel:
+                              instance_name: str = None) -> MetaFeatureGen:
     """Creates and returns the `MetaFeatureGen` component.
 
-      Args:
-        statistics: Channel containing the dataset statistics proto path.
-        transformed_examples: Channel containing the transformed examples paths.
+    Args:
+      statistics: Channel containing the dataset statistics proto path.
+      transformed_examples: Channel containing the transformed examples paths.
+      instance_name: Optional unique instance name. Necessary iff multiple
+        MetaFeatureGen components are declared in the same pipeline.
 
-      Returns:
-        The MetaFeatureGen component
+    Returns:
+      The MetaFeatureGen component
     """
 
-    return metafeature_gen.MetaFeatureGen(
+    return MetaFeatureGen(
         statistics=statistics,
         transformed_examples=(transformed_examples),
         instance_name=instance_name)

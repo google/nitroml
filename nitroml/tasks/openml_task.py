@@ -53,7 +53,8 @@ class OpenMLTask(task.Task):
     self._description = description
     self._label_key = label_key
     self._example_gen = tfx.CsvExampleGen(
-        input_base=os.path.join(root_dir, f'{dataset_name}', 'data'))
+        input_base=os.path.join(root_dir, f'{dataset_name}', 'data'),
+        instance_name=self.name)
 
   def __str__(self):
     return (f'Task: {self._type} \nClasses: {self._num_classes} \n'
@@ -68,23 +69,23 @@ class OpenMLTask(task.Task):
     ]
 
   @property
-  def name(self):
-    return self._name
+  def name(self) -> str:
+    return f'OpenML.{self._name}'
 
   @property
-  def dataset_name(self):
+  def dataset_name(self) -> str:
     return self._dataset_name
 
   @property
-  def type(self):
+  def type(self) -> str:
     return self._type
 
   @property
-  def num_classes(self):
+  def num_classes(self) -> int:
     return self._num_classes
 
   @property
-  def label_key(self):
+  def label_key(self) -> str:
     return self._label_key
 
   @property
@@ -122,16 +123,3 @@ class OpenMLTask(task.Task):
     return ps_pb2.Type(
         multi_class_classification=ps_pb2.MultiClassClassification(
             label=self._label_key))
-
-  def set_instance_name(self, suffix: str = ''):
-    """Sets the instance name of the components.
-
-      Args:
-        suffix: The suffix string appends to the existing instance_name.
-    """
-
-    for component in self.components:
-      if component._instance_name:
-        component._instance_name = f'{component._instance_name}.{suffix}'
-      else:
-        component._instance_name = suffix

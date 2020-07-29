@@ -15,17 +15,17 @@
 # Lint as: python3
 """Implements MetaFeatureGen component."""
 
-from typing import Any, Dict, Optional, Text, Union
+from typing import Any, Dict, Optional
 
-from nitroml.components.metalearning.metafeature_gen import executor
 from nitroml.components.metalearning import artifacts
+from nitroml.components.metalearning.metafeature_gen import executor
 from tfx import types
 from tfx.components.base import base_component
 from tfx.components.base import executor_spec
 from tfx.types import standard_artifacts
+from tfx.types.component_spec import ChannelParameter
 from tfx.types.component_spec import ComponentSpec
 from tfx.types.component_spec import ExecutionParameter
-from tfx.types.component_spec import ChannelParameter
 
 
 class MetaFeatureGenSpec(ComponentSpec):

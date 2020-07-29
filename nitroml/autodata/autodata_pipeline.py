@@ -59,6 +59,7 @@ class AutoData:
         AutoDataPipeline instances are declared in the same pipeline.
     """
 
+
     if not preprocessor:
       logging.info('Using default preprocessor: BasicPreprocessor.')
       preprocessor = basic_preprocessor.BasicPreprocessor()
@@ -79,6 +80,8 @@ class AutoData:
 
   @property
   def id(self) -> str:
+    """Returns the AutoData sub-pipeline's unique ID."""
+
     autodata_instance_name = 'AutoData'
     if self._instance_name:
       autodata_instance_name = f'{autodata_instance_name}.{self._instance_name}'
@@ -86,7 +89,7 @@ class AutoData:
 
   @property
   def components(self) -> List[base_component.BaseComponent]:
-    """Return the AutoData pipeline's constituent components."""
+    """Returns the AutoData sub-pipeline's constituent components."""
 
     return [self._schema_gen, self._statistics_gen, self._transform]
 

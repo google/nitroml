@@ -19,13 +19,10 @@ import os
 import tempfile
 
 from absl import flags
-from absl import logging
 from absl.testing import absltest
-from nitroml.components.metalearning.metalearner import executor
 from nitroml.components.metalearning import artifacts
-from tfx import types
+from nitroml.components.metalearning.metalearner import executor
 import tensorflow as tf
-from tfx.types import artifact_utils
 from tfx.types import standard_artifacts
 
 
@@ -79,8 +76,8 @@ class ExecutorTest(absltest.TestCase):
   def test_metalearner_majority_voting(self):
     exec_properties = self._exec_properties
     exec_properties['algorithm'] = executor.MAJORITY_VOTING
-    exec = executor.MetaLearnerExecutor()
-    exec.Do(self._input_dict, self._output_dict, exec_properties)
+    ex = executor.MetaLearnerExecutor()
+    ex.Do(self._input_dict, self._output_dict, exec_properties)
     self._verify_hparams_outputs()
 
 

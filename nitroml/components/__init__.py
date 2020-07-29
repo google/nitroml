@@ -14,11 +14,3 @@
 # =============================================================================
 # Lint as: python3
 """Package nitroml.components."""
-
-from nitroml.components.metalearning.metafeature_gen import component as metafeature_gen
-from nitroml.components.metalearning.metalearner import component as metalearner
-
-__all__ = [
-    "metafeature_gen"
-    "metalearner",
-]

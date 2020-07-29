@@ -15,13 +15,9 @@
 # Lint as: python3
 """Tests for nitroml.components.metalearning.metalearner.component."""
 
-from typing import Text
-
 from absl.testing import absltest
-from nitroml.components import MetaLearner
 from nitroml.components.metalearning import artifacts
-from tfx.orchestration import data_types
-from tfx.types import artifact_utils
+from nitroml.components.metalearning.metalearner.component import MetaLearner
 from tfx.types import channel_utils
 from tfx.types import standard_artifacts
 
@@ -42,19 +38,16 @@ class ComponentTest(absltest.TestCase):
 
     self.custom_config = {'some': 'thing', 'some other': 1, 'thing': 2}
 
-  def _verify_outputs(self, metalearner):
-    self.assertEqual(standard_artifacts.HyperParameters.TYPE_NAME,
-                     metalearner.outputs['meta_hyperparameters'].type_name)
-    self.assertEqual(standard_artifacts.Model.TYPE_NAME,
-                     metalearner.outputs['metalearned_model'].type_name)
-
   def testConstruct(self):
     algorithm = 'majority_voting'
     metalearner = MetaLearner(
         algorithm=algorithm,
         custom_config=self.custom_config,
         **self.meta_train_data)
-    self._verify_outputs(metalearner)
+    self.assertEqual(standard_artifacts.HyperParameters.TYPE_NAME,
+                     metalearner.outputs['output_hyperparameters'].type_name)
+    self.assertEqual(standard_artifacts.Model.TYPE_NAME,
+                     metalearner.outputs['metalearned_model'].type_name)
 
 
 if __name__ == '__main__':

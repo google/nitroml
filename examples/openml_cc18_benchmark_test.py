@@ -63,7 +63,7 @@ class OpenMLCC18BenchmarkTest(e2etest.TestCase):
     instance_names = []
     for did in dataset_id_list:
       instance_name = '.'.join(
-          ['OpenMLCC18Benchmark', 'benchmark', f'mockdata_{did}'])
+          ['OpenMLCC18Benchmark', 'benchmark', f'OpenML.mockdata_{did}'])
       instance_names.append(instance_name)
 
       if enable_tuning:
@@ -71,7 +71,8 @@ class OpenMLCC18BenchmarkTest(e2etest.TestCase):
         self.assertComponentSucceeded('.'.join(['Tuner', instance_name]))
       else:
         self.assertComponentExecutionCount(7 * len(dataset_id_list))
-      self.assertComponentSucceeded('.'.join(['CsvExampleGen', instance_name]))
+      self.assertComponentSucceeded('.'.join(
+          [f'CsvExampleGen.OpenML.mockdata_{did}', instance_name]))
       self.assertComponentSucceeded('.'.join(
           ['SchemaGen.AutoData', instance_name]))
       self.assertComponentSucceeded('.'.join(

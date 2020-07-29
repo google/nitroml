@@ -15,17 +15,18 @@
 # Lint as: python3
 """Executor for MetaFeatureGen."""
 
-import os
 import json
+import os
 from typing import Any, Dict, List, Text
 
-from nitroml.components.metalearning import artifacts
 from absl import logging
-from tfx.types import artifact_utils
-from tfx.utils import io_utils
-from tfx.components.base import base_executor
-from tfx.types.artifact import Artifact
+from nitroml.components.metalearning import artifacts
 import tensorflow_data_validation as tfdv
+from tfx.components.base import base_executor
+from tfx.types import artifact_utils
+from tfx.types.artifact import Artifact
+from tfx.utils import io_utils
+
 from tensorflow_metadata.proto.v0 import statistics_pb2
 
 EXAMPLES_KEY = 'transformed_examples'
@@ -66,7 +67,8 @@ class MetaFeatureGenExecutor(base_executor.BaseExecutor):
 
       name = feature.name
 
-      # For structured fields, name is set by path and is not in the name attribute.
+      # For structured fields, name is set by path and is not in the name
+      # attribute.
       if not name:
         name = feature.path.step[0]
       logging.info('Feature Name: %s', name)

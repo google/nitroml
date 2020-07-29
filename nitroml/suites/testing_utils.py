@@ -26,8 +26,11 @@ import tensorflow as tf
 
 
 def register_mock_urls(mocker: requests_mock.Mocker,
-                       dataset_id_list: List[int] = [1, 2]):
+                       dataset_id_list: List[int] = None):
   """Registers mock URLs to the Mocker."""
+
+  if not dataset_id_list:
+    dataset_id_list = [1, 2]
 
   list_url = f'{openml_cc18._OPENML_API_URL}/data/list'  # pylint: disable=protected-access
 

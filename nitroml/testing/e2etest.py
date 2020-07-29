@@ -63,7 +63,7 @@ class TestCase(parameterized.TestCase, absltest.TestCase):
 
     FLAGS(sys.argv)  # Required for tests that use flags in open-source.
     tempdir = tempfile.mkdtemp(dir=absltest.get_default_test_tmpdir())
-    self.pipeline_name = "autodata_test"
+    self.pipeline_name = pipeline_name
     self.pipeline_root = os.path.join(tempdir, self.pipeline_name)
     tf.io.gfile.makedirs(self.pipeline_root)
     self.metadata_path = os.path.join(self.pipeline_root, "metadata.db")

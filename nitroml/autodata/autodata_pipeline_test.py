@@ -51,7 +51,7 @@ class AutoDataTest(e2etest.TestCase):
       self.run_pipeline(components=task.components + autodata.components)
 
       self.assertComponentExecutionCount(4)
-      self.assertComponentSucceeded("CsvExampleGen")
+      self.assertComponentSucceeded("CsvExampleGen.OpenML.mockdata_1")
       self.assertComponentSucceeded("SchemaGen.AutoData")
       self.assertComponentSucceeded("StatisticsGen.AutoData")
       self.assertComponentSucceeded("Transform.AutoData")

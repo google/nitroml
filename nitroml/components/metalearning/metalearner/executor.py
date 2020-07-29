@@ -15,24 +15,22 @@
 # Lint as: python3
 """Executor for MetaLearner."""
 
-import os
-import sys
-import json
 import collections
-from typing import Any, Dict, List, Tuple
+import json
+import os
+from typing import Any, Dict, List
 
-from nitroml.components.metalearning import artifacts
 from absl import logging
+import kerastuner
+from nitroml.components.metalearning import artifacts
 from tfx.components.base import base_executor
 from tfx.types import artifact_utils
 from tfx.types.artifact import Artifact
 from tfx.utils import io_utils
-import tensorflow_data_validation as tfdv
-import kerastuner
 
-_MAX_INPUTS = 10
 _DEFAULT_FILE_NAME = 'meta_hyperparameters.txt'
 
+MAX_INPUTS = 10
 OUTPUT_MODEL = 'metalearned_model'
 OUTPUT_HYPERPARAMS = 'output_hyperparameters'
 MAJORITY_VOTING = 'majority_voting'
@@ -49,23 +47,25 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
                                          Any]]) -> kerastuner.HyperParameters:
     """Convert List of HParams to kerastuner.HyperaParameters.
 
-      Args:
-        candidate_hparams: List of Dict of HParams with same keys.
+    Args:
+      candidate_hparams: List of Dict of HParams with same keys.
 
-      Returns:
-        discrete_search_space: A kerastuner.HyperParameters object representing a discrete search
-        space created using voting. For example, when
+    Returns:
+      discrete_search_space: A kerastuner.HyperParameters object representing
+      a discrete search
+      space created using voting. For example, when
 
-        `candidate_hparams` is [{`learning_rate`: 0.01, `num_nodes`: 32},
-                                {`learning_rate`: 0.001, `num_nodes`: 128},
-                                {`learning_rate`: 0.01, `num_nodes`: 128},
-                                {`learning_rate`: 0.001, `num_nodes`: 128}]
+      `candidate_hparams` is [{`learning_rate`: 0.01, `num_nodes`: 32},
+                              {`learning_rate`: 0.001, `num_nodes`: 128},
+                              {`learning_rate`: 0.01, `num_nodes`: 128},
+                              {`learning_rate`: 0.001, `num_nodes`: 128}]
 
-        then, `discrete_search_space` depicts the following discrete search space
-        {`learning_rate`: [0.01, 0.001], `num_nodes`: [128]}
+      then, `discrete_search_space` depicts the following discrete search
+      space
+      {`learning_rate`: [0.01, 0.001], `num_nodes`: [128]}
 
-      Raises:
-        ValueError: An error occured when `candidate_hparams` is empty or None.
+    Raises:
+      ValueError: An error occured when `candidate_hparams` is empty or None.
     """
 
     if not candidate_hparams:
@@ -104,10 +104,11 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
     Args:
       input_dict: Input dict from input key to a list of artifacts, including:
         - meta_train_features_N: MetaFeatures for Nth train dataset.
-        - hparams_train_N: HParms for Nth train dataset.
-        The maximum value `N` being _MAX_INPUTS.
+        - hparams_train_N: HParms for Nth train dataset. The maximum value `N`
+          being _MAX_INPUTS.
       output_dict: Output dict from key to a list of artifacts.
       exec_properties: A dict of execution properties.
+
     Raises:
     """
 
@@ -116,22 +117,22 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
 
     train_stats = {}
     # This should be agnostic to meta-feature type.
-    for ix in range(_MAX_INPUTS):
+    for ix in range(MAX_INPUTS):
       metafeature_key = f'meta_train_features_{ix}'
-      if (metafeature_key in input_dict):
+      if metafeature_key in input_dict:
         metafeature_uri = os.path.join(
             artifact_utils.get_single_uri(input_dict[metafeature_key]),
             artifacts.MetaFeatures.DEFAULT_FILE_NAME)
         logging.info('Found %s at %s.', metafeature_key, metafeature_uri)
         metafeatures = json.loads(io_utils.read_string_file(metafeature_uri))
-        # Only logging metafeatures for now. MetaFeature will be used in upcoming
-        # algorithms.
+        # Only logging metafeatures for now. MetaFeature will be used in
+        # upcoming algorithms.
         logging.info('metafeatures %s.', metafeatures['metafeature'])
 
     all_hparams = []
-    for ix in range(_MAX_INPUTS):
+    for ix in range(MAX_INPUTS):
       hparam_key = f'hparams_train_{ix}'
-      if (hparam_key in input_dict):
+      if hparam_key in input_dict:
         hyperparameters_file = io_utils.get_only_uri_in_dir(
             artifact_utils.get_single_uri(input_dict[hparam_key]))
         logging.info('Found %s at %s.', hparam_key, hyperparameters_file)

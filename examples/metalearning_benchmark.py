@@ -25,76 +25,64 @@ To run in open-source:
 # pylint: disable=g-import-not-at-top
 import os
 import sys
-import json
 # Required since Python binaries ignore relative paths when importing:
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
-from absl import logging
 import nitroml
+from nitroml.components.tuner import component as tuner_component
+from nitroml.components.metalearning import metalearning_wrapper
 from examples import config
 from tfx import components as tfx
 from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
 from tfx.proto import trainer_pb2
-from tfx.components.base import base_component
-
-from nitroml.components.tuner import component as custom_tuner
-from nitroml.components.metalearning import metalearning_wrapper
-from nitroml.components.metalearning import METALEARNING_ALGORITHMS
 
 from google.protobuf import text_format
 
 
 class MetaLearningBenchmark(nitroml.Benchmark):
-  r"""Demos a metalearning pipeline using 'OpenML-CC18' classification datasets."""
+  r"""Benchmarks a metalearning pipeline on OpenML-CC18 classification tasks."""
 
   def benchmark(self,
                 algorithm: str = None,
                 mock_data: bool = False,
                 data_dir: str = None):
+    # TODO(nikhilmehta): Extend this to multiple test datasets using subbenchmarks.
 
-    if not algorithm or algorithm not in METALEARNING_ALGORITHMS:
-      raise ValueError(
-          f'Required a valid meta learning algorithm. Found "{algorithm}", Expected one of {METALEARNING_ALGORITHMS}'
-      )
+    train_task_names = frozenset([
+        'OpenML.connect4', 'OpenML.creditapproval', 'OpenML.creditg',
+        'OpenML.cylinderbands', 'OpenML.diabetes'
+    ])
+    test_task_names = frozenset(['OpenML.dressessales'])
+
+    if mock_data:
+      train_task_names = {'OpenML.mockdata_1'}
+      test_task_names = {'OpenML.mockdata_2'}
+
+    train_tasks = []
+    test_tasks = []
+    for task in nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data):
+      if task.name in train_task_names:
+        train_tasks.append(task)
+      if task.name in test_task_names:
+        test_tasks.append(task)
 
     pipeline = []
     meta_train_data = {}
     train_autodata_list = []
 
-    # TODO(nikhilmehta): Extend this to multiple test datasets using subbenchmarks.
-    if mock_data:
-      # Used for unit testing.
-      train_datasets = frozenset(['mockdata_1', 'mockdata_2'])
-      test_datasets = frozenset(['mockdata_1'])
-    else:
-      train_datasets = frozenset([
-          'connect4', 'creditapproval', 'creditg', 'cylinderbands', 'diabetes'
-      ])
-      test_datasets = frozenset(['dressessales'])
-
-    pipeline = []
-    for train_index, task in enumerate(
-        nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data)):
-
-      if task.name not in train_datasets:
-        continue
+    for task in train_tasks:
 
       # Create the autodata instance for this task, which creates Transform,
       # StatisticsGen and SchemaGen component.
-      instance_name = f'train_{task.name}'
       autodata = nitroml.autodata.AutoData(
           task.problem_statement,
           examples=task.train_and_eval_examples,
           preprocessor=nitroml.autodata.BasicPreprocessor(),
-          instance_name=instance_name)
-
-      # Set a unique instance_name for this task's ExampleGen component.
-      task.set_instance_name(instance_name)
-      pipeline += task.components + autodata.components
+          instance_name=f'train_{task.name}')
 
       # Add a tuner component for each training dataset that finds the optimum HParams.
-      tuner = tfx.Tuner(
+      tuner = tuner_component.Tuner(
           tuner_fn='examples.auto_trainer.tuner_fn',
           examples=autodata.transformed_examples,
           transform_graph=autodata.transform_graph,
@@ -108,7 +96,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
                       message=task.problem_statement, as_utf8=True),
           },
           instance_name=f'train_{task.name}')
-      pipeline.append(tuner)
+      pipeline += task.components + autodata.components + [tuner]
 
       train_autodata_list.append(autodata)
       meta_train_data[
@@ -118,56 +106,46 @@ class MetaLearningBenchmark(nitroml.Benchmark):
     metalearner_helper = metalearning_wrapper.MetaLearningWrapper(
         train_autodata_list=train_autodata_list,
         meta_train_data=meta_train_data)
-    pipeline += pipeline + metalearner_helper.pipeline
+    pipeline += metalearner_helper.pipeline
 
-    for test_index, task in enumerate(
-        nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data)):
+    for task in test_tasks:
+      with self.sub_benchmark(task.name):
+        # Create the autodata instance for the test task.
+        autodata = nitroml.autodata.AutoData(
+            task.problem_statement,
+            examples=task.train_and_eval_examples,
+            preprocessor=nitroml.autodata.BasicPreprocessor(),
+            instance_name=f'test_{task.name}')
 
-      if task.name not in test_datasets:
-        continue
+        # Create a trainer component that utilizes the recommended HParams
+        # from the metalearning subpipeline.
+        trainer = tfx.Trainer(
+            run_fn='examples.auto_trainer.run_fn',
+            custom_executor_spec=(executor_spec.ExecutorClassSpec(
+                trainer_executor.GenericExecutor)),
+            transformed_examples=autodata.transformed_examples,
+            transform_graph=autodata.transform_graph,
+            schema=autodata.schema,
+            train_args=trainer_pb2.TrainArgs(num_steps=1),
+            eval_args=trainer_pb2.EvalArgs(num_steps=1),
+            hyperparameters=metalearner_helper.recommended_search_space,
+            custom_config={
+                # Pass the problem statement proto as a text proto. Required
+                # since custom_config must be JSON-serializable.
+                'problem_statement':
+                    text_format.MessageToString(
+                        message=task.problem_statement, as_utf8=True),
+            },
+            instance_name=f'test_{task.name}')
+        pipeline += task.components + autodata.components + [trainer]
 
-      task_pipeline = []
-      task_pipeline.extend(pipeline)
-
-      # Create the autodata instance for the test task.
-      instance_name = f'test_{task.name}'
-      autodata = nitroml.autodata.AutoData(
-          task.problem_statement,
-          examples=task.train_and_eval_examples,
-          preprocessor=nitroml.autodata.BasicPreprocessor(),
-          instance_name=instance_name)
-
-      task.set_instance_name(instance_name)
-      task_pipeline += task.components + autodata.components
-
-      # Create a trainer component that utilizes the recommended HParams
-      # from the metalearning subpipeline.
-      trainer = tfx.Trainer(
-          run_fn='examples.auto_trainer.run_fn',
-          custom_executor_spec=(executor_spec.ExecutorClassSpec(
-              trainer_executor.GenericExecutor)),
-          transformed_examples=autodata.transformed_examples,
-          transform_graph=autodata.transform_graph,
-          schema=autodata.schema,
-          train_args=trainer_pb2.TrainArgs(num_steps=1),
-          eval_args=trainer_pb2.EvalArgs(num_steps=1),
-          hyperparameters=metalearner_helper.recommended_search_space,
-          custom_config={
-              # Pass the problem statement proto as a text proto. Required
-              # since custom_config must be JSON-serializable.
-              'problem_statement':
-                  text_format.MessageToString(
-                      message=task.problem_statement, as_utf8=True),
-          })
-      task_pipeline.append(trainer)
-
-      # Finally, call evaluate() on the workflow DAG outputs, This will
-      # automatically append Evaluators to compute metrics from the given
-      # SavedModel and 'eval' TF Examples.ss
-      self.evaluate(
-          task_pipeline,
-          examples=task.train_and_eval_examples,
-          model=trainer.outputs.model)
+        # Finally, call evaluate() on the workflow DAG outputs, This will
+        # automatically append Evaluators to compute metrics from the given
+        # SavedModel and 'eval' TF Examples.ss
+        self.evaluate(
+            pipeline,
+            examples=task.train_and_eval_examples,
+            model=trainer.outputs.model)
 
 
 if __name__ == '__main__':

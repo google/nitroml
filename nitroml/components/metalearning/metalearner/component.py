@@ -13,20 +13,19 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Implements NearestNeighbor component."""
+"""Implements the metalearner component."""
 
-from typing import Any, Dict, Optional, Text, Union
+from typing import Any, Dict, Optional
 
-from nitroml.components.metalearning.metalearner import executor
 from nitroml.components.metalearning import artifacts
+from nitroml.components.metalearning.metalearner import executor
 from tfx import types
 from tfx.components.base import base_component
 from tfx.components.base import executor_spec
-from tfx.types import standard_component_specs
 from tfx.types import standard_artifacts
+from tfx.types.component_spec import ChannelParameter
 from tfx.types.component_spec import ComponentSpec
 from tfx.types.component_spec import ExecutionParameter
-from tfx.types.component_spec import ChannelParameter
 
 
 class MetaLearnerSpec(ComponentSpec):
@@ -40,12 +39,12 @@ class MetaLearnerSpec(ComponentSpec):
       **{
           'meta_train_features_%s' % input_id:
           ChannelParameter(type=artifacts.MetaFeatures, optional=True)
-          for input_id in range(executor._MAX_INPUTS)
+          for input_id in range(executor.MAX_INPUTS)
       },
       **{
           'hparams_train_%s' % input_id: ChannelParameter(
               type=standard_artifacts.HyperParameters, optional=True)
-          for input_id in range(executor._MAX_INPUTS)
+          for input_id in range(executor.MAX_INPUTS)
       }
   }
   OUTPUTS = {
@@ -69,25 +68,22 @@ class MetaLearner(base_component.BaseComponent):
     """Construct a MetaLearner component.
 
     Args:
-      custom_config: MetaLearning algorithm specific options.
       algorithm: The MetaLearning algorithm to use.
-      meta_train_data: Expected to have the following form:
-        meta_train_data = {
-          'hparams_train_1': Output Channel of Tuner of train dataset 1,
-          'meta_train_features_1': Output Channel of MetaFeatureGen of train dataset 1,
-          .
-          .
-          .
-          'hparams_train_N': Output Channel of Tuner of train dataset N,
-          'meta_train_features_N': Output Channel of MetaFeatureGen of train dataset N,
-        }
+      custom_config: MetaLearning algorithm specific options.
+      **meta_train_data: Expected to have the following keys:
+       - 'hparams_train_1': Output Channel of Tuner of train dataset 1,
+       - 'meta_train_features_1': Output Channel of MetaFeatureGen of train
+         dataset 1, . . .
+       - 'hparams_train_N': Output Channel of Tuner of train dataset N,
+       - 'meta_train_features_N': Output Channel of MetaFeatureGen of train
+         dataset N, }
 
     Raises:
       ValueError: If meta_train_data is not present.
     """
 
     if not meta_train_data:
-      raise ValueError('Meta-train data cannot be empty.')
+      raise ValueError('meta_train_data cannot be empty.')
 
     model = types.Channel(
         type=standard_artifacts.Model, artifacts=[standard_artifacts.Model()])

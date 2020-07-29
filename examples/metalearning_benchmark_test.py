@@ -17,11 +17,10 @@
 
 import os
 
-from absl import logging
 from nitroml import results
+from examples import metalearning_benchmark
 from nitroml.suites import testing_utils
 from nitroml.testing import e2etest
-from examples import metalearning_benchmark
 import requests_mock
 
 from ml_metadata import metadata_store
@@ -45,26 +44,35 @@ class MetaLearningTest(e2etest.TestCase):
                           mock_data=True,
                           algorithm=algorithm)
 
-    self.assertComponentExecutionCount(20)
+    self.assertComponentExecutionCount(14)
 
-    train_dataset_ids = [1, 2]
+    train_dataset_ids = [1]
     for ix in train_dataset_ids:
-      instance_name = f'train_mockdata_{ix}.MetaLearningBenchmark.benchmark'
-      self.assertComponentSucceeded(f'CsvExampleGen.{instance_name}')
-      self.assertComponentSucceeded(f'Tuner.{instance_name}')
-      self.assertComponentSucceeded(f'SchemaGen.AutoData.{instance_name}')
-      self.assertComponentSucceeded(f'StatisticsGen.AutoData.{instance_name}')
-      self.assertComponentSucceeded(f'Transform.AutoData.{instance_name}')
+      instance_name = 'MetaLearningBenchmark.benchmark.OpenML.mockdata_2'
+      self.assertComponentSucceeded(
+          f'CsvExampleGen.OpenML.mockdata_{ix}.{instance_name}')
+      self.assertComponentSucceeded(
+          f'Tuner.train_OpenML.mockdata_{ix}.{instance_name}')
+      self.assertComponentSucceeded(
+          f'SchemaGen.AutoData.train_OpenML.mockdata_{ix}.{instance_name}')
+      self.assertComponentSucceeded(
+          f'StatisticsGen.AutoData.train_OpenML.mockdata_{ix}.{instance_name}')
+      self.assertComponentSucceeded(
+          f'Transform.AutoData.train_OpenML.mockdata_{ix}.{instance_name}')
 
-    test_dataset_ids = [1]
+    test_dataset_ids = [2]
     for ix in test_dataset_ids:
-      instance_name = f'test_mockdata_{ix}.MetaLearningBenchmark.benchmark'
-      self.assertComponentSucceeded(f'CsvExampleGen.{instance_name}')
-      self.assertComponentSucceeded(f'SchemaGen.AutoData.{instance_name}')
-      self.assertComponentSucceeded(f'StatisticsGen.AutoData.{instance_name}')
-      self.assertComponentSucceeded(f'Transform.AutoData.{instance_name}')
+      instance_name = 'MetaLearningBenchmark.benchmark.OpenML.mockdata_2'
+      self.assertComponentSucceeded(
+          f'CsvExampleGen.OpenML.mockdata_{ix}.{instance_name}')
+      self.assertComponentSucceeded(
+          f'SchemaGen.AutoData.test_OpenML.mockdata_{ix}.{instance_name}')
+      self.assertComponentSucceeded(
+          f'StatisticsGen.AutoData.test_OpenML.mockdata_{ix}.{instance_name}')
+      self.assertComponentSucceeded(
+          f'Transform.AutoData.test_OpenML.mockdata_{ix}.{instance_name}')
 
-    instance_name = 'MetaLearningBenchmark.benchmark'
+    instance_name = 'MetaLearningBenchmark.benchmark.OpenML.mockdata_2'
     self.assertComponentSucceeded(f'Evaluator.{instance_name}')
     self.assertComponentSucceeded(f'BenchmarkResultPublisher.{instance_name}')
 

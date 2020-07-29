@@ -15,16 +15,14 @@
 # Lint as: python3
 """Tests for nitroml.components.metalearning.metafeature_gen.executor."""
 
+import json
 import os
 import tempfile
-import json
 
 from absl import flags
-from absl import logging
 from absl.testing import absltest
-from nitroml.components.metalearning.metafeature_gen import executor
 from nitroml.components.metalearning import artifacts
-from tfx import types
+from nitroml.components.metalearning.metafeature_gen import executor
 import tensorflow as tf
 from tfx.types import artifact_utils
 from tfx.types import standard_artifacts
@@ -81,11 +79,11 @@ class ExecutorTest(absltest.TestCase):
     self.assertEqual(metafeature['num_int_features'], 1)
     self.assertEqual(metafeature['num_float_features'], 1)
     self.assertEqual(metafeature['num_categorical_features'], 2)
-    
+
   def test_metafeature_gen_do(self):
 
-    exec = executor.MetaFeatureGenExecutor()
-    exec.Do(self._input_dict, self._output_dict, self._exec_properties)
+    ex = executor.MetaFeatureGenExecutor()
+    ex.Do(self._input_dict, self._output_dict, self._exec_properties)
     self._verify_metafeature_gen_outputs()
 
 
