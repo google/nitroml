@@ -29,7 +29,7 @@ import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
-from nitroml.components.tuner import component as custom_tuner
+from nitroml.components.tuner import component as tuner_component
 from examples import config
 import tensorflow_datasets as tfds
 from tfx import components as tfx
@@ -59,7 +59,7 @@ class TitanicBenchmark(nitroml.Benchmark):
 
     if enable_tuning:
       # Search over search space of model hyperparameters.
-      tuner = custom_tuner.Tuner(
+      tuner = tuner_component.Tuner(
           tuner_fn='examples.auto_trainer.tuner_fn',
           examples=autodata.transformed_examples,
           transform_graph=autodata.transform_graph,
