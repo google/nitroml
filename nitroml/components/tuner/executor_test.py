@@ -79,8 +79,8 @@ class ExecutorTest(absltest.TestCase):
     self._best_hparams.uri = os.path.join(self._output_data_dir, 'best_hparams')
 
     self._tuner_data = tuner_component.TunerData()
-    self._best_hparams.uri = os.path.join(self._output_data_dir,
-                                          'trial_summary_plot')
+    self._tuner_data.uri = os.path.join(self._output_data_dir,
+                                        'trial_summary_plot')
     self._output_dict = {
         'best_hyperparameters': [self._best_hparams],
         'trial_summary_plot': [self._tuner_data],
@@ -90,11 +90,11 @@ class ExecutorTest(absltest.TestCase):
     self._exec_properties = {
         'train_args':
             json_format.MessageToJson(
-                trainer_pb2.TrainArgs(num_steps=100),
+                trainer_pb2.TrainArgs(num_steps=10),
                 preserving_proto_field_name=True),
         'eval_args':
             json_format.MessageToJson(
-                trainer_pb2.EvalArgs(num_steps=10),
+                trainer_pb2.EvalArgs(num_steps=5),
                 preserving_proto_field_name=True),
     }
 

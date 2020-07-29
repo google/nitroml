@@ -102,3 +102,4 @@ class Executor(tfx_tuner.Executor):
           'tuner_plot_data.txt')
       io_utils.write_string_file(tuner_plot_path,
                                  json.dumps(tuner.get_tuner_plot_data()))
+      logging.info('Tuner plot data written at: %s', tuner_plot_path)

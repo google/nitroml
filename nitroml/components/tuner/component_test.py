@@ -49,7 +49,7 @@ class ComponentTest(absltest.TestCase):
     self.assertEqual(standard_artifacts.HyperParameters.TYPE_NAME,
                      tuner.outputs['best_hyperparameters'].type_name)
     self.assertEqual(tuner_component.TunerData.TYPE_NAME,
-                     tuner.outputs['tuner_plot_data'].type_name)
+                     tuner.outputs['trial_summary_plot'].type_name)
 
   def testConstructWithModuleFile(self):
     tuner = tuner_component.Tuner(
