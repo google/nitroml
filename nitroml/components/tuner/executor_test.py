@@ -31,6 +31,7 @@ from tfx.types import standard_artifacts
 from tfx.utils import json_utils
 from nitroml.protos import problem_statement_pb2 as ps_pb2
 from nitroml.components.tuner import executor
+from nitroml.components.tuner import component as tuner_component
 from examples import auto_trainer as tuner_module
 from google.protobuf import json_format
 from google.protobuf import text_format
@@ -77,8 +78,12 @@ class ExecutorTest(absltest.TestCase):
     self._best_hparams = standard_artifacts.Model()
     self._best_hparams.uri = os.path.join(self._output_data_dir, 'best_hparams')
 
+    self._tuner_data = tuner_component.TunerData()
+    self._best_hparams.uri = os.path.join(self._output_data_dir,
+                                          'trial_summary_plot')
     self._output_dict = {
         'best_hyperparameters': [self._best_hparams],
+        'trial_summary_plot': [self._tuner_data],
     }
 
     # Create exec properties.
