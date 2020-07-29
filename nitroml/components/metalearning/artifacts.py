@@ -13,17 +13,13 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""NitroML config.
+"""Definition of custom artifacts used in meta learning."""
 
-This file defines environments for nitroml.
-"""
-import os
+from tfx.types.artifact import Artifact
 
-USE_KUBEFLOW = True
 
-PIPELINE_NAME = 'examples'
-GCS_BUCKET_NAME = 'artifacts.nitroml-brain-xgcp.appspot.com'
-PIPELINE_ROOT = os.path.join('gs://', GCS_BUCKET_NAME, PIPELINE_NAME)
-TF_DOWNLOAD_DIR = os.path.join('gs://', GCS_BUCKET_NAME, 'tensorflow-datasets')
-OTHER_DOWNLOAD_DIR = os.path.join('gs://', GCS_BUCKET_NAME, 'other-datasets')
-TFX_IMAGE = 'tensorflow/tfx:0.23.0.dev20200716'
+class MetaFeatures(Artifact):
+  """NitroML's custom Artifact for meta features."""
+
+  TYPE_NAME = 'NitroML.MetaFeatures'
+  DEFAULT_FILE_NAME = 'metafeatures.txt'

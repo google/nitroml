@@ -1,0 +1,44 @@
+{
+  "data": {
+    "dataset": [
+      {
+        "did": 1,
+        "name": "mockdata_1",
+        "version": 1,
+        "status": "active",
+        "format": "ARFF",
+        "md5_checksum": "",
+        "file_id": 1,
+        "quality": [
+          { "name": "MajorityClassSize", "value": "1669.0" },
+          { "name": "MaxNominalAttDistinctValues", "value": "3.0" },
+          { "name": "MinorityClassSize", "value": "1527.0" },
+          { "name": "NumberOfClasses", "value": "4.0" },
+          { "name": "NumberOfFeatures", "value": "37.0" },
+          { "name": "NumberOfInstances", "value": "3196.0" },
+          { "name": "NumberOfNumericFeatures", "value": "0.0" },
+          { "name": "NumberOfSymbolicFeatures", "value": "37.0" }
+        ]
+      },
+      {
+        "did": 2,
+        "name": "mockdata_2",
+        "version": 1,
+        "status": "active",
+        "format": "ARFF",
+        "md5_checksum": "",
+        "file_id": 2,
+        "quality": [
+          { "name": "MajorityClassSize", "value": "1669.0" },
+          { "name": "MaxNominalAttDistinctValues", "value": "3.0" },
+          { "name": "MinorityClassSize", "value": "1527.0" },
+          { "name": "NumberOfClasses", "value": "4.0" },
+          { "name": "NumberOfFeatures", "value": "37.0" },
+          { "name": "NumberOfInstances", "value": "3196.0" },
+          { "name": "NumberOfNumericFeatures", "value": "0.0" },
+          { "name": "NumberOfSymbolicFeatures", "value": "37.0" }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,1 @@
+{"num_examples": 3, "num_int_features": 1, "num_float_features": 1, "num_categorical_features": 2, "metafeature": [3, 1, 1, 2]}

@@ -53,7 +53,8 @@ class OpenMLTask(task.Task):
     self._description = description
     self._label_key = label_key
     self._example_gen = tfx.CsvExampleGen(
-        input_base=os.path.join(root_dir, f'{dataset_name}', 'data'))
+        input_base=os.path.join(root_dir, f'{dataset_name}', 'data'),
+        instance_name=self.name)
 
   def __str__(self):
     return (f'Task: {self._type} \nClasses: {self._num_classes} \n'
@@ -68,23 +69,23 @@ class OpenMLTask(task.Task):
     ]
 
   @property
-  def name(self):
-    return self._name
+  def name(self) -> str:
+    return f'OpenML.{self._name}'
 
   @property
-  def dataset_name(self):
+  def dataset_name(self) -> str:
     return self._dataset_name
 
   @property
-  def type(self):
+  def type(self) -> str:
     return self._type
 
   @property
-  def num_classes(self):
+  def num_classes(self) -> int:
     return self._num_classes
 
   @property
-  def label_key(self):
+  def label_key(self) -> str:
     return self._label_key
 
   @property

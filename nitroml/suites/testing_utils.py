@@ -17,6 +17,7 @@
 
 import json
 import os
+from typing import List
 
 from nitroml.suites import data_utils
 from nitroml.suites import openml_cc18
@@ -24,11 +25,14 @@ import requests_mock
 import tensorflow as tf
 
 
-def register_mock_urls(mocker: requests_mock.Mocker):
+def register_mock_urls(mocker: requests_mock.Mocker,
+                       dataset_id_list: List[int] = None):
   """Registers mock URLs to the Mocker."""
 
+  if not dataset_id_list:
+    dataset_id_list = [1, 2]
+
   list_url = f'{openml_cc18._OPENML_API_URL}/data/list'  # pylint: disable=protected-access
-  dataset_id = 1
 
   for name, value in data_utils.parse_dataset_filters(
       openml_cc18._DATASET_FILTERS).items():  # pylint: disable=protected-access
@@ -38,23 +42,27 @@ def register_mock_urls(mocker: requests_mock.Mocker):
       _filename_path('openml_list.get.json'), mode='r') as fin:
     mocker.get(list_url, json=json.load(fin), status_code=200)
 
-  desc_url = f'{openml_cc18._OPENML_API_URL}/data/{dataset_id}'  # pylint: disable=protected-access
+  for dataset_id in dataset_id_list:
 
-  with tf.io.gfile.GFile(
-      _filename_path('openml_description.get.json'), mode='r') as fin:
-    mocker.get(desc_url, json=json.load(fin), status_code=200)
+    desc_url = f'{openml_cc18._OPENML_API_URL}/data/{dataset_id}'  # pylint: disable=protected-access
 
-  qual_url = f'{openml_cc18._OPENML_API_URL}/data/qualities/{dataset_id}'  # pylint: disable=protected-access
+    with tf.io.gfile.GFile(
+        _filename_path(f'openml_description.get_{dataset_id}.json'),
+        mode='r') as fin:
+      mocker.get(desc_url, json=json.load(fin), status_code=200)
 
-  with tf.io.gfile.GFile(
-      _filename_path('openml_qual.get.json'), mode='r') as fin:
-    mocker.get(qual_url, json=json.load(fin), status_code=200)
+    qual_url = f'{openml_cc18._OPENML_API_URL}/data/qualities/{dataset_id}'  # pylint: disable=protected-access
 
-  csv_url = f'{openml_cc18._OPENML_FILE_API_URL}/get_csv/{dataset_id}'  # pylint: disable=protected-access
+    with tf.io.gfile.GFile(
+        _filename_path('openml_qual.get.json'), mode='r') as fin:
+      mocker.get(qual_url, json=json.load(fin), status_code=200)
 
-  with tf.io.gfile.GFile(_filename_path('dataset.txt'), mode='r') as fin:
-    mocker.get(csv_url, text=fin.read())
+    csv_url = f'{openml_cc18._OPENML_FILE_API_URL}/get_csv/{dataset_id}'  # pylint: disable=protected-access
+
+    with tf.io.gfile.GFile(_filename_path('dataset.txt'), mode='r') as fin:
+      mocker.get(csv_url, text=fin.read())
 
 
 def _filename_path(filename: str) -> str:
-  return os.path.join(os.path.dirname(__file__), '../tasks/testdata', filename)
+  return os.path.join(
+      os.path.dirname(__file__), '../tasks/testdata/openml_cc18', filename)

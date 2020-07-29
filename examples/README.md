@@ -4,9 +4,9 @@ Canonical examples of how to use NitroML. These examples are maintained by the N
 
 ## Included examples
 
- 1. **titanic_benchmark.py**: A simple AutoML pipeline run on the Titanic dataset from TensorFlow datasets.
- 2. **openml_cc18_benchmark.py**: A simple AutoML pipeline run on the [OpenML-CC18](https://www.openml.org/s/99) benchmark suite composed of 72 dataset.
-
+1.  **titanic_benchmark.py**: A simple AutoML pipeline run on the Titanic dataset from TensorFlow datasets.
+2.  **openml_cc18_benchmark.py**: A simple AutoML pipeline run on the [OpenML-CC18](https://www.openml.org/s/99) benchmark suite composed of 72 dataset.
+3.  **meta_learning_benchmark.py**: A simple metalearning AutoML pipeline run using a subset of [OpenML-CC18](https://www.openml.org/s/99) benchmark suite.
 
 ## Run Nitroml on the Cloud with KubeFlow
 
