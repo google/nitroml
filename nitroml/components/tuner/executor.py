@@ -59,7 +59,7 @@ def get_tuner_cls_with_callbacks(tuner_class: Type[base_tuner.BaseTuner]):
   return CustomTuner
 
 
-class Executor(tfx_tuner.Executor):
+class Executor(base_executor.BaseExecutor):
   """The executor for nitroml.components.tuner.components.Tuner."""
 
   def search(self, input_dict: Dict[str, List[types.Artifact]],
