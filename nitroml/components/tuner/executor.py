@@ -13,27 +13,25 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""The tuner executor for tuner component with trial callbacks for tracking trial data."""
+"""The AugmentedTuner executor with trial callbacks for tracking trial data."""
 
+from inspect import ismethod
+from typing import Any, Dict, List, Type
 import json
 import os
-from typing import Any, Callable, Dict, List, Text, Optional, Type
-from absl import logging
-from kerastuner.engine import base_tuner
-from inspect import ismethod
 
+from absl import logging
+from google.protobuf import json_format
+from kerastuner.engine import base_tuner
 from tfx import types
 from tfx.components.base import base_executor
 from tfx.components.trainer import fn_args_utils
-from tfx.components.util import udf_utils
-from tfx.proto import tuner_pb2
-from tfx.types import artifact_utils
-from tfx.utils import io_utils
-from google.protobuf import json_format
-
 from tfx.components.tuner import executor as tfx_tuner
 from tfx.components.util import udf_utils
 from tfx.components.trainer import fn_args_utils
+from tfx.proto import tuner_pb2
+from tfx.types import artifact_utils
+from tfx.utils import io_utils
 
 
 def get_tuner_cls_with_callbacks(tuner_class: Type[base_tuner.BaseTuner]):
@@ -43,7 +41,7 @@ def get_tuner_cls_with_callbacks(tuner_class: Type[base_tuner.BaseTuner]):
       tuner_class: An existing tuner class that extends the base_tuner.BaseTuner.
   """
 
-  class CustomTuner(tuner_class):
+  class CustomTuner(tuner_class):  # pylint: disable=E0239
 
     def on_search_begin(self):
       super(CustomTuner, self).on_search_begin()
@@ -64,9 +62,9 @@ def get_tuner_cls_with_callbacks(tuner_class: Type[base_tuner.BaseTuner]):
 class Executor(tfx_tuner.Executor):
   """The executor for nitroml.components.tuner.components.Tuner."""
 
-  def search(self, input_dict: Dict[Text, List[types.Artifact]],
-             exec_properties: Dict[Text, Any],
-             working_dir: Text) -> base_tuner.BaseTuner:
+  def search(self, input_dict: Dict[str, List[types.Artifact]],
+             exec_properties: Dict[str, Any],
+             working_dir: str) -> base_tuner.BaseTuner:
     """Conduct a single hyperparameter search loop, and return the Tuner."""
 
     tuner_fn = udf_utils.get_fn(exec_properties, 'tuner_fn')
@@ -84,9 +82,9 @@ class Executor(tfx_tuner.Executor):
 
     return tuner
 
-  def Do(self, input_dict: Dict[Text, List[types.Artifact]],
-         output_dict: Dict[Text, List[types.Artifact]],
-         exec_properties: Dict[Text, Any]) -> None:
+  def Do(self, input_dict: Dict[str, List[types.Artifact]],
+         output_dict: Dict[str, List[types.Artifact]],
+         exec_properties: Dict[str, Any]) -> None:
 
     if tfx_tuner.get_tune_args(exec_properties):
       raise ValueError("TuneArgs is not supported by this Tuner's Executor.")

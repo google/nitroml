@@ -52,7 +52,7 @@ class ComponentTest(absltest.TestCase):
                      tuner.outputs['trial_summary_plot'].type_name)
 
   def testConstructWithModuleFile(self):
-    tuner = tuner_component.Tuner(
+    tuner = tuner_component.AugmentedTuner(
         examples=self.examples,
         schema=self.schema,
         transform_graph=self.transform_graph,
@@ -64,7 +64,7 @@ class ComponentTest(absltest.TestCase):
     self._verify_outputs(tuner)
 
   def testConstructWithTunerFn(self):
-    tuner = tuner_component.Tuner(
+    tuner = tuner_component.AugmentedTuner(
         examples=self.examples,
         schema=self.schema,
         transform_graph=self.transform_graph,

@@ -17,24 +17,24 @@
 
 import json
 import os
-from kerastuner import HyperParameters
-import tensorflow as tf
 import tempfile
 
 from absl import flags
 from absl.testing import absltest
+from examples import auto_trainer as tuner_module
+from google.protobuf import json_format
+from google.protobuf import text_format
+from kerastuner import HyperParameters
+from nitroml.protos import problem_statement_pb2 as ps_pb2
+from nitroml.components.tuner import executor
+from nitroml.components.tuner import component as tuner_component
 from tensorflow.python.lib.io import file_io  # pylint: disable=g-direct-tensorflow-import
 from tfx.proto import trainer_pb2
 from tfx.proto import tuner_pb2
 from tfx.types import artifact_utils
 from tfx.types import standard_artifacts
 from tfx.utils import json_utils
-from nitroml.protos import problem_statement_pb2 as ps_pb2
-from nitroml.components.tuner import executor
-from nitroml.components.tuner import component as tuner_component
-from examples import auto_trainer as tuner_module
-from google.protobuf import json_format
-from google.protobuf import text_format
+import tensorflow as tf
 
 
 class ExecutorTest(absltest.TestCase):

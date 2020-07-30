@@ -16,8 +16,8 @@
 """The Tuner component for hyperparam tuning, which also outputs trial plot data."""
 
 from typing import Any, Dict, Optional, Text, NamedTuple
-from kerastuner.engine import base_tuner
 
+from kerastuner.engine import base_tuner
 from nitroml.components.tuner import executor
 from tfx import types
 from tfx.components.base import base_component
@@ -25,7 +25,6 @@ from tfx.components.base import executor_spec
 from tfx.proto import trainer_pb2
 from tfx.proto import tuner_pb2
 from tfx.types import standard_artifacts
-from tfx.types.standard_component_specs import TunerSpec
 from tfx.components.tuner.component import TunerFnResult
 from tfx.utils import json_utils
 from tfx.types.artifact import Artifact
@@ -40,8 +39,8 @@ class TunerData(Artifact):
   TYPE_NAME = 'NitroML.TunerData'
 
 
-class TunerSpec(ComponentSpec):
-  """ComponentSpec for custom Tuner Component which saves trial plot data."""
+class AugmentedTunerSpec(ComponentSpec):
+  """Component spec for AugmentedTuner which also saves the trial plot data."""
 
   PARAMETERS = {
       'module_file': ExecutionParameter(type=(str, str), optional=True),
@@ -68,10 +67,12 @@ class TunerSpec(ComponentSpec):
   }
 
 
-class Tuner(base_component.BaseComponent):
+# TODO(nikhilmehta): Find a better way to use existing tfx.Tuner implementation.
+# Currently, inheritance is viable since tfx.Tuner doesn't accept custom spec.
+class AugmentedTuner(base_component.BaseComponent):
   """A custom TFX component for model hyperparameter tuning."""
 
-  SPEC_CLASS = TunerSpec
+  SPEC_CLASS = AugmentedTunerSpec
   EXECUTOR_SPEC = executor_spec.ExecutorClassSpec(executor.Executor)
 
   def __init__(self,
@@ -100,7 +101,7 @@ class Tuner(base_component.BaseComponent):
         type=standard_artifacts.HyperParameters,
         artifacts=[standard_artifacts.HyperParameters()])
     trial_summary_plot = types.Channel(type=TunerData, artifacts=[TunerData()])
-    spec = TunerSpec(
+    spec = AugmentedTunerSpec(
         examples=examples,
         schema=schema,
         transform_graph=transform_graph,
@@ -113,4 +114,4 @@ class Tuner(base_component.BaseComponent):
         trial_summary_plot=trial_summary_plot,
         custom_config=json_utils.dumps(custom_config),
     )
-    super(Tuner, self).__init__(spec=spec, instance_name=instance_name)
+    super(AugmentedTuner, self).__init__(spec=spec, instance_name=instance_name)
