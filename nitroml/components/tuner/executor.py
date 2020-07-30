@@ -16,9 +16,9 @@
 """The AugmentedTuner executor with trial callbacks for tracking trial data."""
 
 from inspect import ismethod
-from typing import Any, Dict, List, Type
 import json
 import os
+from typing import Any, Dict, List, Type
 
 from absl import logging
 from google.protobuf import json_format
