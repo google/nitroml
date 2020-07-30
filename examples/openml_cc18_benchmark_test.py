@@ -68,7 +68,8 @@ class OpenMLCC18BenchmarkTest(e2etest.TestCase):
 
       if enable_tuning:
         self.assertComponentExecutionCount(8 * len(dataset_id_list))
-        self.assertComponentSucceeded('.'.join(['Tuner', instance_name]))
+        self.assertComponentSucceeded('.'.join(
+            ['AugmentedTuner', instance_name]))
       else:
         self.assertComponentExecutionCount(7 * len(dataset_id_list))
       self.assertComponentSucceeded('.'.join(

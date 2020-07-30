@@ -81,7 +81,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
           instance_name=f'train_{task.name}')
 
       # Add a tuner component for each training dataset that finds the optimum HParams.
-      tuner = tuner_component.Tuner(
+      tuner = tuner_component.AugmentedTuner(
           tuner_fn='examples.auto_trainer.tuner_fn',
           examples=autodata.transformed_examples,
           transform_graph=autodata.transform_graph,

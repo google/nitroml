@@ -69,7 +69,7 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
 
         if enable_tuning:
           # Search over search space of model hyperparameters.
-          tuner = tuner_component.Tuner(
+          tuner = tuner_component.AugmentedTuner(
               tuner_fn='examples.auto_trainer.tuner_fn',
               examples=autodata.transformed_examples,
               transform_graph=autodata.transform_graph,
