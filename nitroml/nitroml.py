@@ -417,13 +417,16 @@ def _load_benchmarks() -> List[Benchmark]:
 def get_default_kubeflow_dag_runner():
   """Returns the default KubeflowDagRunner with its default metadata config."""
 
-  metadata_config = kubeflow_dag_runner.get_default_kubeflow_metadata_config()
-  tfx_image = os.environ.get("KUBEFLOW_TFX_IMAGE", None)
-  logging.info('Using "%s" as  the docker image.', tfx_image)
-  runner_config = kubeflow_dag_runner.KubeflowDagRunnerConfig(
-      kubeflow_metadata_config=metadata_config, tfx_image=tfx_image)
+  try:
+    metadata_config = kubeflow_dag_runner.get_default_kubeflow_metadata_config()
+    tfx_image = os.environ.get("KUBEFLOW_TFX_IMAGE", None)
+    logging.info('Using "%s" as  the docker image.', tfx_image)
+    runner_config = kubeflow_dag_runner.KubeflowDagRunnerConfig(
+        kubeflow_metadata_config=metadata_config, tfx_image=tfx_image)
 
-  return kubeflow_dag_runner.KubeflowDagRunner(config=runner_config)
+    return kubeflow_dag_runner.KubeflowDagRunner(config=runner_config)
+  except NameError as e:
+    raise e
 
 
 def run(benchmarks: List[Benchmark],
