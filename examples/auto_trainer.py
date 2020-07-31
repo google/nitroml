@@ -24,6 +24,7 @@ from typing import Any, Callable, List, Optional, Dict
 
 from absl import logging
 import kerastuner
+from nitroml.components.tuner.executor import get_tuner_cls_with_callbacks
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
 import tensorflow_transform as tft
@@ -40,8 +41,9 @@ FeatureColumn = Any
 
 def _get_hyperparameters() -> kerastuner.HyperParameters:
   """Returns hyperparameters for building Keras model."""
+
   hp = kerastuner.HyperParameters()
-  hp.Choice('learning_rate', [1e-2, 1e-3], default=1e-2)
+  hp.Choice('learning_rate', [1e-1, 1e-2, 1e-3], default=1e-2)
   hp.Int('num_layers', min_value=1, max_value=5, step=1, default=2)
   hp.Int('num_nodes', min_value=32, max_value=512, step=32, default=128)
   return hp
@@ -69,8 +71,6 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
                     model , e.g., the training and validation dataset. Required
                     args depend on the above tuner's implementation.
   """
-  # RandomSearch is a subclass of kerastuner.Tuner which inherits from
-  # BaseTuner.
 
   # TODO(weill): Replace with AutoDataProvider.
   data_provider = KerasDataProvider(
@@ -80,9 +80,10 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
       transform_graph_dir=fn_args.transform_graph_path)
 
   build_keras_model = lambda hparams: _build_keras_model(data_provider, hparams)
-  tuner = kerastuner.RandomSearch(
+  tuner_cls = get_tuner_cls_with_callbacks(kerastuner.RandomSearch)
+  tuner = tuner_cls(
       build_keras_model,
-      max_trials=10,
+      max_trials=fn_args.custom_config.get('max_trials', 10),
       hyperparameters=_get_hyperparameters(),
       allow_new_entries=False,
       objective=kerastuner.Objective('val_accuracy', 'max'),
@@ -107,7 +108,7 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
           'x': train_dataset,
           'validation_data': eval_dataset,
           'steps_per_epoch': fn_args.train_steps,
-          'validation_steps': fn_args.eval_steps
+          'validation_steps': fn_args.eval_steps,
       })
 
 

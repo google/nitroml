@@ -29,6 +29,7 @@ import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
+from nitroml.components.tuner import component as tuner_component
 from examples import config
 from tfx import components as tfx
 from tfx.components.base import executor_spec
@@ -68,7 +69,7 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
 
         if enable_tuning:
           # Search over search space of model hyperparameters.
-          tuner = tfx.Tuner(
+          tuner = tuner_component.AugmentedTuner(
               tuner_fn='examples.auto_trainer.tuner_fn',
               examples=autodata.transformed_examples,
               transform_graph=autodata.transform_graph,

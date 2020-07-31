@@ -52,7 +52,7 @@ class MetaLearningTest(e2etest.TestCase):
       self.assertComponentSucceeded(
           f'CsvExampleGen.OpenML.mockdata_{ix}.{instance_name}')
       self.assertComponentSucceeded(
-          f'Tuner.train_OpenML.mockdata_{ix}.{instance_name}')
+          f'AugmentedTuner.train_OpenML.mockdata_{ix}.{instance_name}')
       self.assertComponentSucceeded(
           f'SchemaGen.AutoData.train_OpenML.mockdata_{ix}.{instance_name}')
       self.assertComponentSucceeded(

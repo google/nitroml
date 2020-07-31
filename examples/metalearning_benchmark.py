@@ -30,6 +30,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
 from nitroml.components.metalearning import metalearning_wrapper
+from nitroml.components.tuner import component as tuner_component
 from examples import config
 from tfx import components as tfx
 from tfx.components.base import executor_spec
@@ -80,8 +81,9 @@ class MetaLearningBenchmark(nitroml.Benchmark):
           preprocessor=nitroml.autodata.BasicPreprocessor(),
           instance_name=f'train_{task.name}')
 
-      # Add a tuner component for each training dataset that finds the optimum HParams.
-      tuner = tfx.Tuner(
+      # Add a tuner component for each training dataset that finds the optimum H
+      # Params.
+      tuner = tuner_component.AugmentedTuner(
           tuner_fn='examples.auto_trainer.tuner_fn',
           examples=autodata.transformed_examples,
           transform_graph=autodata.transform_graph,
