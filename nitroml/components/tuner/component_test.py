@@ -15,16 +15,13 @@
 # Lint as: python3
 """Tests for nitroml.components.tuner.component."""
 
-from typing import Text
-
 from absl.testing import absltest
 from nitroml.components.tuner import component as tuner_component
-from tfx.orchestration import data_types
+from tfx.proto import trainer_pb2
+from tfx.proto import tuner_pb2
 from tfx.types import artifact_utils
 from tfx.types import channel_utils
 from tfx.types import standard_artifacts
-from tfx.proto import trainer_pb2
-from tfx.proto import tuner_pb2
 
 
 class ComponentTest(absltest.TestCase):

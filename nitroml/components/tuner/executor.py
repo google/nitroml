@@ -15,7 +15,7 @@
 # Lint as: python3
 """The AugmentedTuner executor with trial callbacks for tracking trial data."""
 
-from inspect import ismethod
+import inspect
 import json
 import os
 import sys
@@ -47,13 +47,13 @@ OBJECTIVE_DIRECTION = 'objective_direction'
 def get_tuner_cls_with_callbacks(tuner_class: Type[base_tuner.BaseTuner]):
   """Returns that custom TrialTrackingTuner class which overrides the trial callbacks.
 
-    Args:
-      tuner_class: An existing tuner class that extends the base_tuner.BaseTuner.
+  Args:
+    tuner_class: An existing tuner class that extends the base_tuner.BaseTuner.
   """
 
-  # pylint: disable=inherit-non-class
+  # pylint: disable=inherit-non-class,E0239,use-symbolic-message-instead
   class TrialTrackingTuner(tuner_class):
-    """Tuner with dyanamic inheritance with trial callbacks to track trials."""
+    """A Tuner which dyanamically inherits tuner_class and implements trial callbacks."""
 
     def on_search_begin(self):
       super(TrialTrackingTuner, self).on_search_begin()

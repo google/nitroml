@@ -15,9 +15,8 @@
 # Lint as: python3
 """The Tuner component for hyperparam tuning, which also outputs trial plot data."""
 
-from typing import Any, Dict, Optional, Text, NamedTuple
+from typing import Any, Dict, Optional
 
-from kerastuner.engine import base_tuner
 from nitroml.components.tuner import executor
 from tfx import types
 from tfx.components.base import base_component
@@ -25,12 +24,11 @@ from tfx.components.base import executor_spec
 from tfx.proto import trainer_pb2
 from tfx.proto import tuner_pb2
 from tfx.types import standard_artifacts
-from tfx.components.tuner.component import TunerFnResult
-from tfx.utils import json_utils
 from tfx.types.artifact import Artifact
 from tfx.types.component_spec import ChannelParameter
 from tfx.types.component_spec import ComponentSpec
 from tfx.types.component_spec import ExecutionParameter
+from tfx.utils import json_utils
 
 
 class TunerData(Artifact):
@@ -93,8 +91,40 @@ class AugmentedTuner(base_component.BaseComponent):
                instance_name: Optional[str] = None):
     """Constructs custom Tuner component that stores trial learning curve.
 
-      Adapted from the following code:
-      https://github.com/tensorflow/tfx/blob/master/tfx/components/tuner/component.py
+    Adapted from the following code:
+    https://github.com/tensorflow/tfx/blob/master/tfx/components/tuner/component.py
+
+    Args:
+      examples: A Channel of type `standard_artifacts.Examples`, serving as the
+        source of examples that are used in tuning (required).
+      schema:  An optional Channel of type `standard_artifacts.Schema`, serving
+        as the schema of training and eval data. This is used when raw examples
+        are provided.
+      transform_graph: An optional Channel of type
+        `standard_artifacts.TransformGraph`, serving as the input transform
+        graph if present. This is used when transformed examples are provided.
+      module_file: A path to python module file containing UDF tuner definition.
+        The module_file must implement a function named `tuner_fn` at its top
+        level. The function must have the following signature.
+            def tuner_fn(fn_args: FnArgs) -> TunerFnResult: Exactly one of
+              'module_file' or 'tuner_fn' must be supplied.
+      tuner_fn:  A python path to UDF model definition function. See
+        'module_file' for the required signature of the UDF. Exactly one of
+        'module_file' or 'tuner_fn' must be supplied.
+      train_args: A trainer_pb2.TrainArgs instance, containing args used for
+        training. Currently only splits and num_steps are available. Default
+        behavior (when splits is empty) is train on `train` split.
+      eval_args: A trainer_pb2.EvalArgs instance, containing args used for eval.
+        Currently only splits and num_steps are available. Default behavior
+        (when splits is empty) is evaluate on `eval` split.
+      tune_args: A tuner_pb2.TuneArgs instance, containing args used for tuning.
+        Currently only num_parallel_trials is available.
+      custom_config: A dict which contains addtional training job parameters
+        that will be passed into user module.
+      best_hyperparameters: Optional Channel of type
+        `standard_artifacts.HyperParameters` for result of the best hparams.
+      instance_name: Optional unique instance name. Necessary if multiple Tuner
+        components are declared in the same pipeline.
     """
 
     if bool(module_file) == bool(tuner_fn):

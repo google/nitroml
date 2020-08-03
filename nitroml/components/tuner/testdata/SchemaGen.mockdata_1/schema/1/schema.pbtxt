@@ -63,3 +63,4 @@ string_domain {
   value: "\'b\'"
   value: "\'c\'"
 }
+# generate_legacy_feature_spec: false

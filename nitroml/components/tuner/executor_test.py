@@ -21,20 +21,20 @@ import tempfile
 
 from absl import flags
 from absl.testing import absltest
-from examples import auto_trainer as tuner_module
-from google.protobuf import json_format
-from google.protobuf import text_format
-from kerastuner import HyperParameters
-from nitroml.protos import problem_statement_pb2 as ps_pb2
-from nitroml.components.tuner import executor
+from kerastuner.engine.hyperparameters import HyperParameters
 from nitroml.components.tuner import component as tuner_component
-from tensorflow.python.lib.io import file_io  # pylint: disable=g-direct-tensorflow-import
+from nitroml.components.tuner import executor
+from examples import auto_trainer as tuner_module
+import tensorflow as tf
 from tfx.proto import trainer_pb2
 from tfx.proto import tuner_pb2
 from tfx.types import artifact_utils
 from tfx.types import standard_artifacts
 from tfx.utils import json_utils
-import tensorflow as tf
+
+from google.protobuf import json_format
+from google.protobuf import text_format
+from nitroml.protos import problem_statement_pb2 as ps_pb2
 
 
 class ExecutorTest(absltest.TestCase):
@@ -42,8 +42,7 @@ class ExecutorTest(absltest.TestCase):
   def setUp(self):
     super(ExecutorTest, self).setUp()
 
-    source_data_dir = os.path.dirname(os.path.dirname(__file__))
-    self._testdata_dir = os.path.join(source_data_dir, 'testdata')
+    self._testdata_dir = os.path.join(os.path.dirname(__file__), 'testdata')
 
     self._output_data_dir = os.path.join(
         os.environ.get('TEST_UNDECLARED_OUTPUTS_DIR',
@@ -103,8 +102,8 @@ class ExecutorTest(absltest.TestCase):
     best_hparams_path = os.path.join(self._best_hparams.uri,
                                      'best_hyperparameters.txt')
     self.assertTrue(tf.io.gfile.exists(best_hparams_path))
-    best_hparams_config = json.loads(
-        file_io.read_file_to_string(best_hparams_path))
+    with tf.io.gfile.GFile(best_hparams_path, mode='r') as f:
+      best_hparams_config = json.loads(f.read())
     best_hparams = HyperParameters.from_config(best_hparams_config)
     self.assertIn(best_hparams.get('learning_rate'), (1e-1, 1e-2, 1e-3))
     self.assertBetween(best_hparams.get('num_layers'), 1, 5)

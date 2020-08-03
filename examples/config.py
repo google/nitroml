@@ -27,3 +27,4 @@ PIPELINE_ROOT = os.path.join('gs://', GCS_BUCKET_NAME, PIPELINE_NAME)
 TF_DOWNLOAD_DIR = os.path.join('gs://', GCS_BUCKET_NAME, 'tensorflow-datasets')
 OTHER_DOWNLOAD_DIR = os.path.join('gs://', GCS_BUCKET_NAME, 'other-datasets')
 TFX_IMAGE = 'tensorflow/tfx:0.23.0.dev20200716'
+
