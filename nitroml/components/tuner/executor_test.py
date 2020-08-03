@@ -136,6 +136,37 @@ class ExecutorTest(absltest.TestCase):
 
     self._verify_output()
 
+  def testDoWithWarmupHyperparams(self):
+    self._exec_properties['tuner_fn'] = '%s.%s' % (
+        tuner_module.tuner_fn.__module__, tuner_module.tuner_fn.__name__)
+    input_dict = self._input_dict.copy()
+
+    ps_type = ps_pb2.Type(
+        binary_classification=ps_pb2.BinaryClassification(label='class'))
+    ps = ps_pb2.ProblemStatement(
+        owner=['nitroml'],
+        tasks=[ps_pb2.Task(
+            name='mockdata_1',
+            type=ps_type,
+        )])
+
+    self._exec_properties['custom_config'] = json_utils.dumps({
+        'problem_statement':
+            text_format.MessageToString(message=ps, as_utf8=True),
+    })
+
+    hp_artifact = standard_artifacts.HyperParameters()
+    hp_artifact.uri = os.path.join(self._testdata_dir, 'MetaLearner.mockdata',
+                                   'output_hyperparameters', '1')
+    input_dict['warmup_hyperparameters'] = [hp_artifact]
+    tuner = executor.Executor(self._context)
+    tuner.Do(
+        input_dict=input_dict,
+        output_dict=self._output_dict,
+        exec_properties=self._exec_properties)
+
+    self._verify_output()
+
   def testTuneArgs(self):
     with self.assertRaises(ValueError):
       self._exec_properties['tune_args'] = json_format.MessageToJson(
@@ -147,6 +178,61 @@ class ExecutorTest(absltest.TestCase):
           input_dict=self._input_dict,
           output_dict=self._output_dict,
           exec_properties=self._exec_properties)
+
+  def testMergeTunerDataFnWithMaxTunerObjective(self):
+
+    data1 = {
+        executor.BEST_CUMULATIVE_SCORE: [1, 2, 3.5],
+        executor.OBJECTIVE_DIRECTION: 'max',
+    }
+    data2 = {
+        executor.BEST_CUMULATIVE_SCORE: [2.5, 2.8, 3.5, 4.0],
+        executor.OBJECTIVE_DIRECTION: 'max',
+    }
+    (cumulative_data, best_tuner_ix) = executor.merge_trial_data(data1, data2)
+
+    expected_output = [1, 2, 3.5, 3.5, 3.5, 3.5, 4.0]
+    self.assertEqual(cumulative_data[executor.BEST_CUMULATIVE_SCORE],
+                     expected_output)
+    self.assertEqual(best_tuner_ix, 1)
+    self.assertEqual(cumulative_data[executor.OBJECTIVE_DIRECTION], 'max')
+
+    data1[executor.BEST_CUMULATIVE_SCORE] = [1, 2, 4.5]
+    data2[executor.BEST_CUMULATIVE_SCORE] = [0.5, 0.8, 2.5, 4.0]
+    (cumulative_data, best_tuner_ix) = executor.merge_trial_data(data1, data2)
+    expected_output = [1, 2, 4.5, 4.5, 4.5, 4.5, 4.5]
+    self.assertEqual(cumulative_data[executor.BEST_CUMULATIVE_SCORE],
+                     expected_output)
+    self.assertEqual(best_tuner_ix, 0)
+    self.assertEqual(cumulative_data[executor.OBJECTIVE_DIRECTION], 'max')
+
+  def testMergeTunerDataFnWithMinTunerObjective(self):
+
+    data1 = {
+        executor.BEST_CUMULATIVE_SCORE: [3.5, 2, 0.0],
+        executor.OBJECTIVE_DIRECTION: 'min',
+    }
+    data2 = {
+        executor.BEST_CUMULATIVE_SCORE: [4.0, 3.5, 2.0, 1],
+        executor.OBJECTIVE_DIRECTION: 'min',
+    }
+    (cumulative_data, best_tuner_ix) = executor.merge_trial_data(data1, data2)
+    expected_output = [3.5, 2, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+    self.assertEqual(cumulative_data[executor.BEST_CUMULATIVE_SCORE],
+                     expected_output)
+    self.assertEqual(best_tuner_ix, 0)
+    self.assertEqual(cumulative_data[executor.OBJECTIVE_DIRECTION], 'min')
+
+    data1[executor.BEST_CUMULATIVE_SCORE] = [3.5, 2, 1.0]
+    data2[executor.BEST_CUMULATIVE_SCORE] = [4.0, 0.5, 0.3, 0.2]
+    (cumulative_data, best_tuner_ix) = executor.merge_trial_data(data1, data2)
+    expected_output = [3.5, 2, 1.0, 1.0, 0.5, 0.3, 0.2]
+
+    self.assertEqual(cumulative_data[executor.BEST_CUMULATIVE_SCORE],
+                     expected_output)
+    self.assertEqual(best_tuner_ix, 1)
+    self.assertEqual(cumulative_data[executor.OBJECTIVE_DIRECTION], 'min')
 
 
 if __name__ == '__main__':

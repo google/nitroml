@@ -24,6 +24,7 @@ from typing import Any, Callable, List, Optional, Dict
 
 from absl import logging
 from google.protobuf import text_format
+from kerastuner.engine import hyperparameters as hp_module
 from nitroml.components.tuner.executor import get_tuner_cls_with_callbacks
 from nitroml.protos import problem_statement_pb2 as ps_pb2
 from tensorflow_metadata.proto.v0 import schema_pb2
@@ -83,11 +84,14 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
   tuner = tuner_cls(
       build_keras_model,
       max_trials=fn_args.custom_config.get('max_trials', 10),
-      hyperparameters=_get_hyperparameters(),
+      hyperparameters=(hp_module.HyperParameters.from_config(
+          fn_args.custom_config.get('warmup_hyperparameters'))
+                       if 'warmup_hyperparameters' in fn_args.custom_config else
+                       _get_hyperparameters()),
       allow_new_entries=False,
-      objective=kerastuner.Objective('val_accuracy', 'max'),
+      objective=data_provider.tuner_objective,
       directory=fn_args.working_dir,
-      project_name='_'.join([data_provider.task_name, 'tuning']))
+      project_name=f'{data_provider.task_name}_tuning')
 
   train_dataset = data_provider.get_input_fn(
       file_pattern=fn_args.train_files,
@@ -107,7 +111,6 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
           'x': train_dataset,
           'validation_data': eval_dataset,
           'steps_per_epoch': fn_args.train_steps,
-          'validation_steps': fn_args.eval_steps,
       })
 
 
@@ -232,8 +235,9 @@ class KerasDataProvider:
 
   @property
   def num_classes(self) -> int:
+    # Subtract `num_oov_buckets` used in base_processor.py
     return self._tf_transform_output.num_buckets_for_transformed_feature(
-        self.label_key)
+        self.label_key) - 1
 
   @property
   def task_name(self) -> str:
@@ -252,7 +256,6 @@ class KerasDataProvider:
 
     return self.raw_label_keys
 
-  # TODO(nikhilmehta): Consider seperating "head" and "loss" from the adapter.
   @property
   def head_size(self) -> int:
     """Returns the head size for this task."""
@@ -292,6 +295,14 @@ class KerasDataProvider:
         tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy'),
         tf.keras.metrics.SparseCategoricalCrossentropy(name='average_loss')
     ]
+
+  @property
+  def tuner_objective(self) -> kerastuner.Objective:
+
+    if self.num_classes == 2:
+      return kerastuner.Objective('val_auc', 'max')
+    else:
+      return kerastuner.Objective('val_accuracy', 'max')
 
   def get_input_layers(self) -> Dict[str, tf.keras.layers.Input]:
     """Returns input layers for a Keras Model."""
