@@ -24,6 +24,7 @@ from absl.testing import absltest
 from kerastuner.engine.hyperparameters import HyperParameters
 from nitroml.components.tuner import component as tuner_component
 from nitroml.components.tuner import executor
+from nitroml.protos import problem_statement_pb2 as ps_pb2
 from examples import auto_trainer as tuner_module
 import tensorflow as tf
 from tfx.proto import trainer_pb2
@@ -34,7 +35,6 @@ from tfx.utils import json_utils
 
 from google.protobuf import json_format
 from google.protobuf import text_format
-from nitroml.protos import problem_statement_pb2 as ps_pb2
 
 
 class ExecutorTest(absltest.TestCase):

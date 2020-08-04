@@ -15,7 +15,6 @@
 # Lint as: python3
 """The AugmentedTuner executor with trial callbacks for tracking trial data."""
 
-import inspect
 import json
 import os
 import sys
@@ -24,17 +23,13 @@ from typing import Any, Dict, List, Type
 from absl import logging
 import kerastuner
 from kerastuner.engine import base_tuner
-from kerastuner.engine import oracle
 from tfx import types
 from tfx.components.base import base_executor
 from tfx.components.trainer import fn_args_utils
 from tfx.components.tuner import executor as tfx_tuner
 from tfx.components.util import udf_utils
-from tfx.components.trainer import fn_args_utils
 from tfx.components.tuner.component import TunerFnResult
-from tfx.proto import tuner_pb2
 from tfx.types import artifact_utils
-from tfx.types import standard_artifacts
 from tfx.utils import io_utils
 
 DEFAULT_WARMUP_TRIALS = 4

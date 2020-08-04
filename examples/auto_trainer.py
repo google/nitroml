@@ -26,7 +26,9 @@ from absl import logging
 import kerastuner
 from kerastuner.engine import hyperparameters as hp_module
 from nitroml.components.tuner.executor import get_tuner_cls_with_callbacks
+from nitroml.protos import problem_statement_pb2 as ps_pb2
 import tensorflow as tf
+from tensorflow_metadata.proto.v0 import schema_pb2
 import tensorflow_model_analysis as tfma
 import tensorflow_transform as tft
 from tfx.components.trainer import executor as trainer_executor
@@ -34,8 +36,6 @@ from tfx.components.trainer import fn_args_utils
 from tfx.components.tuner.component import TunerFnResult
 
 from google.protobuf import text_format
-from nitroml.protos import problem_statement_pb2 as ps_pb2
-from tensorflow_metadata.proto.v0 import schema_pb2
 
 FeatureColumn = Any
 

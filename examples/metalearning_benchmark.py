@@ -28,10 +28,10 @@ import sys
 # Required since Python binaries ignore relative paths when importing:
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
+from examples import config
 import nitroml
 from nitroml.components.metalearning import metalearning_wrapper
 from nitroml.components.tuner import component as tuner_component
-from examples import config
 from tfx import components as tfx
 from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
