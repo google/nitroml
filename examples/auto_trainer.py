@@ -237,7 +237,8 @@ class KerasDataProvider:
 
   @property
   def num_classes(self) -> int:
-    # Subtract `num_oov_buckets` used in base_processor.py
+    """Returns the total classes using (num_buckets - num_oov_buckets) from tft."""
+
     return self._tf_transform_output.num_buckets_for_transformed_feature(
         self.label_key) - 1
 
@@ -286,6 +287,7 @@ class KerasDataProvider:
 
   @property
   def metrics(self) -> List[tf.keras.metrics.Metric]:
+    """Returns the keras metrics for evaluation."""
 
     if self.num_classes == 2:
       return [
@@ -300,6 +302,7 @@ class KerasDataProvider:
 
   @property
   def tuner_objective(self) -> kerastuner.Objective:
+    """Returns the target objective of the tuner."""
 
     if self.num_classes == 2:
       return kerastuner.Objective('val_auc', 'max')

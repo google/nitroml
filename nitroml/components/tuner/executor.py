@@ -27,8 +27,8 @@ from tfx import types
 from tfx.components.base import base_executor
 from tfx.components.trainer import fn_args_utils
 from tfx.components.tuner import executor as tfx_tuner
-from tfx.components.util import udf_utils
 from tfx.components.tuner.component import TunerFnResult
+from tfx.components.util import udf_utils
 from tfx.types import artifact_utils
 from tfx.utils import io_utils
 
