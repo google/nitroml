@@ -16,6 +16,7 @@
 """Package nitroml."""
 
 from nitroml import autodata
+from nitroml import results
 from nitroml import suites
 from nitroml import tasks
 from nitroml.nitroml import Benchmark
@@ -30,5 +31,6 @@ __all__ = [
     "Benchmark",
     "get_default_kubeflow_dag_runner",
     "main",
+    "results",
     "run",
 ]
