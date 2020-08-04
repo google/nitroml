@@ -143,7 +143,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
             transformed_examples=autodata.transformed_examples,
             transform_graph=autodata.transform_graph,
             schema=autodata.schema,
-            train_args=trainer_pb2.TrainArgs(num_steps=1),
+            train_args=trainer_pb2.TrainArgs(num_steps=100),
             eval_args=trainer_pb2.EvalArgs(num_steps=1),
             hyperparameters=tuner.outputs.best_hyperparameters,
             custom_config={

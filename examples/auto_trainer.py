@@ -45,6 +45,7 @@ def _get_hyperparameters() -> kerastuner.HyperParameters:
 
   hp = kerastuner.HyperParameters()
   hp.Choice('learning_rate', [1e-1, 1e-2, 1e-3], default=1e-2)
+  hp.Choice('optimizer', ['Adam', 'SGD', 'RMSprop', 'Adagrad'], default='Adam')
   hp.Int('num_layers', min_value=1, max_value=5, step=1, default=2)
   hp.Int('num_nodes', min_value=32, max_value=512, step=32, default=128)
   return hp
@@ -627,10 +628,21 @@ def _build_keras_model(data_provider: KerasDataProvider,
           x)
 
   model = tf.keras.Model(input_layers, output)
+
+  lr = float(hparams.get('learning_rate'))
+  optimizer_str = hparams.get('optimizer')
+  if optimizer_str == 'Adam':
+    optimizer = tf.keras.optimizers.Adam(lr=lr)
+  elif optimizer_str == 'Adagrad':
+    optimizer = tf.keras.optimizers.Adagrad(lr=lr)
+  elif optimizer_str == 'RMSprop':
+    optimizer = tf.keras.optimizers.RMSprop(lr=lr)
+  elif optimizer_str == 'SGD':
+    optimizer = tf.keras.optimizers.SGD(lr=lr)
+
   model.compile(
       loss=data_provider.loss,
-      optimizer=tf.keras.optimizers.Adam(
-          lr=float(hparams.get('learning_rate'))),
+      optimizer=optimizer,
       metrics=data_provider.metrics)
   model.summary()
 

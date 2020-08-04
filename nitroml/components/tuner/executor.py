@@ -51,8 +51,7 @@ def get_tuner_cls_with_callbacks(tuner_class: Type[base_tuner.BaseTuner]):
     tuner_class: An existing tuner class that extends the base_tuner.BaseTuner.
   """
 
-  # pylint: disable=inherit-non-class,E0239,use-symbolic-message-instead
-  class TrialTrackingTuner(tuner_class):
+  class TrialTrackingTuner(tuner_class):  # pylint: disable=E0239,use-symbolic-message-instead
     """A Tuner which dyanamically inherits tuner_class and implements trial callbacks."""
 
     def on_search_begin(self):
@@ -69,8 +68,6 @@ def get_tuner_cls_with_callbacks(tuner_class: Type[base_tuner.BaseTuner]):
 
     def get_tuner_plot_data(self) -> Dict[str, Any]:
       return self._trial_plot_data
-
-    # pylint: enable=inherit=non-class
 
   return TrialTrackingTuner
 
