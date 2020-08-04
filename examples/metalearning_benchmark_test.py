@@ -26,10 +26,7 @@ import requests_mock
 from ml_metadata import metadata_store
 
 
-class MetaLearningTest(e2etest.TestCase):
-
-  def setUp(self):
-    super(MetaLearningTest, self).setUp('nitroml_metalearning_openml')
+class MetaLearningTest(e2etest.BenchmarkTestCase):
 
   @e2etest.parameterized.named_parameters({
       'testcase_name': 'metalearning_algo_majority-voting',

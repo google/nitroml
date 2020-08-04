@@ -16,6 +16,7 @@
 """Tests for nitroml.py."""
 
 import abc
+import base64
 import json
 import re
 import sys
@@ -50,11 +51,13 @@ class FakePipeline(object):
     return channel_utils.as_channel([model])
 
 
-class FakeTfxRunner(beam_dag_runner.BeamDagRunner):
-  """A fake TFX runner for testing."""
+class FakeBeamDagRunner(beam_dag_runner.BeamDagRunner):
+  """A fake Beam TFX runner for testing."""
 
   def run(self, pipeline):
     return pipeline
+
+
 
 
 class Benchmarks(object):
@@ -191,7 +194,7 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
       })
   def test_run(self, runs_per_benchmark_flag, benchmarks, want_benchmarks):
     FLAGS.runs_per_benchmark = runs_per_benchmark_flag
-    benchmark_names = nitroml.run(benchmarks, tfx_runner=FakeTfxRunner())
+    benchmark_names = nitroml.run(benchmarks, tfx_runner=FakeBeamDagRunner())
     self.assertEqual(want_benchmarks, benchmark_names)
 
   @parameterized.named_parameters(
@@ -207,7 +210,7 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
   def test_run_errors(self, runs_per_benchmark_flag, benchmarks):
     FLAGS.runs_per_benchmark = runs_per_benchmark_flag
     with self.assertRaises(ValueError):
-      nitroml.run(benchmarks, tfx_runner=FakeTfxRunner())
+      nitroml.run(benchmarks, tfx_runner=FakeBeamDagRunner())
 
 
   @parameterized.named_parameters(
