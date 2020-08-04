@@ -22,10 +22,7 @@ from nitroml.testing import e2etest
 from ml_metadata import metadata_store
 
 
-class TitanicBenchmarkTest(e2etest.TestCase):
-
-  def setUp(self):
-    super(TitanicBenchmarkTest, self).setUp("nitroml_titanic_benchmark")
+class TitanicBenchmarkTest(e2etest.BenchmarkTestCase):
 
   @e2etest.parameterized.named_parameters(
       {

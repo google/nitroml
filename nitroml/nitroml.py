@@ -174,7 +174,6 @@ class _ConcatenatedPipelineBuilder(object):
             pipeline_root: Optional[Text],
             metadata_connection_config: Optional[
                 metadata_store_pb2.ConnectionConfig] = None,
-            components: Optional[List[base_component.BaseComponent]] = None,
             enable_cache: Optional[bool] = False,
             beam_pipeline_args: Optional[List[Text]] = None,
             **kwargs) -> pipeline_lib.Pipeline:
@@ -184,9 +183,6 @@ class _ConcatenatedPipelineBuilder(object):
       pipeline_name: name of the pipeline;
       pipeline_root: path to root directory of the pipeline;
       metadata_connection_config: the config to connect to ML metadata.
-      components: a list of components in the pipeline (optional only for
-        backward compatible purpose to be used with deprecated
-        PipelineDecorator).
       enable_cache: whether or not cache is enabled for this run.
       beam_pipeline_args: Beam pipeline args for beam jobs within executor.
         Executor will use beam DirectRunner as Default.
@@ -494,10 +490,14 @@ def run(benchmarks: List[Benchmark],
                   repetition=benchmark_run + 1,  # One-index runs.
                   num_repetitions=runs_per_benchmark))
   pipeline_builder = _ConcatenatedPipelineBuilder(pipelines)
-  benchmark_pipeline = pipeline_builder.build(pipeline_name, pipeline_root,
-                                              metadata_connection_config,
-                                              enable_cache, beam_pipeline_args,
-                                              **kwargs)
+
+  benchmark_pipeline = pipeline_builder.build(
+      pipeline_name=pipeline_name,
+      pipeline_root=pipeline_root,
+      metadata_connection_config=metadata_connection_config,
+      enable_cache=enable_cache,
+      beam_pipeline_args=beam_pipeline_args,
+      **kwargs)
   tfx_runner.run(benchmark_pipeline)
   return pipeline_builder.benchmark_names
 

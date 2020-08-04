@@ -29,10 +29,7 @@ import requests_mock
 from ml_metadata import metadata_store
 
 
-class OpenMLCC18BenchmarkTest(e2etest.TestCase):
-
-  def setUp(self):
-    super(OpenMLCC18BenchmarkTest, self).setUp('nitroml_openml_cc_18_benchmark')
+class OpenMLCC18BenchmarkTest(e2etest.BenchmarkTestCase):
 
   @e2etest.parameterized.named_parameters(
       {
