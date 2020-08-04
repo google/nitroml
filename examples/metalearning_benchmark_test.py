@@ -44,7 +44,7 @@ class MetaLearningTest(e2etest.TestCase):
                           mock_data=True,
                           algorithm=algorithm)
 
-    self.assertComponentExecutionCount(14)
+    self.assertComponentExecutionCount(15)
 
     train_dataset_ids = [1]
     for ix in train_dataset_ids:
@@ -71,6 +71,10 @@ class MetaLearningTest(e2etest.TestCase):
           f'StatisticsGen.AutoData.test_OpenML.mockdata_{ix}.{instance_name}')
       self.assertComponentSucceeded(
           f'Transform.AutoData.test_OpenML.mockdata_{ix}.{instance_name}')
+      self.assertComponentSucceeded(
+          f'AugmentedTuner.test_OpenML.mockdata_{ix}.{instance_name}')
+      self.assertComponentSucceeded(
+          f'Trainer.test_OpenML.mockdata_{ix}.{instance_name}')
 
     instance_name = 'MetaLearningBenchmark.benchmark.OpenML.mockdata_2'
     self.assertComponentSucceeded(f'Evaluator.{instance_name}')

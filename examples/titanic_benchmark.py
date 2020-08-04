@@ -63,6 +63,7 @@ class TitanicBenchmark(nitroml.Benchmark):
           examples=autodata.transformed_examples,
           transform_graph=autodata.transform_graph,
           train_args=trainer_pb2.TrainArgs(num_steps=100),
+          eval_args=trainer_pb2.EvalArgs(num_steps=50),
           custom_config={
               # Pass the problem statement proto as a text proto. Required
               # since custom_config must be JSON-serializable.

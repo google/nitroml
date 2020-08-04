@@ -22,6 +22,7 @@ import sys
 from typing import Any, Dict, List, Type
 
 from absl import logging
+import kerastuner
 from kerastuner.engine import base_tuner
 from kerastuner.engine import oracle
 from tfx import types
@@ -35,7 +36,6 @@ from tfx.proto import tuner_pb2
 from tfx.types import artifact_utils
 from tfx.types import standard_artifacts
 from tfx.utils import io_utils
-import kerastuner
 
 DEFAULT_WARMUP_TRIALS = 4
 WARMUP_HYPERPARAMETERS = 'warmup_hyperparameters'
@@ -197,8 +197,19 @@ class Executor(base_executor.BaseExecutor):
     tuner_trial_data = extract_tuner_trial_progress(tuner)
 
     if warmup_trial_data:
-      tuner_trial_data, best_tuner_ix = merge_trial_data(
+      cumulative_tuner_trial_data, best_tuner_ix = merge_trial_data(
           warmup_trial_data, tuner_trial_data)
+      cumulative_tuner_trial_data['warmup_trial_data'] = warmup_trial_data[
+          BEST_CUMULATIVE_SCORE]
+      cumulative_tuner_trial_data['tuner_trial_data'] = tuner_trial_data[
+          BEST_CUMULATIVE_SCORE]
+
+      if isinstance(tuner.oracle.objective, kerastuner.Objective):
+        cumulative_tuner_trial_data['objective'] = tuner.oracle.objective.name
+      else:
+        cumulative_tuner_trial_data['objective'] = 'objective not understood'
+
+      tuner_trial_data = cumulative_tuner_trial_data
       best_tuner = warmup_tuner if best_tuner_ix == 0 else tuner
     else:
       best_tuner = tuner
