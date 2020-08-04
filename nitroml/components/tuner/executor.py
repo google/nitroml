@@ -146,7 +146,8 @@ class Executor(base_executor.BaseExecutor):
 
     tuner = tuner_fn_result.tuner
     tuner.search_space_summary()
-    logging.info('Start tuning... Tuner ID: %s', tuner.tuner_id)
+    logging.info('Start tuning... Tuner ID: %s, Max Trials: %d', tuner.tuner_id,
+                 tuner.oracle.max_trials)
     tuner.search(**tuner_fn_result.fit_kwargs)
     logging.info('Finished tuning... Tuner ID: %s', tuner.tuner_id)
     tuner.results_summary()
@@ -185,6 +186,8 @@ class Executor(base_executor.BaseExecutor):
     fn_args = fn_args_utils.get_common_fn_args(
         input_dict, exec_properties, working_dir=self._get_tmp_dir())
     tuner_fn_result = tuner_fn(fn_args)
+    tuner_fn_result.tuner.oracle.max_trials = max(
+        (tuner_fn_result.tuner.oracle.max_trials - warmup_trials), 1)
     tuner = self.search(tuner_fn_result,)
     tuner_trial_data = extract_tuner_trial_progress(tuner)
 
