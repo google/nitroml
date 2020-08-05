@@ -120,10 +120,7 @@ def merge_trial_data(*all_tuner_data: Dict[str, Any]) -> Dict[str, Any]:
   cumulative_trial_data[OBJECTIVE_DIRECTION] = obj_direction
 
   # Find the best tuner.
-  if obj_direction == 'max':
-    best_performing_tuner = max(enumerate(best_tuner_score), key=lambda x: x[1])
-  else:
-    best_performing_tuner = min(enumerate(best_tuner_score), key=lambda x: x[1])
+  best_performing_tuner = cmp_fn(enumerate(best_tuner_score), key=lambda x: x[1])
 
   return (cumulative_trial_data, best_performing_tuner[0])
 
