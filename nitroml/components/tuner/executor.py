@@ -161,6 +161,8 @@ class Executor(base_executor.BaseExecutor):
           artifact_utils.get_single_uri(input_dict[WARMUP_HYPERPARAMETERS]))
       hparams_warmup_config = json.loads(
           io_utils.read_string_file(hyperparameters_file))
+      # kerastuner doesn't support grid search, setting max_trials large enough.
+      # Track issue: https://github.com/keras-team/keras-tuner/issues/340
       warmup_trials = DEFAULT_WARMUP_TRIALS
       fn_args = fn_args_utils.get_common_fn_args(
           input_dict,
