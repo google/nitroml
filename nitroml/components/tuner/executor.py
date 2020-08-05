@@ -47,7 +47,7 @@ def get_tuner_cls_with_callbacks(tuner_class: Type[base_tuner.BaseTuner]):
   """
 
   class TrialTrackingTuner(tuner_class):  # pylint: disable=E0239,use-symbolic-message-instead
-    """A Tuner which dyanamically inherits tuner_class and implements trial callbacks."""
+    """A Tuner which dynamically inherits tuner_class and implements trial callbacks."""
 
     def on_search_begin(self):
       super(TrialTrackingTuner, self).on_search_begin()
@@ -74,21 +74,22 @@ def extract_tuner_trial_progress(tuner: base_tuner.BaseTuner) -> Dict[str, Any]:
       tuner: The kerastuner of type TrialTrackingTuner.
 
     Raises:
-      ValueError: When the tuner is not of type TrialTrackingTuner.
+      TypeError: When the tuner is not of type TrialTrackingTuner.
   """
 
   classname = tuner.__class__.__qualname__
   if classname == CUSTOM_TUNER_NAME:
     return tuner.get_tuner_plot_data()
   else:
-    raise ValueError(
+    raise TypeError(
         f"Tuner is expected to have the class {CUSTOM_TUNER_NAME}, but got {classname}."
         "Use `get_tuner_cls_with_callbacks()` to define the kerastuner.")
 
 
 def merge_trial_data(*all_tuner_data: Dict[str, Any]) -> Dict[str, Any]:
-  """Merges sorted trial progress from multiple tuners of type TrialTrackingTuner.
+  """Merges sorted trial progress based on objective_score of TrialTrackingTuner tuners.
 
+    The objective_score is based on kerastuner.oracle.Objective
     Args:
       all_tuner_data: List of tuner data stored as dictionary.
 
@@ -100,8 +101,8 @@ def merge_trial_data(*all_tuner_data: Dict[str, Any]) -> Dict[str, Any]:
     raise ValueError('The arg `all_tuner_data` cannot be empty or None.')
 
   obj_direction = all_tuner_data[0][OBJECTIVE_DIRECTION]
-  is_ascending = obj_direction == 'max'
-  best_score_so_far = sys.float_info.min if is_ascending else sys.float_info.max
+  cmp_fn = max if obj_direction == 'max' else min
+  best_score_so_far = sys.float_info.min if obj_direction == 'max' else sys.float_info.max
   best_performing_tuner = 0
   best_tuner_score = []
   cumulative_best_score = []
@@ -110,18 +111,7 @@ def merge_trial_data(*all_tuner_data: Dict[str, Any]) -> Dict[str, Any]:
     # sorted score list from the tuner.
     trial_data = tuner_data[BEST_CUMULATIVE_SCORE]
     best_tuner_score.append(trial_data[-1])
-
-    if is_ascending:
-      trial_data = [
-          score if (score > best_score_so_far) else best_score_so_far
-          for score in trial_data
-      ]
-    else:
-      trial_data = [
-          score if (score < best_score_so_far) else best_score_so_far
-          for score in trial_data
-      ]
-
+    trial_data = [cmp_fn(score, best_score_so_far) for score in trial_data]
     cumulative_best_score.extend(trial_data)
     best_score_so_far = cumulative_best_score[-1]
 
@@ -188,7 +178,7 @@ class Executor(base_executor.BaseExecutor):
     tuner_fn_result = tuner_fn(fn_args)
     tuner_fn_result.tuner.oracle.max_trials = max(
         (tuner_fn_result.tuner.oracle.max_trials - warmup_trials), 1)
-    tuner = self.search(tuner_fn_result,)
+    tuner = self.search(tuner_fn_result)
     tuner_trial_data = extract_tuner_trial_progress(tuner)
 
     if warmup_trial_data:
