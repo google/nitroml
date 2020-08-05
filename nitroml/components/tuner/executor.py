@@ -32,7 +32,7 @@ from tfx.components.util import udf_utils
 from tfx.types import artifact_utils
 from tfx.utils import io_utils
 
-DEFAULT_WARMUP_TRIALS = 4
+DEFAULT_WARMUP_TRIALS = 10
 WARMUP_HYPERPARAMETERS = 'warmup_hyperparameters'
 CUSTOM_TUNER_NAME = 'get_tuner_cls_with_callbacks.<locals>.TrialTrackingTuner'
 BEST_CUMULATIVE_SCORE = 'best_cumulative_score'

@@ -52,14 +52,17 @@ class MetaLearningWrapper(object):
 
     self._pipeline = []
 
-    for ix, autodata in enumerate(self._train_autodata_list):
-      metafeature_gen = self._create_metafeature_gen(
-          statistics=autodata.statistics,
-          transformed_examples=autodata.transformed_examples,
-          instance_name=f'train_{autodata.id}')
-      self._pipeline.append(metafeature_gen)
-      self._meta_train_data[
-          f'meta_train_features_{ix}'] = metafeature_gen.outputs.metafeatures
+    if self._algorithm not in ['majority_voting']:
+
+      # Add metafeature_gen components
+      for ix, autodata in enumerate(self._train_autodata_list):
+        metafeature_gen = self._create_metafeature_gen(
+            statistics=autodata.statistics,
+            transformed_examples=autodata.transformed_examples,
+            instance_name=f'train_{autodata.id}')
+        self._pipeline.append(metafeature_gen)
+        self._meta_train_data[
+            f'meta_train_features_{ix}'] = metafeature_gen.outputs.metafeatures
 
     learner = metalearner.MetaLearner(
         algorithm=self._algorithm, **self._meta_train_data)

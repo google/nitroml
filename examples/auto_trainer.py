@@ -44,10 +44,10 @@ def _get_hyperparameters() -> kerastuner.HyperParameters:
   """Returns hyperparameters for building Keras model."""
 
   hp = kerastuner.HyperParameters()
-  hp.Choice('learning_rate', [1e-1, 1e-2, 1e-3], default=1e-2)
+  hp.Choice('learning_rate', [1e-1, 1e-2, 1e-3, 1e-4], default=1e-1)
   hp.Choice('optimizer', ['Adam', 'SGD', 'RMSprop', 'Adagrad'], default='Adam')
-  hp.Int('num_layers', min_value=1, max_value=5, step=1, default=2)
-  hp.Int('num_nodes', min_value=32, max_value=512, step=32, default=128)
+  hp.Int('num_layers', min_value=1, max_value=5, step=1, default=1)
+  hp.Int('num_nodes', min_value=32, max_value=512, step=16, default=32)
   return hp
 
 
@@ -85,7 +85,7 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
   tuner_cls = get_tuner_cls_with_callbacks(kerastuner.RandomSearch)
   tuner = tuner_cls(
       build_keras_model,
-      max_trials=fn_args.custom_config.get('max_trials', 10),
+      max_trials=fn_args.custom_config.get('max_trials', 20),
       hyperparameters=(hp_module.HyperParameters.from_config(
           fn_args.custom_config.get('warmup_hyperparameters'))
                        if 'warmup_hyperparameters' in fn_args.custom_config else
