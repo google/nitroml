@@ -131,6 +131,35 @@ class TestCase(parameterized.TestCase, absltest.TestCase):
       self.assertGreaterEqual(artifact_count, execution_count)
       self.assertEqual(count, execution_count)
 
+  def artifact_dir(self, artifact_root: str, artifact_subdir: str = "") -> str:
+    """Returns the full path to the artifact subdir under the pipeline root.
+
+    For example to get the transformed examples for the train split:
+
+      `self.artifact_dir('Transform.AutoData/transformed_examples', 'train/*')`
+
+    would return the path
+
+      '<pipeline_root>/Transform.AutoData/transformed_examples/4/train/*'.
+
+    Assumes there is a single execution per component.
+
+    Args:
+      artifact_root: Root subdirectory to specify the component's artifacts.
+      artifact_subdir: Optional subdirectory to append after the execution
+        ID.
+
+    Returns:
+      The full path to the artifact subdir under the pipeline root.
+    """
+
+    root = os.path.join(self.pipeline_root, artifact_root)
+    artifact_subdirs = tf.io.gfile.listdir(root)
+    if len(artifact_subdirs) != 1:
+      raise ValueError(
+          f"Expected a single artifact dir, got: {artifact_subdirs}")
+    return os.path.join(root, artifact_subdirs[0], artifact_subdir)
+
 
 class BenchmarkTestCase(TestCase):
   """A test case specifically for testing NitroML benchmarks."""
