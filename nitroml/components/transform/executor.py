@@ -16,25 +16,15 @@
 """Executor for Transform."""
 
 import inspect
-from typing import Any, Dict, List, Mapping, Text
+from typing import Any, Mapping, Text
 
 from tfx import components
-from tfx import types
 from tfx.components.transform import executor
 from tfx.components.transform import labels
 
 
 class Executor(executor.Executor):
   """Transform executor."""
-
-  def Do(self, input_dict: Dict[Text, List[types.Artifact]],
-         output_dict: Dict[Text, List[types.Artifact]],
-         exec_properties: Dict[Text, Any]) -> None:
-    """See base class."""
-
-    # TODO(b/148932926): This should be handled in core TFX Transform.
-    self._custom_config = exec_properties['custom_config']
-    super(Executor, self).Do(input_dict, output_dict, exec_properties)
 
   def _GetPreprocessingFn(self, inputs: Mapping[Text, Any],
                           unused_outputs: Mapping[Text, Any]) -> Any:
@@ -54,8 +44,6 @@ class Executor(executor.Executor):
             inputs_dict, labels.SCHEMA_PATH_LABEL)
         schema = self._GetSchema(schema_path)
         args['schema'] = schema
-      if 'custom_config' in argspec:
-        args['custom_config'] = self._custom_config
       return fn(inputs, **args)
 
     return preprocessing_fn

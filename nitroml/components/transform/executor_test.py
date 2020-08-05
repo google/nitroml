@@ -15,6 +15,7 @@
 # Lint as: python3
 """Tests for nitroml.components.transform.executor."""
 
+import json
 import os
 import tempfile
 
@@ -72,9 +73,8 @@ class ExecutorTest(absltest.TestCase):
 
     # Create exec properties.
     self._exec_properties = {
-        'custom_config': {
-            'problem_statement_path': '/some/fake/path'
-        }
+        'custom_config':
+            json.dumps({'problem_statement_path': '/some/fake/path'})
     }
 
   def _verify_transform_outputs(self):
