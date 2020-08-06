@@ -26,9 +26,7 @@ from absl import logging
 import kerastuner
 from kerastuner.engine import hyperparameters as hp_module
 from nitroml.components.tuner.executor import get_tuner_cls_with_callbacks
-from nitroml.protos import problem_statement_pb2 as ps_pb2
 import tensorflow as tf
-from tensorflow_metadata.proto.v0 import schema_pb2
 import tensorflow_model_analysis as tfma
 import tensorflow_transform as tft
 from tfx.components.trainer import executor as trainer_executor
@@ -36,6 +34,8 @@ from tfx.components.trainer import fn_args_utils
 from tfx.components.tuner.component import TunerFnResult
 
 from google.protobuf import text_format
+from nitroml.protos import problem_statement_pb2 as ps_pb2
+from tensorflow_metadata.proto.v0 import schema_pb2
 
 FeatureColumn = Any
 
@@ -82,14 +82,17 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
       transform_graph_dir=fn_args.transform_graph_path)
 
   build_keras_model = lambda hparams: _build_keras_model(data_provider, hparams)
+  if 'warmup_hyperparameters' in fn_args.custom_config:
+    hyperparameters = hp_module.HyperParameters.from_config(
+        fn_args.custom_config['warmup_hyperparameters'])
+  else:
+    hyperparameters = _get_hyperparameters()
+
   tuner_cls = get_tuner_cls_with_callbacks(kerastuner.RandomSearch)
   tuner = tuner_cls(
       build_keras_model,
-      max_trials=fn_args.custom_config.get('max_trials', 20),
-      hyperparameters=(hp_module.HyperParameters.from_config(
-          fn_args.custom_config.get('warmup_hyperparameters'))
-                       if 'warmup_hyperparameters' in fn_args.custom_config else
-                       _get_hyperparameters()),
+      max_trials=fn_args.custom_config.get('max_trials', 10),
+      hyperparameters=hyperparameters,
       allow_new_entries=False,
       objective=data_provider.tuner_objective,
       directory=fn_args.working_dir,

@@ -23,11 +23,10 @@ For an example, see
 nitroml/examples/titanic_benchmark_test.py.
 """
 
-import json
 import os
 import sys
 import tempfile
-from typing import List, Text
+from typing import List
 
 from absl import flags
 from absl.testing import absltest
@@ -50,32 +49,35 @@ main = absltest.main
 class TestCase(parameterized.TestCase, absltest.TestCase):
   """Base class for end-to-end NitroML benchmark tests."""
 
-  def setUp(self, pipeline_name: Text):
+  @property
+  def pipeline_name(self) -> str:
+    """Returns the test pipeline's name."""
+
+    return "test_pipeline"
+
+  def setUp(self):
     """Sets up the end-to-end test.
 
     Creates the pipeline_root directories, and the metadata instance as a SQLite
     instance.
-
-    Args:
-      pipeline_name: String pipeline name.
     """
+
     super(TestCase, self).setUp()
 
     FLAGS(sys.argv)  # Required for tests that use flags in open-source.
     tempdir = tempfile.mkdtemp(dir=absltest.get_default_test_tmpdir())
-    self.pipeline_name = pipeline_name
     self.pipeline_root = os.path.join(tempdir, self.pipeline_name)
     tf.io.gfile.makedirs(self.pipeline_root)
     self.metadata_path = os.path.join(self.pipeline_root, "metadata.db")
 
-
   @property
-  def metadata_config(self):
+  def metadata_config(self) -> metadata_store_pb2.ConnectionConfig:
     return metadata_store_pb2.ConnectionConfig(
         sqlite=metadata_store_pb2.SqliteMetadataSourceConfig(
             filename_uri=self.metadata_path))
 
-  def run_pipeline(self, components: List[base_component.BaseComponent]):
+  def run_pipeline(self,
+                   components: List[base_component.BaseComponent]) -> None:
     """Creates and runs a pipeline with the given components."""
 
     runner = beam_dag_runner.BeamDagRunner()
@@ -84,25 +86,11 @@ class TestCase(parameterized.TestCase, absltest.TestCase):
             pipeline_name=self.pipeline_name,
             pipeline_root=self.pipeline_root,
             metadata_connection_config=self.metadata_config,
+            beam_pipeline_args=[
+            ],
             components=components))
 
-  def run_benchmarks(self, benchmarks: List[nitroml.Benchmark], **kwargs):
-    """Runs the given benchmarks with nitroml using a BeamDagRunner.
-
-    Args:
-      benchmarks: List of `nitroml.Benchmark` to run.
-      **kwargs: Keyword args to pass to `nitroml#run`.
-    """
-
-    nitroml.run(
-        benchmarks,
-        pipeline_name=kwargs.pop("pipeline_name", self.pipeline_name),
-        pipeline_root=kwargs.pop("pipeline_root", self.pipeline_root),
-        metadata_connection_config=kwargs.pop("metadata_connection_config",
-                                              self.metadata_config),
-        **kwargs)
-
-  def assertComponentSucceeded(self, component_name: Text) -> None:
+  def assertComponentSucceeded(self, component_name: str) -> None:
     """Checks that the component succeeded.
 
     Args:
@@ -142,3 +130,58 @@ class TestCase(parameterized.TestCase, absltest.TestCase):
       execution_count = len(m.store.get_executions())
       self.assertGreaterEqual(artifact_count, execution_count)
       self.assertEqual(count, execution_count)
+
+  def artifact_dir(self, artifact_root: str, artifact_subdir: str = "") -> str:
+    """Returns the full path to the artifact subdir under the pipeline root.
+
+    For example to get the transformed examples for the train split:
+
+      `self.artifact_dir('Transform.AutoData/transformed_examples', 'train/*')`
+
+    would return the path
+
+      '<pipeline_root>/Transform.AutoData/transformed_examples/4/train/*'.
+
+    Assumes there is a single execution per component.
+
+    Args:
+      artifact_root: Root subdirectory to specify the component's artifacts.
+      artifact_subdir: Optional subdirectory to append after the execution
+        ID.
+
+    Returns:
+      The full path to the artifact subdir under the pipeline root.
+    """
+
+    root = os.path.join(self.pipeline_root, artifact_root)
+    artifact_subdirs = tf.io.gfile.listdir(root)
+    if len(artifact_subdirs) != 1:
+      raise ValueError(
+          f"Expected a single artifact dir, got: {artifact_subdirs}")
+    return os.path.join(root, artifact_subdirs[0], artifact_subdir)
+
+
+class BenchmarkTestCase(TestCase):
+  """A test case specifically for testing NitroML benchmarks."""
+
+  def run_benchmarks(self, benchmarks: List[nitroml.Benchmark],
+                     **kwargs) -> None:
+    """Runs the given benchmarks with nitroml using a BeamDagRunner.
+
+    Args:
+      benchmarks: List of `nitroml.Benchmark` to run.
+      **kwargs: Keyword args to pass to `nitroml#run`.
+    """
+
+    nitroml.run(
+        benchmarks,
+        pipeline_name=kwargs.pop("pipeline_name", self.pipeline_name),
+        pipeline_root=kwargs.pop("pipeline_root", self.pipeline_root),
+        metadata_connection_config=kwargs.pop("metadata_connection_config",
+                                              self.metadata_config),
+        tfx_runner=kwargs.pop("tfx_runner", beam_dag_runner.BeamDagRunner()),
+        beam_pipeline_args=kwargs.pop(
+            "beam_pipeline_args",
+            [
+            ]),
+        **kwargs)

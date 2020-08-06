@@ -121,6 +121,10 @@ class AugmentedTuner(base_component.BaseComponent):
         Currently only num_parallel_trials is available.
       custom_config: A dict which contains addtional training job parameters
         that will be passed into user module.
+      warmup_hyperparameters: Optional Channel of type
+        `standard_artifacts.HyperParameters` representing a narrow search space
+        for warm-starting the tuner (generally the output of a metalearning
+        component or subpipeline).
       best_hyperparameters: Optional Channel of type
         `standard_artifacts.HyperParameters` for result of the best hparams.
       instance_name: Optional unique instance name. Necessary if multiple Tuner

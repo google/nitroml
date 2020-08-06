@@ -18,7 +18,7 @@
 import json
 import os
 import sys
-from typing import Any, Dict, List, Type
+from typing import cast, Any, Dict, List, Tuple, Type
 
 from absl import logging
 import kerastuner
@@ -70,30 +70,39 @@ def get_tuner_cls_with_callbacks(tuner_class: Type[base_tuner.BaseTuner]):
 def extract_tuner_trial_progress(tuner: base_tuner.BaseTuner) -> Dict[str, Any]:
   """Extract trial progress from the `TrialTrackingTuner` kerastuner.
 
-    Args:
-      tuner: The kerastuner of type TrialTrackingTuner.
+  Args:
+    tuner: The kerastuner of type TrialTrackingTuner.
 
-    Raises:
-      TypeError: When the tuner is not of type TrialTrackingTuner.
+  Returns:
+    A dict of tuner plot data.
+
+  Raises:
+    TypeError: When the tuner is not of type TrialTrackingTuner.
   """
 
   classname = tuner.__class__.__qualname__
   if classname == CUSTOM_TUNER_NAME:
-    return tuner.get_tuner_plot_data()
+    # Need to cast to Any because get_tuner_plot_data is not part of BaseTuner.
+    return cast(Any, tuner).get_tuner_plot_data()
   else:
     raise TypeError(
-        f"Tuner is expected to have the class {CUSTOM_TUNER_NAME}, but got {classname}."
-        "Use `get_tuner_cls_with_callbacks()` to define the kerastuner.")
+        'Tuner is expected to have the class '
+        f'{CUSTOM_TUNER_NAME}, but got {classname}. '
+        'Use `get_tuner_cls_with_callbacks()` to define the kerastuner.')
 
 
-def merge_trial_data(*all_tuner_data: Dict[str, Any]) -> Dict[str, Any]:
+def merge_trial_data(*all_tuner_data) -> Tuple[Dict[str, Any], int]:
   """Merges sorted trial progress based on objective_score of TrialTrackingTuner tuners.
 
-    The objective_score is based on kerastuner.oracle.Objective
-    Args:
-      all_tuner_data: List of tuner data stored as dictionary.
+  The objective_score is based on kerastuner.oracle.Objective.
 
-    Raises:
+  Args:
+    *all_tuner_data: List of tuner data stored as dictionary.
+
+  Returns:
+    The a two-tuple of the cumulative trial data and best performing tuner.
+
+  Raises:
     ValueError: If the list `all_tuner_data` is None or empty.
   """
 
@@ -120,7 +129,8 @@ def merge_trial_data(*all_tuner_data: Dict[str, Any]) -> Dict[str, Any]:
   cumulative_trial_data[OBJECTIVE_DIRECTION] = obj_direction
 
   # Find the best tuner.
-  best_performing_tuner = cmp_fn(enumerate(best_tuner_score), key=lambda x: x[1])
+  best_performing_tuner = cmp_fn(
+      enumerate(best_tuner_score), key=lambda x: x[1])
 
   return (cumulative_trial_data, best_performing_tuner[0])
 

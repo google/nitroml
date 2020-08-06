@@ -15,6 +15,7 @@
 # Lint as: python3
 """A Transform TFX component that support a more flexible preprocessing_fns."""
 
+import json
 from typing import Any, Dict, Optional, Text, Union
 
 from nitroml.components.transform import executor
@@ -138,7 +139,7 @@ class Transform(base_component.BaseComponent):
         schema=schema,
         module_file=module_file,
         preprocessing_fn=preprocessing_fn,
-        custom_config=custom_config,
+        custom_config=json.dumps(custom_config),
         transform_graph=transform_graph,
         transformed_examples=transformed_examples)
     super(Transform, self).__init__(spec=spec, instance_name=instance_name)

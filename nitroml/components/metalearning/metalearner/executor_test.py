@@ -20,13 +20,10 @@ import os
 import tempfile
 
 from absl import flags
-from absl import logging
 from absl.testing import absltest
-from nitroml.components.metalearning import artifacts
 from nitroml.components.metalearning.metalearner import executor
 import tensorflow as tf
 from tfx.utils import io_utils
-from tfx.types import artifact_utils
 from tfx.types import standard_artifacts
 
 
