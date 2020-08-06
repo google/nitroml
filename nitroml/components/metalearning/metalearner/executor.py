@@ -81,13 +81,13 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
           [candidate[key] for candidate in candidate_hparams]).most_common()
 
     discrete_search_space = kerastuner.HyperParameters()
-
     for key, value_list in search_space.items():
       max_vote = -1
       candidate_values = []
       for value, count in value_list:
         if count >= max_vote:
           candidate_values.append(value)
+          max_vote = count
         else:
           break
 
@@ -113,9 +113,7 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
     """
 
     algorithm = exec_properties['algorithm']
-    custom_config = exec_properties['custom_config']
 
-    train_stats = {}
     # This should be agnostic to meta-feature type.
     for ix in range(MAX_INPUTS):
       metafeature_key = f'meta_train_features_{ix}'

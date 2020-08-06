@@ -47,7 +47,7 @@ def _get_hyperparameters() -> kerastuner.HyperParameters:
   hp.Choice('learning_rate', [1e-1, 1e-2, 1e-3, 1e-4], default=1e-1)
   hp.Choice('optimizer', ['Adam', 'SGD', 'RMSprop', 'Adagrad'], default='Adam')
   hp.Int('num_layers', min_value=1, max_value=5, step=1, default=1)
-  hp.Int('num_nodes', min_value=32, max_value=512, step=16, default=32)
+  hp.Int('num_nodes', min_value=32, max_value=512, step=32, default=512)
   return hp
 
 

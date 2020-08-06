@@ -15,14 +15,18 @@
 # Lint as: python3
 """Tests for nitroml.components.metalearning.metalearner.executor."""
 
+import json
 import os
 import tempfile
 
 from absl import flags
+from absl import logging
 from absl.testing import absltest
 from nitroml.components.metalearning import artifacts
 from nitroml.components.metalearning.metalearner import executor
 import tensorflow as tf
+from tfx.utils import io_utils
+from tfx.types import artifact_utils
 from tfx.types import standard_artifacts
 
 
@@ -32,23 +36,7 @@ class ExecutorTest(absltest.TestCase):
     super(ExecutorTest, self).setUp()
 
     source_data_dir = os.path.dirname(os.path.dirname(__file__))
-    input_data_dir = os.path.join(source_data_dir, 'testdata')
-    meta_train_data = {}
-    metadata_indices = [1, 2]
-    for ix, dataset_id in enumerate(metadata_indices):
-      metafeatures = artifacts.MetaFeatures()
-      metafeatures.uri = os.path.join(
-          input_data_dir, f'MetaFeatureGen.train_mockdata_{dataset_id}',
-          'metafeatures', '1')
-      hparams = standard_artifacts.HyperParameters()
-      hparams.uri = os.path.join(input_data_dir,
-                                 f'Tuner.train_mockdata_{dataset_id}',
-                                 'best_hyperparameters', '1')
-      meta_train_data[f'meta_train_features_{ix}'] = [metafeatures]
-      meta_train_data[f'hparams_train_{ix}'] = [hparams]
-    self._input_dict = {
-        **meta_train_data,
-    }
+    self._input_data_dir = os.path.join(source_data_dir, 'testdata')
 
     output_data_dir = os.path.join(
         os.environ.get('TEST_UNDECLARED_OUTPUTS_DIR',
@@ -58,10 +46,6 @@ class ExecutorTest(absltest.TestCase):
     self._hparams_out.uri = os.path.join(output_data_dir, 'hparams_out')
     self._model_out = standard_artifacts.Model()
     self._model_out.uri = os.path.join(output_data_dir, 'model')
-    self._output_dict = {
-        executor.OUTPUT_HYPERPARAMS: [self._hparams_out],
-        executor.OUTPUT_MODEL: [self._model_out],
-    }
 
     # Create exec properties.
     self._exec_properties = {
@@ -71,13 +55,49 @@ class ExecutorTest(absltest.TestCase):
     }
 
   def _verify_hparams_outputs(self):
-    self.assertNotEmpty(tf.io.gfile.listdir(self._hparams_out.uri))
+
+    path = os.path.join(self._hparams_out.uri, 'meta_hyperparameters.txt')
+    self.assertTrue(tf.io.gfile.exists(path))
+    hparams_json = json.loads(io_utils.read_string_file(path))
+    search_space = hparams_json['space']
+    for hspace in search_space:
+      hspace = hspace['config']
+      self.assertIn(hspace['name'],
+                    ['learning_rate', 'optimizer', 'num_layers', 'num_nodes'])
+
+      if hspace['name'] == 'learning_rate':
+        self.assertEqual(hspace['values'], [0.01, 0.1, 0.001])
+      elif hspace['name'] == 'optimizer':
+        self.assertEqual(hspace['values'], ['RMSprop'])
+      elif hspace['name'] == 'num_layers':
+        self.assertEqual(hspace['values'], [4])
+      elif hspace['name'] == 'num_nodes':
+        self.assertEqual(hspace['values'], [128, 64, 32])
 
   def test_metalearner_majority_voting(self):
-    exec_properties = self._exec_properties
+
+    meta_train_data = {}
+    metadata_indices = [1, 2, 3]
+    for ix, dataset_id in enumerate(metadata_indices):
+      hparams = standard_artifacts.HyperParameters()
+      hparams.uri = os.path.join(self._input_data_dir,
+                                 f'Tuner.train_mockdata_{dataset_id}',
+                                 'best_hyperparameters')
+      meta_train_data[f'hparams_train_{ix}'] = [hparams]
+
+    input_dict = {
+        **meta_train_data,
+    }
+    output_dict = {
+        executor.OUTPUT_HYPERPARAMS: [self._hparams_out],
+        executor.OUTPUT_MODEL: [self._model_out],
+    }
+
+    exec_properties = self._exec_properties.copy()
     exec_properties['algorithm'] = executor.MAJORITY_VOTING
     ex = executor.MetaLearnerExecutor()
-    ex.Do(self._input_dict, self._output_dict, exec_properties)
+    ex.Do(input_dict, output_dict, exec_properties)
+
     self._verify_hparams_outputs()
 
 
