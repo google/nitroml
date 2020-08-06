@@ -87,7 +87,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
           tuner_fn='examples.auto_trainer.tuner_fn',
           examples=autodata.transformed_examples,
           transform_graph=autodata.transform_graph,
-          train_args=trainer_pb2.TrainArgs(num_steps=1),
+          train_args=trainer_pb2.TrainArgs(num_steps=100),
           eval_args=trainer_pb2.EvalArgs(num_steps=1),
           custom_config={
               # Pass the problem statement proto as a text proto. Required
@@ -118,6 +118,22 @@ class MetaLearningBenchmark(nitroml.Benchmark):
             preprocessor=nitroml.autodata.BasicPreprocessor(),
             instance_name=f'test_{task.name}')
 
+        tuner = tuner_component.AugmentedTuner(
+            tuner_fn='examples.auto_trainer.tuner_fn',
+            examples=autodata.transformed_examples,
+            transform_graph=autodata.transform_graph,
+            train_args=trainer_pb2.TrainArgs(num_steps=100),
+            eval_args=trainer_pb2.EvalArgs(num_steps=1),
+            warmup_hyperparameters=metalearner_helper.recommended_search_space,
+            custom_config={
+                # Pass the problem statement proto as a text proto. Required
+                # since custom_config must be JSON-serializable.
+                'problem_statement':
+                    text_format.MessageToString(
+                        message=task.problem_statement, as_utf8=True),
+            },
+            instance_name=f'test_{task.name}')
+
         # Create a trainer component that utilizes the recommended HParams
         # from the metalearning subpipeline.
         trainer = tfx.Trainer(
@@ -127,9 +143,9 @@ class MetaLearningBenchmark(nitroml.Benchmark):
             transformed_examples=autodata.transformed_examples,
             transform_graph=autodata.transform_graph,
             schema=autodata.schema,
-            train_args=trainer_pb2.TrainArgs(num_steps=1),
+            train_args=trainer_pb2.TrainArgs(num_steps=100),
             eval_args=trainer_pb2.EvalArgs(num_steps=1),
-            hyperparameters=metalearner_helper.recommended_search_space,
+            hyperparameters=tuner.outputs.best_hyperparameters,
             custom_config={
                 # Pass the problem statement proto as a text proto. Required
                 # since custom_config must be JSON-serializable.
@@ -138,7 +154,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
                         message=task.problem_statement, as_utf8=True),
             },
             instance_name=f'test_{task.name}')
-        pipeline += task.components + autodata.components + [trainer]
+        pipeline += task.components + autodata.components + [tuner, trainer]
 
         # Finally, call evaluate() on the workflow DAG outputs, This will
         # automatically append Evaluators to compute metrics from the given
