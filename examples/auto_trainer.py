@@ -100,13 +100,13 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
 
   train_dataset = data_provider.get_input_fn(
       file_pattern=fn_args.train_files,
-      batch_size=64,
+      batch_size=128,
       num_epochs=None,
       shuffle=True)()
 
   eval_dataset = data_provider.get_input_fn(
       file_pattern=fn_args.eval_files,
-      batch_size=64,
+      batch_size=128,
       num_epochs=1,
       shuffle=False)()
 

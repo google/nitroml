@@ -15,11 +15,95 @@
 # Lint as: python3
 """NitroML Tuner utils."""
 
+from itertools import cycle
+from functools import reduce
+import string
+from typing import Dict, List, Any
+
 import matplotlib.pyplot as plt
 import numpy as np
 
 
+def aggregate_tuner_data(
+    keys: List[str], data_list: List[Dict[str, Any]]) -> Dict[str, List[int]]:
+  """Returns the mean and variance dict of a list of dicts with same keys.
+
+    Args:
+      keys: List of common string keys to find the mean and average for.
+      data_list: List of dicts to aggregate.
+
+    Returns:
+      aggregate_data: Aggregated dict.
+  """
+
+  aggregate_data = {}
+  for key in keys:
+
+    # Find max number of trials in different runs.
+    max_trials = max([len(data[key]) for data in data_list])
+    # Different tuners may have different number of trials.
+    # For plotting, we extend the list to max_trials by appending the best
+    # score achieved by the tuner given by data[key][-1].
+    all_data = np.vstack([
+        (data[key] + (max_trials - len(data[key])) * [data[key][-1]])
+        for data in data_list
+    ])
+    aggregate_data[f'{key}_mean'] = np.mean(all_data, axis=0)
+    aggregate_data[f'{key}_stdev'] = np.std(
+        all_data, axis=0) / np.sqrt(all_data.shape[0])
+
+  return aggregate_data
+
+
+def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]]):
+  """Plots the tuner data with error bars.
+
+    Args:
+      data_list: List of dicts representing tuner data.
+  """
+
+  keys = ['warmup_trial_data', 'tuner_trial_data', 'best_cumulative_score']
+  data = aggregate_tuner_data(keys, data_list)
+  data['objective'] = data_list[0]['objective']
+
+  _, axs = plt.subplots(1, len(keys), figsize=(18, 5))
+  cycol = cycle('bgrcmk')
+
+  ymax = 0
+  ymin = 1.0
+
+  for ix, key in enumerate(keys):
+    tuner_score_mean = data[f'{key}_mean']
+    tuner_score_stdev = data[f'{key}_stdev']
+    num_trials = len(tuner_score_mean)
+    axs[ix].errorbar(
+        np.arange(1, num_trials + 1),
+        tuner_score_mean,
+        yerr=tuner_score_stdev,
+        label=f'key ({num_trials} trials)',
+        color=next(cycol),
+        linewidth=2,
+        marker='o')
+
+    title = string.capwords(key.replace(" ", "_"))
+    axs[ix].set_title(f'{title} ({num_trials} trials)')
+
+    ymax = max(np.max(tuner_score_mean), ymax)
+    ymin = min(np.min(tuner_score_mean), ymin)
+
+  ymax += 0.05
+  ymin -= 0.1
+
+  axs[0].set_ylabel(data['objective'])
+  for ax in axs:
+    ax.set_ylim(ymin, ymax)
+    ax.set_xlabel('Trial')
+
+  plt.show()
+
+
 def display_tuner_data(data):
+  """Plots tuner data."""
 
   warmup_tuner_score = data['warmup_trial_data']
   random_tuner_score = data['tuner_trial_data']
@@ -68,5 +152,4 @@ def display_tuner_data(data):
   axs[2].set_title(f'Random Tuning ({num_random_trials} trials)')
   axs[2].set_xlabel('Trial')
 
-  # plt.savefig('result.png', bbox_inches='tight', pad_inches=0)
   plt.show()

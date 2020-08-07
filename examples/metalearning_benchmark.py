@@ -86,7 +86,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
           tuner_fn='examples.auto_trainer.tuner_fn',
           examples=autodata.transformed_examples,
           transform_graph=autodata.transform_graph,
-          train_args=trainer_pb2.TrainArgs(num_steps=100),
+          train_args=trainer_pb2.TrainArgs(num_steps=1000),
           eval_args=trainer_pb2.EvalArgs(num_steps=1),
           custom_config={
               # Pass the problem statement proto as a text proto. Required
@@ -124,7 +124,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
             tuner_fn='examples.auto_trainer.tuner_fn',
             examples=autodata.transformed_examples,
             transform_graph=autodata.transform_graph,
-            train_args=trainer_pb2.TrainArgs(num_steps=100),
+            train_args=trainer_pb2.TrainArgs(num_steps=1000),
             eval_args=trainer_pb2.EvalArgs(num_steps=1),
             warmup_hyperparameters=metalearner_helper.recommended_search_space,
             custom_config={
@@ -145,7 +145,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
             transformed_examples=autodata.transformed_examples,
             transform_graph=autodata.transform_graph,
             schema=autodata.schema,
-            train_args=trainer_pb2.TrainArgs(num_steps=100),
+            train_args=trainer_pb2.TrainArgs(num_steps=1000),
             eval_args=trainer_pb2.EvalArgs(num_steps=1),
             hyperparameters=tuner.outputs.best_hyperparameters,
             custom_config={
@@ -172,7 +172,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
 if __name__ == '__main__':
 
   run_config = dict(
-      pipeline_name=config.PIPELINE_NAME + '_metalearning_benchmark',
+      pipeline_name='metalearning_benchmark',
       data_dir=config.OTHER_DOWNLOAD_DIR,
       algorithm='majority_voting')
 
