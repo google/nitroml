@@ -52,8 +52,9 @@ class MetaLearningWrapper(object):
 
     self._pipeline = []
 
+    # Majority-Voting algorithm produces task-independent recommendations.
+    # We do not need meta-features for this algorithm.
     if self._algorithm not in ['majority_voting']:
-
       # Add metafeature_gen components
       for ix, autodata in enumerate(self._train_autodata_list):
         metafeature_gen = self._create_metafeature_gen(

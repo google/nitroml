@@ -360,7 +360,10 @@ class Benchmark(abc.ABC):
 
     return f"{self.__class__.__qualname__}.benchmark"
 
-  def add_to_global_components(
+  # This is used in metalearning_benchmark where subpipeline containing DAGs on
+  # train datasets are shared across multiple subbenchmarks for test datasets.
+  # TODO(nikhilmehta, weill): Consider alternate design options.
+  def create_subpipeline_shared_with_subbenchmarks(
       self, global_components: List[base_component.BaseComponent]):
     """Adds the global components that are shared across all sub-benchmarks."""
 
@@ -509,7 +512,7 @@ def run(benchmarks: List[Benchmark],
                   pipeline,
                   repetition=benchmark_run + 1,  # One-index runs.
                   num_repetitions=runs_per_benchmark,
-                  add_publisher=pipeline._add_evaluator))
+                  add_publisher=pipeline.evaluator is not None))
   pipeline_builder = _ConcatenatedPipelineBuilder(pipelines)
 
   benchmark_pipeline = pipeline_builder.build(

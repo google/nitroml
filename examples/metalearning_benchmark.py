@@ -54,10 +54,12 @@ class MetaLearningBenchmark(nitroml.Benchmark):
         'OpenML.cylinderbands', 'OpenML.diabetes'
     ])
     test_task_names = frozenset(['OpenML.dressessales'])
+    train_steps = 1000
 
     if mock_data:
       train_task_names = {'OpenML.mockdata_1'}
       test_task_names = {'OpenML.mockdata_2'}
+      train_steps = 10
 
     train_tasks = []
     test_tasks = []
@@ -86,7 +88,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
           tuner_fn='examples.auto_trainer.tuner_fn',
           examples=autodata.transformed_examples,
           transform_graph=autodata.transform_graph,
-          train_args=trainer_pb2.TrainArgs(num_steps=1000),
+          train_args=trainer_pb2.TrainArgs(num_steps=train_steps),
           eval_args=trainer_pb2.EvalArgs(num_steps=1),
           custom_config={
               # Pass the problem statement proto as a text proto. Required
@@ -108,7 +110,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
         meta_train_data=meta_train_data,
         algorithm=algorithm)
     pipeline += metalearner_helper.pipeline
-    self.add_to_global_components(pipeline)
+    self.create_subpipeline_shared_with_subbenchmarks(pipeline)
 
     for task in test_tasks:
       with self.sub_benchmark(task.name):
@@ -124,7 +126,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
             tuner_fn='examples.auto_trainer.tuner_fn',
             examples=autodata.transformed_examples,
             transform_graph=autodata.transform_graph,
-            train_args=trainer_pb2.TrainArgs(num_steps=1000),
+            train_args=trainer_pb2.TrainArgs(num_steps=train_steps),
             eval_args=trainer_pb2.EvalArgs(num_steps=1),
             warmup_hyperparameters=metalearner_helper.recommended_search_space,
             custom_config={
@@ -145,7 +147,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
             transformed_examples=autodata.transformed_examples,
             transform_graph=autodata.transform_graph,
             schema=autodata.schema,
-            train_args=trainer_pb2.TrainArgs(num_steps=1000),
+            train_args=trainer_pb2.TrainArgs(num_steps=train_steps),
             eval_args=trainer_pb2.EvalArgs(num_steps=1),
             hyperparameters=tuner.outputs.best_hyperparameters,
             custom_config={
