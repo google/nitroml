@@ -55,11 +55,13 @@ def aggregate_tuner_data(
   return aggregate_data
 
 
-def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]]):
+def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]],
+                                       save_plot: bool = False):
   """Plots the tuner data with error bars.
 
     Args:
       data_list: List of dicts representing tuner data.
+      save_plot: If True, saves the plot in local dir.
   """
 
   keys = ['warmup_trial_data', 'tuner_trial_data', 'best_cumulative_score']
@@ -98,7 +100,8 @@ def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]]):
   for ax in axs:
     ax.set_ylim(ymin, ymax)
     ax.set_xlabel('Trial')
-
+  if save_plot:
+    plt.savefig('result.png', bbox_inches='tight', pad_inches=0)
   plt.show()
 
 
