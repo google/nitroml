@@ -41,7 +41,6 @@ class MetaLearningTest(e2etest.BenchmarkTestCase):
                           mock_data=True,
                           algorithm=algorithm)
 
-    # self.assertComponentExecutionCount(15)
     train_dataset_ids = [1]
     for ix in train_dataset_ids:
       instance_name = 'MetaLearningBenchmark.benchmark'
