@@ -48,6 +48,7 @@ class AugmentedTunerSpec(ComponentSpec):
       'eval_args': ExecutionParameter(type=trainer_pb2.EvalArgs),
       'tune_args': ExecutionParameter(type=tuner_pb2.TuneArgs, optional=True),
       'custom_config': ExecutionParameter(type=(str, Any), optional=True),
+      'metalearning_algorithm': ExecutionParameter(type=str, optional=True),
   }
   INPUTS = {
       'examples':
@@ -60,9 +61,9 @@ class AugmentedTunerSpec(ComponentSpec):
       'warmup_hyperparameters':
           ChannelParameter(
               type=artifacts.KCandidateHyperParameters, optional=True),
-      'meta_model':
+      'metamodel':
           ChannelParameter(type=standard_artifacts.Model, optional=True),
-      'meta_features':
+      'metafeature':
           ChannelParameter(type=artifacts.MetaFeatures, optional=True),
   }
   OUTPUTS = {

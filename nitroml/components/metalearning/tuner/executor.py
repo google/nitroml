@@ -181,6 +181,7 @@ class Executor(base_executor.BaseExecutor):
     if not hparams_warmup_config_list:
       raise ValueError('Expected warmup_hyperparameters')
 
+    logging.info('Algorithm: %s', algorithm)
     warmup_trials = 0
     if algorithm == 'majority_voting':
       warmup_trials = DEFAULT_WARMUP_TRIALS
@@ -242,31 +243,12 @@ class Executor(base_executor.BaseExecutor):
     warmup_trials = 0
     warmup_trial_data = None
     if metalearning_algorithm:
+      logging.info(f'MetaLearning Algorithm: {metalearning_algorithm}.')
       warmup_tuner, warmup_trials = self.warmup(input_dict, exec_properties,
                                                 metalearning_algorithm)
       warmup_trial_data = extract_tuner_trial_progress(warmup_tuner)
-
-    # # Perform warmup tuning if WARMUP_HYPERPARAMETERS given.
-    # warmup_trials = 0
-    # warmup_trial_data = None
-    # if input_dict.get(WARMUP_HYPERPARAMETERS):
-    #   hyperparameters_file = io_utils.get_only_uri_in_dir(
-    #       artifact_utils.get_single_uri(input_dict[WARMUP_HYPERPARAMETERS]))
-    #   hparams_warmup_config_list = json.loads(
-    #       io_utils.read_string_file(hyperparameters_file))
-    # kerastuner doesn't support grid search, setting max_trials large enough.
-    # Track issue: https://github.com/keras-team/keras-tuner/issues/340
-    #   warmup_trials = DEFAULT_WARMUP_TRIALS
-    #   fn_args = fn_args_utils.get_common_fn_args(
-    #       input_dict,
-    #       exec_properties,
-    #       working_dir=self._get_tmp_dir() + 'warmup')
-    #   fn_args.custom_config[
-    #       WARMUP_HYPERPARAMETERS] = hparams_warmup_config_list[0]
-    #   fn_args.custom_config['max_trials'] = warmup_trials
-    #   warmtuner_fn_result = tuner_fn(fn_args)
-    #   warmup_tuner = self.search(warmtuner_fn_result)
-    #   warmup_trial_data = extract_tuner_trial_progress(warmup_tuner)
+    else:
+      logging.info('MetaLearning Algorithm not provided.')
 
     # Create new fn_args for final tuning stage.
     fn_args = fn_args_utils.get_common_fn_args(
@@ -295,7 +277,7 @@ class Executor(base_executor.BaseExecutor):
       best_tuner = warmup_tuner if best_tuner_ix == 0 else tuner
     else:
       best_tuner = tuner
-
+    logging.info(f'MetaLearning Algorithm: {metalearning_algorithm}.')
     tfx_tuner.write_best_hyperparameters(best_tuner, output_dict)
     tuner_plot_path = os.path.join(
         artifact_utils.get_single_uri(output_dict['trial_summary_plot']),
