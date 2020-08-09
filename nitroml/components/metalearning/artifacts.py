@@ -19,7 +19,14 @@ from tfx.types.artifact import Artifact
 
 
 class MetaFeatures(Artifact):
-  """NitroML's custom Artifact for meta features."""
+  """NitroML's custom Artifact for metafeatures."""
 
   TYPE_NAME = 'NitroML.MetaFeatures'
   DEFAULT_FILE_NAME = 'metafeatures.txt'
+
+
+class KCandidateHyperParameters(Artifact):
+  """NitroML's custom Artifact for a list of candidate HParams."""
+
+  TYPE_NAME = 'NitroML.KCandidateHyperParameters'
+  DEFAULT_FILE_NAME = 'k_candidate_hparams.txt'

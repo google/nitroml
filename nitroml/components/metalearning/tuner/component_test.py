@@ -16,7 +16,8 @@
 """Tests for nitroml.components.tuner.component."""
 
 from absl.testing import absltest
-from nitroml.components.tuner import component as tuner_component
+from nitroml.components.metalearning import artifacts
+from nitroml.components.metalearning.tuner import component as tuner_component
 from tfx.proto import trainer_pb2
 from tfx.proto import tuner_pb2
 from tfx.types import artifact_utils
@@ -42,7 +43,8 @@ class ComponentTest(absltest.TestCase):
     self.eval_args = trainer_pb2.EvalArgs(num_steps=50)
     self.tune_args = tuner_pb2.TuneArgs(num_parallel_trials=3)
     self.warmup_hyperparams = channel_utils.as_channel(
-        [standard_artifacts.HyperParameters()])
+        [artifacts.KCandidateHyperParameters()])
+    self.meta_model = channel_utils.as_channel([standard_artifacts.Model()])
 
   def _verify_outputs(self, tuner):
     self.assertEqual(standard_artifacts.HyperParameters.TYPE_NAME,
@@ -75,8 +77,6 @@ class ComponentTest(absltest.TestCase):
     self._verify_outputs(tuner)
 
   def testConstructWithWarmStarting(self):
-    custom_config = self.custom_config.copy()
-    custom_config['metalearning_algorithm'] = 'max_voting'
     tuner = tuner_component.AugmentedTuner(
         examples=self.examples,
         schema=self.schema,
@@ -85,7 +85,23 @@ class ComponentTest(absltest.TestCase):
         eval_args=self.eval_args,
         tune_args=self.tune_args,
         module_file='some/random/path/tuner_fn',
+        metalearning_algorithm='max_voting',
         warmup_hyperparameters=self.warmup_hyperparams,
+        custom_config=self.custom_config)
+    self._verify_outputs(tuner)
+
+  def testConstructWithNearestNeighbor(self):
+    tuner = tuner_component.AugmentedTuner(
+        examples=self.examples,
+        schema=self.schema,
+        transform_graph=self.transform_graph,
+        train_args=self.train_args,
+        eval_args=self.eval_args,
+        tune_args=self.tune_args,
+        module_file='some/random/path/tuner_fn',
+        metalearning_algorithm='nearest_neighbor',
+        warmup_hyperparameters=self.warmup_hyperparams,
+        meta_model=self.meta_model,
         custom_config=self.custom_config)
     self._verify_outputs(tuner)
 

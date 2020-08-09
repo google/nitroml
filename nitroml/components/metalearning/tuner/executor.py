@@ -23,6 +23,8 @@ from typing import cast, Any, Dict, List, Tuple, Type
 from absl import logging
 import kerastuner
 from kerastuner.engine import base_tuner
+import numpy as np
+import tensorflow as tf
 from tfx import types
 from tfx.components.base import base_executor
 from tfx.components.trainer import fn_args_utils
@@ -31,6 +33,7 @@ from tfx.components.tuner.component import TunerFnResult
 from tfx.components.util import udf_utils
 from tfx.types import artifact_utils
 from tfx.utils import io_utils
+from tfx.utils import path_utils
 
 DEFAULT_WARMUP_TRIALS = 4
 WARMUP_HYPERPARAMETERS = 'warmup_hyperparameters'
@@ -135,6 +138,14 @@ def merge_trial_data(*all_tuner_data) -> Tuple[Dict[str, Any], int]:
   return (cumulative_trial_data, best_performing_tuner[0])
 
 
+def _load_keras_model(model_path: str):
+  """Loads the keras model."""
+
+  model = tf.keras.models.load_model(model_path)
+  model.summary()
+  return model
+
+
 class Executor(base_executor.BaseExecutor):
   """The executor for nitroml.components.tuner.components.Tuner."""
 
@@ -151,6 +162,72 @@ class Executor(base_executor.BaseExecutor):
 
     return tuner
 
+  def warmup(self, input_dict: Dict[str, List[types.Artifact]],
+             exec_properties: Dict[str, List[types.Artifact]], algorithm: str):
+
+    # Perform warmup tuning if WARMUP_HYPERPARAMETERS given.
+    hparams_warmup_config_list = None
+    if input_dict.get(WARMUP_HYPERPARAMETERS):
+      hyperparameters_file = io_utils.get_only_uri_in_dir(
+          artifact_utils.get_single_uri(input_dict[WARMUP_HYPERPARAMETERS]))
+      hparams_warmup_config_list = json.loads(
+          io_utils.read_string_file(hyperparameters_file))
+
+    fn_args = fn_args_utils.get_common_fn_args(
+        input_dict, exec_properties, working_dir=self._get_tmp_dir() + 'warmup')
+
+    # TODO(nikhilmehta): Currently all algorithms require warmup_hyperparameters.
+    # This may not be needed for other algorithms that can predict hyperparams.
+    if not hparams_warmup_config_list:
+      raise ValueError('Expected warmup_hyperparameters')
+
+    warmup_trials = 0
+    if algorithm == 'majority_voting':
+      warmup_trials = DEFAULT_WARMUP_TRIALS
+      fn_args.custom_config[
+          WARMUP_HYPERPARAMETERS] = hparams_warmup_config_list[0]
+    elif algorithm == 'nearest_neighbor':
+      warmup_trials = 1
+
+      if input_dict.get('metamodel'):
+        metamodel_path = io_utils.get_only_uri_in_dir(
+            artifact_utils.get_single_uri(input_dict['metamodel']))
+        logging.info('Meta model path: %s', metamodel_path)
+        metamodel = _load_keras_model(metamodel_path)
+      else:
+        raise ValueError(
+            f'Tuner for metalearning_algorithm={algorithm} expects metamodel.')
+
+      if input_dict.get('metafeature'):
+        metafeature_path = io_utils.get_only_uri_in_dir(
+            artifact_utils.get_single_uri(input_dict['metafeature']))
+        logging.info('Metafeature: %s', metafeature_path)
+        metafeature = json.loads(io_utils.read_string_file(metafeature_path))
+        metafeature = metafeature['metafeature']
+      else:
+        raise ValueError(
+            f'Tuner for metalearning_algorithm={algorithm} expects metafeature.'
+        )
+
+      metafeature = np.array(metafeature, dtype=np.float32)
+      metafeature = np.expand_dims(metafeature, axis=0)
+      logits = metamodel(metafeature).numpy()
+      nearest_hparam_config = hparams_warmup_config_list[np.argmax(logits)]
+      fn_args.custom_config[WARMUP_HYPERPARAMETERS] = nearest_hparam_config
+      logging.info(nearest_hparam_config)
+    else:
+      raise NotImplementedError(
+          f'Tuning for metalearning_algorithm={algorithm} is not implemented.')
+
+    # kerastuner doesn't support grid search, setting max_trials large enough.
+    # Track issue: https://github.com/keras-team/keras-tuner/issues/340
+    fn_args.custom_config['max_trials'] = warmup_trials
+    tuner_fn = udf_utils.get_fn(exec_properties, 'tuner_fn')
+    warmtuner_fn_result = tuner_fn(fn_args)
+    warmup_tuner = self.search(warmtuner_fn_result)
+
+    return warmup_tuner, warmup_trials
+
   def Do(self, input_dict: Dict[str, List[types.Artifact]],
          output_dict: Dict[str, List[types.Artifact]],
          exec_properties: Dict[str, Any]) -> None:
@@ -158,32 +235,43 @@ class Executor(base_executor.BaseExecutor):
     if tfx_tuner.get_tune_args(exec_properties):
       raise ValueError("TuneArgs is not supported by this Tuner's Executor.")
 
-    tuner_fn = udf_utils.get_fn(exec_properties, 'tuner_fn')
+    metalearning_algorithm = None
+    if 'metalearning_algorithm' in exec_properties:
+      metalearning_algorithm = exec_properties.get('metalearning_algorithm')
 
-    # Perform warmup tuning if WARMUP_HYPERPARAMETERS given.
     warmup_trials = 0
     warmup_trial_data = None
-    if input_dict.get(WARMUP_HYPERPARAMETERS):
-      hyperparameters_file = io_utils.get_only_uri_in_dir(
-          artifact_utils.get_single_uri(input_dict[WARMUP_HYPERPARAMETERS]))
-      hparams_warmup_config = json.loads(
-          io_utils.read_string_file(hyperparameters_file))
-      # kerastuner doesn't support grid search, setting max_trials large enough.
-      # Track issue: https://github.com/keras-team/keras-tuner/issues/340
-      warmup_trials = DEFAULT_WARMUP_TRIALS
-      fn_args = fn_args_utils.get_common_fn_args(
-          input_dict,
-          exec_properties,
-          working_dir=self._get_tmp_dir() + 'warmup')
-      fn_args.custom_config[WARMUP_HYPERPARAMETERS] = hparams_warmup_config
-      fn_args.custom_config['max_trials'] = warmup_trials
-      warmtuner_fn_result = tuner_fn(fn_args)
-      warmup_tuner = self.search(warmtuner_fn_result)
+    if metalearning_algorithm:
+      warmup_tuner, warmup_trials = self.warmup(input_dict, exec_properties,
+                                                metalearning_algorithm)
       warmup_trial_data = extract_tuner_trial_progress(warmup_tuner)
+
+    # # Perform warmup tuning if WARMUP_HYPERPARAMETERS given.
+    # warmup_trials = 0
+    # warmup_trial_data = None
+    # if input_dict.get(WARMUP_HYPERPARAMETERS):
+    #   hyperparameters_file = io_utils.get_only_uri_in_dir(
+    #       artifact_utils.get_single_uri(input_dict[WARMUP_HYPERPARAMETERS]))
+    #   hparams_warmup_config_list = json.loads(
+    #       io_utils.read_string_file(hyperparameters_file))
+    # kerastuner doesn't support grid search, setting max_trials large enough.
+    # Track issue: https://github.com/keras-team/keras-tuner/issues/340
+    #   warmup_trials = DEFAULT_WARMUP_TRIALS
+    #   fn_args = fn_args_utils.get_common_fn_args(
+    #       input_dict,
+    #       exec_properties,
+    #       working_dir=self._get_tmp_dir() + 'warmup')
+    #   fn_args.custom_config[
+    #       WARMUP_HYPERPARAMETERS] = hparams_warmup_config_list[0]
+    #   fn_args.custom_config['max_trials'] = warmup_trials
+    #   warmtuner_fn_result = tuner_fn(fn_args)
+    #   warmup_tuner = self.search(warmtuner_fn_result)
+    #   warmup_trial_data = extract_tuner_trial_progress(warmup_tuner)
 
     # Create new fn_args for final tuning stage.
     fn_args = fn_args_utils.get_common_fn_args(
         input_dict, exec_properties, working_dir=self._get_tmp_dir())
+    tuner_fn = udf_utils.get_fn(exec_properties, 'tuner_fn')
     tuner_fn_result = tuner_fn(fn_args)
     tuner_fn_result.tuner.oracle.max_trials = max(
         (tuner_fn_result.tuner.oracle.max_trials - warmup_trials), 1)

@@ -30,7 +30,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
 from nitroml.components.metalearning import metalearning_wrapper
-from nitroml.components.tuner import component as tuner_component
+from nitroml.components.metalearning.tuner import component as tuner_component
 from examples import config
 from tfx import components as tfx
 from tfx.components.base import executor_spec
@@ -128,6 +128,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
             transform_graph=autodata.transform_graph,
             train_args=trainer_pb2.TrainArgs(num_steps=train_steps),
             eval_args=trainer_pb2.EvalArgs(num_steps=1),
+            metalearning_algorithm=algorithm,
             warmup_hyperparameters=metalearner_helper.recommended_search_space,
             custom_config={
                 # Pass the problem statement proto as a text proto. Required

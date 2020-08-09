@@ -23,29 +23,82 @@ from typing import Any, Dict, List
 from absl import logging
 import kerastuner
 from nitroml.components.metalearning import artifacts
+import numpy as np
+import tensorflow as tf
 from tfx.components.base import base_executor
 from tfx.types import artifact_utils
 from tfx.types.artifact import Artifact
 from tfx.utils import io_utils
+from tfx.utils import path_utils
 
 _DEFAULT_FILE_NAME = 'meta_hyperparameters.txt'
 
 MAX_INPUTS = 10
-OUTPUT_MODEL = 'metalearned_model'
+OUTPUT_MODEL = 'metamodel'
 OUTPUT_HYPERPARAMS = 'output_hyperparameters'
 MAJORITY_VOTING = 'majority_voting'
+NEAREST_NEIGHBOR = 'nearest_neighbor'
 METALEARNING_ALGORITHMS = [
     MAJORITY_VOTING,
+    NEAREST_NEIGHBOR,
 ]
+
+
+def _convert_metafeatures_to_keras_layer(
+    metafeatures_list: List[List[float]]) -> tf.keras.Model:
+  """Creates a model that stores metafeatures as a keras layer for nearest neighbor.
+
+    Args:
+      metafeatures_list:
+
+    Returns:
+      model: tf.keras.Model with a single dense layer having metafeatures as weights.
+  """
+
+  N = len(metafeatures_list[0])
+  K = len(metafeatures_list)
+  inputs = tf.keras.layers.Input(shape=(N,))
+  outputs = tf.keras.layers.Dense(
+      K, activation=None, use_bias=False, name='metafeatures')(
+          inputs)
+  model = tf.keras.models.Model(inputs=inputs, outputs=outputs)
+  weights = np.array(metafeatures_list, dtype=np.float32).T
+  # Normalize weights to lie in a unit ball.
+  weights = weights / np.linalg.norm(weights, axis=1, keepdims=True)
+  model.get_layer('metafeatures').set_weights([weights])
+  logging.info(model.get_layer('metafeatures').get_weights())
+  return model
 
 
 class MetaLearnerExecutor(base_executor.BaseExecutor):
   """Executor for MetaLearnerExecutor."""
 
+  def _convert_to_kerastuner_hyperparameters(
+      self,
+      candidate_hparams: List[Dict[str,
+                                   Any]]) -> List[kerastuner.HyperParameters]:
+    """Convert list of HSpace to a list of search space each with cardinality 1.
+      Args:
+        candidate_hparams: List of Dict of HParams with same keys.
+    """
+
+    if not candidate_hparams:
+      raise ValueError(
+          f'Expected a non-empty list of candidate_hparams. Got {candidate_hparams}'
+      )
+
+    simple_search_space_list = []
+    for candidate_hparam in candidate_hparams:
+      simple_search_space = kerastuner.HyperParameters()
+      for key in candidate_hparam:
+        simple_search_space.Choice(key, [candidate_hparam[key]])
+      simple_search_space_list.append(simple_search_space)
+    return simple_search_space_list
+
   def _create_search_space_using_voting(
       self, candidate_hparams: List[Dict[str,
                                          Any]]) -> kerastuner.HyperParameters:
-    """Convert List of HParams to kerastuner.HyperaParameters.
+    """Convert List of HParams to kerastuner.HyperaParameters based on voting.
 
     Args:
       candidate_hparams: List of Dict of HParams with same keys.
@@ -113,7 +166,7 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
     """
 
     algorithm = exec_properties['algorithm']
-
+    metafeatures_list = []
     # This should be agnostic to meta-feature type.
     for ix in range(MAX_INPUTS):
       metafeature_key = f'meta_train_features_{ix}'
@@ -123,6 +176,7 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
             artifacts.MetaFeatures.DEFAULT_FILE_NAME)
         logging.info('Found %s at %s.', metafeature_key, metafeature_uri)
         metafeatures = json.loads(io_utils.read_string_file(metafeature_uri))
+        metafeatures_list.append(metafeatures['metafeature'])
         # Only logging metafeatures for now. MetaFeature will be used in
         # upcoming algorithms.
         logging.info('metafeatures %s.', metafeatures['metafeature'])
@@ -137,23 +191,34 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
         hparams_json = json.loads(
             io_utils.read_string_file(hyperparameters_file))
         all_hparams.append(hparams_json['values'])
-        logging.info('File %s.', hparams_json)
 
-    if algorithm == 'majority_voting':
-
+    if algorithm == MAJORITY_VOTING:
       discrete_search_space = self._create_search_space_using_voting(
           all_hparams)
-      voted_hparams_config = discrete_search_space.get_config()
-      logging.info('Discrete Search Space: %s', voted_hparams_config)
-
+      voted_hparams_config = [discrete_search_space.get_config()]
       meta_hparams_path = os.path.join(
           artifact_utils.get_single_uri(output_dict[OUTPUT_HYPERPARAMS]),
           _DEFAULT_FILE_NAME)
-
       io_utils.write_string_file(meta_hparams_path,
                                  json.dumps(voted_hparams_config))
       logging.info('Meta HParams saved at %s', meta_hparams_path)
+    elif algorithm == NEAREST_NEIGHBOR:
+      # Build nearest_neighbor model
+      output_path = artifact_utils.get_single_uri(output_dict[OUTPUT_MODEL])
+      serving_model_dir = path_utils.serving_model_dir(output_path)
+      model = _convert_metafeatures_to_keras_layer(metafeatures_list)
+      # TODO(nikhilmehta): Consider adding signature here.
+      model.save(serving_model_dir)
 
+      # Collect all Candidate HParams
+      hparams_list = self._convert_to_kerastuner_hyperparameters(all_hparams)
+      hparams_config_list = [hparam.get_config() for hparam in hparams_list]
+      meta_hparams_path = os.path.join(
+          artifact_utils.get_single_uri(output_dict[OUTPUT_HYPERPARAMS]),
+          _DEFAULT_FILE_NAME)
+      io_utils.write_string_file(meta_hparams_path,
+                                 json.dumps(hparams_config_list))
+      logging.info('Meta HParams saved at %s', meta_hparams_path)
     else:
       raise NotImplementedError(
           f'The algorithm "{algorithm}" is not supported.')

@@ -17,7 +17,8 @@
 
 from typing import Any, Dict, Optional
 
-from nitroml.components.tuner import executor
+from nitroml.components.metalearning import artifacts
+from nitroml.components.metalearning.tuner import executor
 from tfx import types
 from tfx.components.base import base_component
 from tfx.components.base import executor_spec
@@ -58,7 +59,11 @@ class AugmentedTunerSpec(ComponentSpec):
               type=standard_artifacts.TransformGraph, optional=True),
       'warmup_hyperparameters':
           ChannelParameter(
-              type=standard_artifacts.HyperParameters, optional=True),
+              type=artifacts.KCandidateHyperParameters, optional=True),
+      'meta_model':
+          ChannelParameter(type=standard_artifacts.Model, optional=True),
+      'meta_features':
+          ChannelParameter(type=artifacts.MetaFeatures, optional=True),
   }
   OUTPUTS = {
       'best_hyperparameters':
@@ -86,7 +91,10 @@ class AugmentedTuner(base_component.BaseComponent):
                eval_args: trainer_pb2.EvalArgs = None,
                tune_args: Optional[tuner_pb2.TuneArgs] = None,
                custom_config: Optional[Dict[str, Any]] = None,
+               metalearning_algorithm: Optional[str] = None,
                warmup_hyperparameters: Optional[types.Channel] = None,
+               metamodel: Optional[types.Channel] = None,
+               metafeature: Optional[types.Channel] = None,
                best_hyperparameters: Optional[types.Channel] = None,
                instance_name: Optional[str] = None):
     """Constructs custom Tuner component that stores trial learning curve.
@@ -121,8 +129,13 @@ class AugmentedTuner(base_component.BaseComponent):
         Currently only num_parallel_trials is available.
       custom_config: A dict which contains addtional training job parameters
         that will be passed into user module.
+      metalearning_algorithm: Optional str for the type of metalearning_algorithm.
+      metamodel: Optional Channel of type `standard_artifacts.Model` for trained
+        meta model
+      metafeature: Optional Channel of `artifacts.MetaFeatures` of the dataset to be
+        tuned. This is used as an input to the `meta_model` to predict search space.
       warmup_hyperparameters: Optional Channel of type
-        `standard_artifacts.HyperParameters` representing a narrow search space
+        `artifacts.KCandidateHyperParameters` for a list of recommended search space.
         for warm-starting the tuner (generally the output of a metalearning
         component or subpipeline).
       best_hyperparameters: Optional Channel of type
@@ -148,7 +161,10 @@ class AugmentedTuner(base_component.BaseComponent):
         train_args=train_args,
         eval_args=eval_args,
         tune_args=tune_args,
+        metalearning_algorithm=metalearning_algorithm,
         warmup_hyperparameters=warmup_hyperparameters,
+        metamodel=metamodel,
+        metafeature=metafeature,
         best_hyperparameters=best_hyperparameters,
         trial_summary_plot=trial_summary_plot,
         custom_config=json_utils.dumps(custom_config),
