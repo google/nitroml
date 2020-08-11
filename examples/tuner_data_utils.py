@@ -16,7 +16,6 @@
 """NitroML Tuner utils."""
 
 from itertools import cycle
-import string
 from typing import Dict, List, Any
 
 import matplotlib.pyplot as plt
@@ -25,7 +24,7 @@ import numpy as np
 
 def aggregate_tuner_data(
     keys: List[str], data_list: List[Dict[str, Any]]) -> Dict[str, List[int]]:
-  """Returns the mean and variance dict of a list of dicts with same keys.
+  """Returns the mean and its std_error for a list of dicts with same keys.
 
     Args:
       keys: List of common string keys to find the mean and average for.
@@ -63,11 +62,12 @@ def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]],
       save_plot: If True, saves the plot in local dir.
   """
 
-  keys = ['warmup_trial_data', 'tuner_trial_data', 'best_cumulative_score']
+  # keys = ['warmup_trial_data', 'tuner_trial_data', 'best_cumulative_score']
+  keys = ['warmup_trial_data', 'tuner_trial_data']
   data = aggregate_tuner_data(keys, data_list)
   data['objective'] = data_list[0]['objective']
 
-  _, axs = plt.subplots(1, len(keys), figsize=(18, 5))
+  _, axs = plt.subplots(1, len(keys), figsize=(6 * len(keys), 5))
   cycol = cycle('bgrcmk')
 
   ymax = 0
@@ -86,7 +86,11 @@ def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]],
         linewidth=2,
         marker='o')
 
-    title = string.capwords(key.replace(" ", "_"))
+    if key == 'warmup_trial_data':
+      title = 'MetaLearning-based Tuner'
+    else:
+      title = 'Random Tuner'
+
     axs[ix].set_title(f'{title} ({num_trials} trials)')
 
     ymax = max(np.max(tuner_score_mean), ymax)
