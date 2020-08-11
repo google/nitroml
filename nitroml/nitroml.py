@@ -363,6 +363,7 @@ class Benchmark(abc.ABC):
   # This is used in metalearning_benchmark where subpipeline containing DAGs on
   # train datasets are shared across multiple subbenchmarks for test datasets.
   # TODO(nikhilmehta, weill): Consider alternate design options.
+  # DEPRECATED: Will be removed in a future version.
   def create_subpipeline_shared_with_subbenchmarks(
       self, global_components: List[base_component.BaseComponent]):
     """Adds the global components that are shared across all sub-benchmarks."""
