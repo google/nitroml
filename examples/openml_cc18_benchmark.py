@@ -29,7 +29,6 @@ import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
-from nitroml.components.tuner import component as tuner_component
 from examples import config
 from tfx import components as tfx
 from tfx.components.base import executor_spec
@@ -48,9 +47,10 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
                 use_keras: bool = True,
                 enable_tuning: bool = True):
     for i, task in enumerate(
-        nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data)):
+        nitroml.suites.OpenMLCC18(
+            data_dir, mock_data=mock_data, set_instance_name=False)):
 
-      if not mock_data and i not in range(21, 40):
+      if not mock_data and i not in range(20, 40):
         # Use only 20 of the datasets for now.
         # TODO(nikhilmehta): Create subbenchmarks for all 72 tasks.
         # Kubeflow throws a "Max work worflow size error" when pipeline contains
@@ -69,7 +69,7 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
 
         if enable_tuning:
           # Search over search space of model hyperparameters.
-          tuner = tuner_component.AugmentedTuner(
+          tuner = tfx.Tuner(
               tuner_fn='examples.auto_trainer.tuner_fn',
               examples=autodata.transformed_examples,
               transform_graph=autodata.transform_graph,

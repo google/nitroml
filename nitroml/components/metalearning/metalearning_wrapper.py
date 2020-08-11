@@ -96,9 +96,6 @@ class MetaLearningWrapper(object):
       test_metafeature = metafeature_gen.outputs.metafeatures
       meta_test_pipeline.append(metafeature_gen)
 
-    if test_metafeature is None:
-      raise ValueError('adada')
-
     tuner = tuner_component.AugmentedTuner(
         tuner_fn='examples.auto_trainer.tuner_fn',
         examples=test_autodata.transformed_examples,

@@ -81,7 +81,7 @@ class MetaFeatureGenExecutor(base_executor.BaseExecutor):
         num_categorical_features += 1
 
     metafeature_dict = {
-        'num_examples': stats.num_examples,
+        # 'num_examples': stats.num_examples,
         'num_int_features': num_int_features,
         'num_float_features': num_float_features,
         'num_categorical_features': num_categorical_features,

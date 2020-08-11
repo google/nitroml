@@ -72,7 +72,6 @@ class MetaLearningBenchmark(nitroml.Benchmark):
     pipeline = []
     meta_train_data = {}
     train_autodata_list = []
-
     for task in train_tasks:
       # Create the autodata instance for this task, which creates Transform,
       # StatisticsGen and SchemaGen component.
@@ -161,10 +160,11 @@ class MetaLearningBenchmark(nitroml.Benchmark):
 
 if __name__ == '__main__':
 
+  metalearning_algorithm = 'nearest_neighbor'
   run_config = dict(
-      pipeline_name=f'metalearning_benchmark_nearest_neighbor',
+      pipeline_name=f'metalearning_{metalearning_algorithm}',
       data_dir=config.OTHER_DOWNLOAD_DIR,
-      algorithm='nearest_neighbor')
+      algorithm=metalearning_algorithm)
 
   if config.USE_KUBEFLOW:
     # We need the string "KubeflowDagRunner" in this file to appease the

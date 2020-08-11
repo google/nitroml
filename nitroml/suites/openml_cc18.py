@@ -48,7 +48,8 @@ class OpenMLCC18(suite.Suite):
                api_key: str = None,
                use_cache: bool = True,
                max_threads: int = 1,
-               mock_data: bool = False):
+               mock_data: bool = False,
+               set_instance_name: bool = False):
 
     if max_threads <= 0:
       raise ValueError('Number of threads should be greater than 0.')
@@ -66,6 +67,7 @@ class OpenMLCC18(suite.Suite):
     self.root_dir = os.path.join(root_dir, 'openML_datasets')
     self.max_threads = max_threads
     self.api_key = api_key
+    self._set_instance_name = set_instance_name
 
     if use_cache:
 
@@ -102,6 +104,7 @@ class OpenMLCC18(suite.Suite):
       return openml_task.OpenMLTask(
           name=data_utils.convert_to_valid_identifier(dataset_name),
           root_dir=self.root_dir,
+          set_instance_name=self._set_instance_name,
           **data)
 
   def _create_tasks(self) -> List[task.Task]:

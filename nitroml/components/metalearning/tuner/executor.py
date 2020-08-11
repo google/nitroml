@@ -35,7 +35,8 @@ from tfx.types import artifact_utils
 from tfx.utils import io_utils
 from tfx.utils import path_utils
 
-DEFAULT_WARMUP_TRIALS = 4
+DEFAULT_WARMUP_TRIALS = 6
+DEFAULT_K = 3
 WARMUP_HYPERPARAMETERS = 'warmup_hyperparameters'
 CUSTOM_TUNER_NAME = 'get_tuner_cls_with_callbacks.<locals>.TrialTrackingTuner'
 BEST_CUMULATIVE_SCORE = 'best_cumulative_score'
@@ -146,6 +147,23 @@ def _load_keras_model(model_path: str):
   return model
 
 
+def merge_hparam_configs(configs):
+
+  configs = [config['values'] for config in configs]
+  hparams = configs[0].keys()
+
+  search_space = {}
+  for key in hparams:
+    search_space[key] = [config[key] for config in configs]
+
+  discrete_search_space = kerastuner.HyperParameters()
+  for key, value_list in search_space.items():
+    candidate_list = list(set(value_list))
+    discrete_search_space.Choice(key, candidate_list)
+
+  return discrete_search_space.get_config()
+
+
 class Executor(base_executor.BaseExecutor):
   """The executor for nitroml.components.tuner.components.Tuner."""
 
@@ -188,7 +206,7 @@ class Executor(base_executor.BaseExecutor):
       fn_args.custom_config[
           WARMUP_HYPERPARAMETERS] = hparams_warmup_config_list[0]
     elif algorithm == 'nearest_neighbor':
-      warmup_trials = 1
+      warmup_trials = DEFAULT_WARMUP_TRIALS
 
       if input_dict.get('metamodel'):
         metamodel_path = io_utils.get_only_uri_in_dir(
@@ -212,8 +230,11 @@ class Executor(base_executor.BaseExecutor):
 
       metafeature = np.array(metafeature, dtype=np.float32)
       metafeature = np.expand_dims(metafeature, axis=0)
-      logits = metamodel(metafeature).numpy()
-      nearest_hparam_config = hparams_warmup_config_list[np.argmax(logits)]
+      logits = metamodel(metafeature).numpy()[0]
+      nearest_configs = [
+          hparams_warmup_config_list[ix] for ix in np.argsort(logits)[-DEFAULT_K:]
+      ]
+      nearest_hparam_config = merge_hparam_configs(nearest_configs)
       fn_args.custom_config[WARMUP_HYPERPARAMETERS] = nearest_hparam_config
       logging.info(nearest_hparam_config)
     else:
