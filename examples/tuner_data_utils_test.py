@@ -15,9 +15,13 @@
 # Lint as: python3
 """Tests for examples.tuner_data_utils."""
 
+import json
+import os
+
 from absl.testing import absltest
 from examples import tuner_data_utils as tuner_utils
 import numpy as np
+import tensorflow as tf
 
 
 class TunerDataUtils(absltest.TestCase):
@@ -44,6 +48,14 @@ class TunerDataUtils(absltest.TestCase):
     np.testing.assert_almost_equal(
         list(agg_data['b_stdev']),
         [0.70710678, 1.06066017, 0.35355339, 1.41421356, 0.70710678])
+
+  def test_display_tuner_data_with_error_bars(self):
+
+    data_path = os.path.join(
+        os.path.dirname(__file__), 'testdata', 'tuner_data.json')
+    with tf.io.gfile.GFile(data_path, mode='r') as fin:
+      tuner_data = json.load(fin)
+    tuner_utils.display_tuner_data_with_error_bars(tuner_data)
 
 
 if __name__ == '__main__':
