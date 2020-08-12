@@ -54,10 +54,12 @@ class MetaLearningBenchmark(nitroml.Benchmark):
         'OpenML.cylinderbands', 'OpenML.diabetes'
     ])
     test_task_names = frozenset(['OpenML.dressessales'])
+    train_steps = 1000
 
     if mock_data:
       train_task_names = {'OpenML.mockdata_1'}
       test_task_names = {'OpenML.mockdata_2'}
+      train_steps = 10
 
     train_tasks = []
     test_tasks = []
@@ -72,7 +74,6 @@ class MetaLearningBenchmark(nitroml.Benchmark):
     train_autodata_list = []
 
     for task in train_tasks:
-
       # Create the autodata instance for this task, which creates Transform,
       # StatisticsGen and SchemaGen component.
       autodata = nitroml.autodata.AutoData(
@@ -87,7 +88,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
           tuner_fn='examples.auto_trainer.tuner_fn',
           examples=autodata.transformed_examples,
           transform_graph=autodata.transform_graph,
-          train_args=trainer_pb2.TrainArgs(num_steps=100),
+          train_args=trainer_pb2.TrainArgs(num_steps=train_steps),
           eval_args=trainer_pb2.EvalArgs(num_steps=1),
           custom_config={
               # Pass the problem statement proto as a text proto. Required
@@ -106,11 +107,14 @@ class MetaLearningBenchmark(nitroml.Benchmark):
     # Construct a MetaLearningHelper that creates the metalearning subpipeline.
     metalearner_helper = metalearning_wrapper.MetaLearningWrapper(
         train_autodata_list=train_autodata_list,
-        meta_train_data=meta_train_data)
+        meta_train_data=meta_train_data,
+        algorithm=algorithm)
     pipeline += metalearner_helper.pipeline
+    self.create_subpipeline_shared_with_subbenchmarks(pipeline)
 
     for task in test_tasks:
       with self.sub_benchmark(task.name):
+        task_pipeline = []
         # Create the autodata instance for the test task.
         autodata = nitroml.autodata.AutoData(
             task.problem_statement,
@@ -122,7 +126,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
             tuner_fn='examples.auto_trainer.tuner_fn',
             examples=autodata.transformed_examples,
             transform_graph=autodata.transform_graph,
-            train_args=trainer_pb2.TrainArgs(num_steps=100),
+            train_args=trainer_pb2.TrainArgs(num_steps=train_steps),
             eval_args=trainer_pb2.EvalArgs(num_steps=1),
             warmup_hyperparameters=metalearner_helper.recommended_search_space,
             custom_config={
@@ -143,7 +147,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
             transformed_examples=autodata.transformed_examples,
             transform_graph=autodata.transform_graph,
             schema=autodata.schema,
-            train_args=trainer_pb2.TrainArgs(num_steps=100),
+            train_args=trainer_pb2.TrainArgs(num_steps=train_steps),
             eval_args=trainer_pb2.EvalArgs(num_steps=1),
             hyperparameters=tuner.outputs.best_hyperparameters,
             custom_config={
@@ -154,13 +158,15 @@ class MetaLearningBenchmark(nitroml.Benchmark):
                         message=task.problem_statement, as_utf8=True),
             },
             instance_name=f'test_{task.name}')
-        pipeline += task.components + autodata.components + [tuner, trainer]
+        task_pipeline += task.components + autodata.components + [
+            tuner, trainer
+        ]
 
         # Finally, call evaluate() on the workflow DAG outputs, This will
         # automatically append Evaluators to compute metrics from the given
         # SavedModel and 'eval' TF Examples.ss
         self.evaluate(
-            pipeline,
+            task_pipeline,
             examples=task.train_and_eval_examples,
             model=trainer.outputs.model)
 
@@ -168,7 +174,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
 if __name__ == '__main__':
 
   run_config = dict(
-      pipeline_name=config.PIPELINE_NAME + '_metalearning',
+      pipeline_name='metalearning_benchmark',
       data_dir=config.OTHER_DOWNLOAD_DIR,
       algorithm='majority_voting')
 
@@ -177,7 +183,8 @@ if __name__ == '__main__':
     # validator used in `tfx create pipeline`.
     # Validator: https://github.com/tensorflow/tfx/blob/v0.22.0/tfx/tools/cli/handler/base_handler.py#L105
     nitroml.main(
-        pipeline_root=config.PIPELINE_ROOT,
+        pipeline_root=os.path.join(config.PIPELINE_ROOT,
+                                   run_config['pipeline_name']),
         tfx_runner=nitroml.get_default_kubeflow_dag_runner(),
         **run_config)
   else:

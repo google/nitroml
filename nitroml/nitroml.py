@@ -71,7 +71,7 @@ flags.DEFINE_string(
     '`--match=".*mnist.*"` will execute only the benchmarks whose names '
     'contain the substring "mnist" and skip the rest.')
 flags.DEFINE_integer(
-    "runs_per_benchmark", 1,
+    "runs_per_benchmark", None,
     "Specifies the number of times each benchmark should be executed. The "
     "benchmarks' pipelines are concatenated into a single DAG so that the "
     "orchestrator can run them in parallel. For example, passing "
@@ -100,12 +100,15 @@ def _qualified_name(prefix: Text, name: Text) -> Text:
 class _BenchmarkPipeline(object):
   """A pipeline for a benchmark."""
 
-  def __init__(self, benchmark_name: Text,
+  def __init__(self,
+               benchmark_name: Text,
                base_pipeline: List[base_component.BaseComponent],
-               evaluator: tfx.Evaluator):
+               evaluator: tfx.Evaluator = None,
+               add_evaluator: bool = True):
     self._benchmark_name = benchmark_name
     self._base_pipeline = base_pipeline
     self._evaluator = evaluator
+    self._add_evaluator = add_evaluator
 
   @property
   def benchmark_name(self) -> Text:
@@ -121,18 +124,25 @@ class _BenchmarkPipeline(object):
 
   @property
   def pipeline(self) -> List[base_component.BaseComponent]:
-    return self._base_pipeline + [self._evaluator]
+    if self._add_evaluator:
+      return self._base_pipeline + [self._evaluator]
+    else:
+      return self._base_pipeline
 
 
 class _RepeatablePipeline(object):
   """A repeatable benchmark."""
 
-  def __init__(self, benchmark_pipeline: _BenchmarkPipeline, repetition: int,
-               num_repetitions: int):
+  def __init__(self,
+               benchmark_pipeline: _BenchmarkPipeline,
+               repetition: int,
+               num_repetitions: int,
+               add_publisher: bool = True):
     self.benchmark_pipeline = benchmark_pipeline
     self._repetition = repetition
     self._num_repetitions = num_repetitions
     self._publisher = None
+    self._add_publisher = add_publisher
 
   @property
   def benchmark_name(self) -> Text:
@@ -153,7 +163,10 @@ class _RepeatablePipeline(object):
 
   @property
   def components(self) -> List[base_component.BaseComponent]:
-    return self.benchmark_pipeline.pipeline + [self.publisher]
+    if self._add_publisher:
+      return self.benchmark_pipeline.pipeline + [self.publisher]
+    else:
+      return self.benchmark_pipeline.pipeline
 
 
 class _ConcatenatedPipelineBuilder(object):
@@ -348,6 +361,19 @@ class Benchmark(abc.ABC):
 
     return f"{self.__class__.__qualname__}.benchmark"
 
+  # This is used in metalearning_benchmark where subpipeline containing DAGs on
+  # train datasets are shared across multiple subbenchmarks for test datasets.
+  # TODO(nikhilmehta, weill): Consider alternate design options.
+  # DEPRECATED: Will be removed in a future version.
+  def create_subpipeline_shared_with_subbenchmarks(
+      self, global_components: List[base_component.BaseComponent]):
+    """Adds the global components that are shared across all sub-benchmarks."""
+
+    benchmark_name = self._benchmark.id()
+    self._result.pipelines.append(
+        _BenchmarkPipeline(
+            benchmark_name, global_components, add_evaluator=False))
+
   def __call__(self, *args, **kwargs):
     result = BenchmarkResult()
     self._seen_benchmarks = set()
@@ -467,6 +493,8 @@ def run(benchmarks: List[Benchmark],
   """
 
   runs_per_benchmark = FLAGS.runs_per_benchmark
+  if runs_per_benchmark is None:
+    runs_per_benchmark = int(os.environ.get("NITROML_RUNS_PER_BENCHMARK", 1))
 
 
   if not tfx_runner:
@@ -488,7 +516,8 @@ def run(benchmarks: List[Benchmark],
               _RepeatablePipeline(
                   pipeline,
                   repetition=benchmark_run + 1,  # One-index runs.
-                  num_repetitions=runs_per_benchmark))
+                  num_repetitions=runs_per_benchmark,
+                  add_publisher=pipeline.evaluator is not None))
   pipeline_builder = _ConcatenatedPipelineBuilder(pipelines)
 
   benchmark_pipeline = pipeline_builder.build(
