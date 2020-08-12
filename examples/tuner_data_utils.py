@@ -16,7 +16,6 @@
 """NitroML Tuner utils."""
 
 from itertools import cycle
-import string
 from typing import Dict, List, Any
 
 import matplotlib.pyplot as plt
@@ -27,7 +26,8 @@ from sklearn import metrics
 def aggregate_tuner_data(keys: List[str],
                          data_list: List[Dict[str, Any]],
                          max_trial_count: int = 0) -> Dict[str, List[int]]:
-  """Returns the mean and variance dict of a list of dicts with same keys.
+  """Returns the mean and its std_error for a list of dicts with same keys.
+
 
     Args:
       keys: List of common string keys to find the mean and average for.
@@ -94,13 +94,8 @@ def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]],
         linewidth=2,
         marker='o')
 
-    ALC = metrics.auc(np.arange(1, num_trials + 1), tuner_score_mean)
-    if key == 'warmup_trial_data':
-      title = 'MetaLearning-based Tuner'
-    else:
-      title = 'Random Tuner'
-
-    # title = string.capwords(key.replace(" ", "_"))
+    alc = metrics.auc(np.arange(1, num_trials + 1), tuner_score_mean)
+    title = string.capwords(key.replace(" ", "_"))
     axs[ix].set_title(f'{title} (ALC = {ALC:.2f})')
 
     ymax = max(np.max(tuner_score_mean), ymax)
@@ -143,32 +138,32 @@ def display_tuner_data(data, save_plot=True):
       linewidth=2,
       marker='o')
   axs[0].set_ylim(ymin, ymax)
-  # axs[0].set_title(f'Best Cumulative Score ({total_trials} trials)')
+  axs[0].set_title(f'Best Cumulative Score ({total_trials} trials)')
   axs[0].set_title(f'Tuner progress ({total_trials} trials)')
   axs[0].set_ylabel(data['objective'])
   axs[0].set_xlabel('Trial')
 
-  # axs[1].plot(
-  #     np.arange(1, num_warmup_trials + 1),
-  #     warmup_tuner_score,
-  #     label=f'stage_warmup ({num_warmup_trials} trials)',
-  #     color='blue',
-  #     linewidth=2,
-  #     marker='o')
-  # axs[1].set_ylim(ymin, ymax)
-  # axs[1].set_title(f'Warmup Tuning ({num_warmup_trials} trials)')
-  # axs[1].set_xlabel('Trial')
+  axs[1].plot(
+      np.arange(1, num_warmup_trials + 1),
+      warmup_tuner_score,
+      label=f'stage_warmup ({num_warmup_trials} trials)',
+      color='blue',
+      linewidth=2,
+      marker='o')
+  axs[1].set_ylim(ymin, ymax)
+  axs[1].set_title(f'Warmup Tuning ({num_warmup_trials} trials)')
+  axs[1].set_xlabel('Trial')
 
-  # axs[2].plot(
-  #     np.arange(1, num_random_trials + 1),
-  #     random_tuner_score,
-  #     label=f'stage_final ({num_random_trials} trials)',
-  #     color='blue',
-  #     linewidth=2,
-  #     marker='o')
-  # axs[2].set_ylim(ymin, ymax)
-  # axs[2].set_title(f'Random Tuning ({num_random_trials} trials)')
-  # axs[2].set_xlabel('Trial')
+  axs[2].plot(
+      np.arange(1, num_random_trials + 1),
+      random_tuner_score,
+      label=f'stage_final ({num_random_trials} trials)',
+      color='blue',
+      linewidth=2,
+      marker='o')
+  axs[2].set_ylim(ymin, ymax)
+  axs[2].set_title(f'Random Tuning ({num_random_trials} trials)')
+  axs[2].set_xlabel('Trial')
 
   if save_plot:
     plt.savefig('display_tuner_data.png', bbox_inches='tight')

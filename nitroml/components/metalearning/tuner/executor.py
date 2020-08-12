@@ -232,7 +232,8 @@ class Executor(base_executor.BaseExecutor):
       metafeature = np.expand_dims(metafeature, axis=0)
       logits = metamodel(metafeature).numpy()[0]
       nearest_configs = [
-          hparams_warmup_config_list[ix] for ix in np.argsort(logits)[-DEFAULT_K:]
+          hparams_warmup_config_list[ix]
+          for ix in np.argsort(logits)[-DEFAULT_K:]
       ]
       nearest_hparam_config = merge_hparam_configs(nearest_configs)
       fn_args.custom_config[WARMUP_HYPERPARAMETERS] = nearest_hparam_config

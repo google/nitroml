@@ -98,6 +98,7 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
       directory=fn_args.working_dir,
       project_name=f'{data_provider.task_name}_tuning')
 
+  # TODO(nikhilmehta): Make batch-size tunable hyperparameter.
   train_dataset = data_provider.get_input_fn(
       file_pattern=fn_args.train_files,
       batch_size=128,
