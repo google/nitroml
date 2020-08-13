@@ -131,9 +131,8 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
       The function creates a keras model with a dense layer. The weight kernel of
       the layer is formed of metafeatures of training datasets. One can find the
       nearest neighbor for a new dataset by doing a forward pass of the model. The
-      output of the forward pass reprsent the similarity scores based on inner-product
-      of metafeatures. The keras model is intended to be used in metalearning initialized
-      tuner, which receives the metafeatures of a new dataset.
+      output of the forward pass represents the similarity scores based on the inner
+      product of metafeatures. The keras model is intended to be used in metalearning initialized tuner, which receives the metafeatures of a new dataset.
 
       Args:
         metafeatures_list: List of metafeatures of training datasets.
