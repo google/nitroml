@@ -81,9 +81,14 @@ class MetaLearningWrapper(object):
     self._recommended_search_space = learner.outputs.output_hyperparameters
     self._metamodel = learner.outputs.metamodel
 
-  def test(self, test_autodata: AutoData,
+  def create_test_components(self, test_autodata: AutoData,
            tuner_steps: int) -> List[base_component.BaseComponent]:
-    """Returns the list of components required for testing metalearning subpipipeline."""
+    """Returns the list of components required for test dataset metalearning subpipipeline.
+
+      Args:
+        test_autodata: Autodata of the test subpipeline.
+        tuner_steps: Number of steps to tune.
+    """
 
     instance_name = test_autodata.id.replace("AutoData.", "")
     meta_test_pipeline = []

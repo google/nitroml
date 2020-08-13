@@ -121,7 +121,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
             preprocessor=nitroml.autodata.BasicPreprocessor(),
             instance_name=f'test.{task.name}')
 
-        test_meta_components, best_hparams = metalearner_helper.test(
+        test_meta_components, best_hparams = metalearner_helper.create_test_components(
             autodata, tuner_steps=train_steps)
 
         # Create a trainer component that utilizes the recommended HParams
