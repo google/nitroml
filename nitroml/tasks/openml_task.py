@@ -42,8 +42,7 @@ class OpenMLTask(task.Task):
                task_type: str,
                label_key: str,
                num_classes: int = 0,
-               description: str = '',
-               set_instance_name: bool = True):
+               description: str = ''):
     if not self._verify_task(task_type):
       raise ValueError('Invalid task type')
 
@@ -55,7 +54,7 @@ class OpenMLTask(task.Task):
     self._label_key = label_key
     self._example_gen = tfx.CsvExampleGen(
         input_base=os.path.join(root_dir, f'{dataset_name}', 'data'),
-        instance_name=self.name if set_instance_name else None)
+        instance_name=self.name)
 
   def __str__(self):
     return (f'Task: {self._type} \nClasses: {self._num_classes} \n'
