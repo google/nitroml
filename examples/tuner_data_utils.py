@@ -116,12 +116,11 @@ def display_tuner_data(data, save_plot=True):
   num_random_trials = len(random_tuner_score)
   total_trials = num_warmup_trials + num_random_trials
 
-  _, axs = plt.subplots(1, 1, figsize=(5, 5))
+  _, axs = plt.subplots(1, 3, figsize=(15, 5))
 
   ymax = np.max(best_score) + 0.05
   ymin = np.min(best_score) - 0.05
 
-  axs = [axs]
   axs[0].plot(
       np.arange(1, total_trials + 1),
       best_score,
@@ -131,7 +130,6 @@ def display_tuner_data(data, save_plot=True):
       marker='o')
   axs[0].set_ylim(ymin, ymax)
   axs[0].set_title(f'Best Cumulative Score ({total_trials} trials)')
-  axs[0].set_title(f'Tuner progress ({total_trials} trials)')
   axs[0].set_ylabel(data['objective'])
   axs[0].set_xlabel('Trial')
 
