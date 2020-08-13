@@ -44,32 +44,6 @@ METALEARNING_ALGORITHMS = [
 ]
 
 
-def _convert_metafeatures_to_keras_layer(
-    metafeatures_list: List[List[float]]) -> tf.keras.Model:
-  """Creates a model that stores metafeatures as a keras layer for nearest neighbor.
-
-    Args:
-      metafeatures_list:
-
-    Returns:
-      model: tf.keras.Model with a single dense layer having metafeatures as weights.
-  """
-
-  N = len(metafeatures_list[0])
-  K = len(metafeatures_list)
-  inputs = tf.keras.layers.Input(shape=(N,))
-  outputs = tf.keras.layers.Dense(
-      K, activation=None, use_bias=False, name='metafeatures')(
-          inputs)
-  model = tf.keras.models.Model(inputs=inputs, outputs=outputs)
-  weights = np.array(metafeatures_list, dtype=np.float32).T
-  # Normalize weights to lie in a unit ball.
-  weights = weights / np.linalg.norm(weights, axis=1, keepdims=True)
-  model.get_layer('metafeatures').set_weights([weights])
-  logging.info(model.get_layer('metafeatures').get_weights())
-  return model
-
-
 class MetaLearnerExecutor(base_executor.BaseExecutor):
   """Executor for MetaLearnerExecutor."""
 
@@ -78,6 +52,7 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
       candidate_hparams: List[Dict[str,
                                    Any]]) -> List[kerastuner.HyperParameters]:
     """Convert list of HSpace to a list of search space each with cardinality 1.
+
       Args:
         candidate_hparams: List of Dict of HParams with same keys.
     """
@@ -149,6 +124,37 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
 
     return discrete_search_space
 
+  def _create_keras_model_from_metafeatures_for_nearest_neighbor(
+      self, metafeatures_list: List[List[float]]) -> tf.keras.Model:
+    """Creates a model that stores metafeatures as a keras layer for nearest neighbor.
+
+      The function creates a keras model with a dense layer. The weight kernel of
+      the layer is formed of metafeatures of training datasets. One can find the
+      nearest neighbor for a new dataset by doing a forward pass of the model. The
+      output of the forward pass reprsent the similarity scores based on inner-product
+      of metafeatures. The keras model is intended to be used in metalearning initialized
+      tuner, which receives the metafeatures of a new dataset.
+
+      Args:
+        metafeatures_list: List of metafeatures of training datasets.
+
+      Returns:
+        model: tf.keras.Model with a single dense layer having metafeatures as weights.
+    """
+
+    N = len(metafeatures_list[0])
+    K = len(metafeatures_list)
+    inputs = tf.keras.layers.Input(shape=(N,))
+    outputs = tf.keras.layers.Dense(
+        K, activation=None, use_bias=False, name='metafeatures')(
+            inputs)
+    model = tf.keras.models.Model(inputs=inputs, outputs=outputs)
+    weights = np.array(metafeatures_list, dtype=np.float32).T
+    # Normalize weights to lie in a unit ball.
+    weights = weights / np.linalg.norm(weights, axis=1, keepdims=True)
+    model.get_layer('metafeatures').set_weights([weights])
+    return model
+
   def Do(self, input_dict: Dict[str, List[Artifact]],
          output_dict: Dict[str, List[Artifact]],
          exec_properties: Dict[str, Any]) -> None:
@@ -177,9 +183,6 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
         logging.info('Found %s at %s.', metafeature_key, metafeature_uri)
         metafeatures = json.loads(io_utils.read_string_file(metafeature_uri))
         metafeatures_list.append(metafeatures['metafeature'])
-        # Only logging metafeatures for now. MetaFeature will be used in
-        # upcoming algorithms.
-        logging.info('metafeatures %s.', metafeatures['metafeature'])
 
     all_hparams = []
     for ix in range(MAX_INPUTS):
@@ -195,30 +198,26 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
     if algorithm == MAJORITY_VOTING:
       discrete_search_space = self._create_search_space_using_voting(
           all_hparams)
-      voted_hparams_config = [discrete_search_space.get_config()]
-      meta_hparams_path = os.path.join(
-          artifact_utils.get_single_uri(output_dict[OUTPUT_HYPERPARAMS]),
-          _DEFAULT_FILE_NAME)
-      io_utils.write_string_file(meta_hparams_path,
-                                 json.dumps(voted_hparams_config))
-      logging.info('Meta HParams saved at %s', meta_hparams_path)
+      hparams_config_list = [discrete_search_space.get_config()]
     elif algorithm == NEAREST_NEIGHBOR:
       # Build nearest_neighbor model
       output_path = artifact_utils.get_single_uri(output_dict[OUTPUT_MODEL])
       serving_model_dir = path_utils.serving_model_dir(output_path)
-      model = _convert_metafeatures_to_keras_layer(metafeatures_list)
+      model = self._create_keras_model_from_metafeatures_for_nearest_neighbor(
+          metafeatures_list)
       # TODO(nikhilmehta): Consider adding signature here.
       model.save(serving_model_dir)
 
       # Collect all Candidate HParams
       hparams_list = self._convert_to_kerastuner_hyperparameters(all_hparams)
       hparams_config_list = [hparam.get_config() for hparam in hparams_list]
-      meta_hparams_path = os.path.join(
-          artifact_utils.get_single_uri(output_dict[OUTPUT_HYPERPARAMS]),
-          _DEFAULT_FILE_NAME)
-      io_utils.write_string_file(meta_hparams_path,
-                                 json.dumps(hparams_config_list))
-      logging.info('Meta HParams saved at %s', meta_hparams_path)
     else:
       raise NotImplementedError(
           f'The algorithm "{algorithm}" is not supported.')
+
+    meta_hparams_path = os.path.join(
+        artifact_utils.get_single_uri(output_dict[OUTPUT_HYPERPARAMS]),
+        _DEFAULT_FILE_NAME)
+    io_utils.write_string_file(meta_hparams_path,
+                               json.dumps(hparams_config_list))
+    logging.info('Meta HParams saved at %s', meta_hparams_path)
