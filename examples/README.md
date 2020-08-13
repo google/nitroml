@@ -6,7 +6,7 @@ Canonical examples of how to use NitroML. These examples are maintained by the N
 
 1.  **titanic_benchmark.py**: A simple AutoML pipeline run on the Titanic dataset from TensorFlow datasets.
 2.  **openml_cc18_benchmark.py**: A simple AutoML pipeline run on the [OpenML-CC18](https://www.openml.org/s/99) benchmark suite composed of 72 dataset.
-3.  **meta_learning_benchmark.py**: A simple metalearning AutoML pipeline run using a subset of [OpenML-CC18](https://www.openml.org/s/99) benchmark suite.
+3.  **meta_learning_benchmark.py**: A simple metalearning AutoML pipeline run using a subset of [OpenML-CC18](https://www.openml.org/s/99) benchmark suite. See below on visualizing tuner results for metalearning examples.
 
 ## Run Nitroml on the Cloud with KubeFlow
 
@@ -28,5 +28,12 @@ Canonical examples of how to use NitroML. These examples are maintained by the N
 - Step 3: Port forwarding
   - `kubectl port-forward deployment/metadata-grpc-deployment 9898:<METADATA_GRPC_SERVICE_PORT>`
 
+- Step 4: Open and run the Jupyter Notebook`kubeflow_metadata_example.ipynb` to visualize the benchmark results.
+
 - Troubleshooting
   - If getting error related to Metadata (For examples, Transaction already open). Try restarting the metadata-grpc-service using: `kubectl rollout restart deployment metadata-grpc-deployment`
+
+## Visualize tuner progress (Works in conjunction with `meta_learning_examples.py`)
+
+- Follow the above steps on connecting to the MLMD database (if working with Kubeflow)
+- Open and run the Jupyter Notebook `visualize_tuner_plots.ipynb`

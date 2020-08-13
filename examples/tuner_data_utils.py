@@ -16,6 +16,7 @@
 """NitroML Tuner utils."""
 
 import itertools
+import string
 from typing import Dict, List, Any
 
 import matplotlib.pyplot as plt
@@ -23,15 +24,13 @@ import numpy as np
 from sklearn import metrics
 
 
-def aggregate_tuner_data(keys: List[str],
-                         data_list: List[Dict[str, Any]],
-                         max_trial_count: int = 0) -> Dict[str, List[int]]:
+def aggregate_tuner_data(
+    keys: List[str], data_list: List[Dict[str, Any]]) -> Dict[str, List[int]]:
   """Returns the mean and its std_error for a list of dicts with same keys.
 
   Args:
     keys: List of string keys to aggregate which are common to all dicts.
     data_list: List of dicts to aggregate.
-
   Returns:
     Aggregate data dict.
   """
@@ -39,12 +38,8 @@ def aggregate_tuner_data(keys: List[str],
   aggregate_data = {}
   for key in keys:
 
-    if not max_trial_count:
-      # Find max number of trials in different runs.
-      max_trials = max([len(data[key]) for data in data_list])
-    else:
-      max_trials = max_trial_count
-
+    # Find max number of trials in different runs.
+    max_trials = max([len(data[key]) for data in data_list])
     # Different tuners may have different number of trials.
     # For plotting, we extend the list to max_trials by appending the best
     # score achieved by the tuner given by data[key][-1].
@@ -60,8 +55,7 @@ def aggregate_tuner_data(keys: List[str],
 
 
 def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]],
-                                       save_plot: bool = False,
-                                       max_trial_count: int = 0):
+                                       save_plot: bool = False):
   """Plots the tuner data with error bars.
 
   Args:
@@ -69,9 +63,8 @@ def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]],
     save_plot: If True, saves the plot in local dir.
   """
 
-  # keys = ['warmup_trial_data', 'tuner_trial_data', 'best_cumulative_score']
-  keys = ['warmup_trial_data', 'tuner_trial_data']
-  data = aggregate_tuner_data(keys, data_list, max_trial_count)
+  keys = ['warmup_trial_data', 'tuner_trial_data', 'best_cumulative_score']
+  data = aggregate_tuner_data(keys, data_list)
   data['objective'] = data_list[0]['objective']
 
   _, axs = plt.subplots(1, len(keys), figsize=(6 * len(keys), 5))
@@ -95,7 +88,7 @@ def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]],
 
     alc = metrics.auc(np.arange(1, num_trials + 1), tuner_score_mean)
     title = string.capwords(key.replace(" ", "_"))
-    axs[ix].set_title(f'{title} (ALC = {ALC:.2f})')
+    axs[ix].set_title(f'{title} (ALC = {alc:.2f} for {num_trials} trials)')
 
     ymax = max(np.max(tuner_score_mean), ymax)
     ymin = min(np.min(tuner_score_mean), ymin)
