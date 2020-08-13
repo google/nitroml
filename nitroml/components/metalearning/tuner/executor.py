@@ -33,7 +33,6 @@ from tfx.components.tuner.component import TunerFnResult
 from tfx.components.util import udf_utils
 from tfx.types import artifact_utils
 from tfx.utils import io_utils
-from tfx.utils import path_utils
 
 DEFAULT_WARMUP_TRIALS = 6
 DEFAULT_K = 3
@@ -237,7 +236,6 @@ class Executor(base_executor.BaseExecutor):
       ]
       nearest_hparam_config = merge_hparam_configs(nearest_configs)
       fn_args.custom_config[WARMUP_HYPERPARAMETERS] = nearest_hparam_config
-      logging.info(nearest_hparam_config)
     else:
       raise NotImplementedError(
           f'Tuning for metalearning_algorithm={algorithm} is not implemented.')
@@ -265,7 +263,6 @@ class Executor(base_executor.BaseExecutor):
     warmup_trials = 0
     warmup_trial_data = None
     if metalearning_algorithm:
-      logging.info(f'MetaLearning Algorithm: {metalearning_algorithm}.')
       warmup_tuner, warmup_trials = self.warmup(input_dict, exec_properties,
                                                 metalearning_algorithm)
       warmup_trial_data = extract_tuner_trial_progress(warmup_tuner)
@@ -299,7 +296,6 @@ class Executor(base_executor.BaseExecutor):
       best_tuner = warmup_tuner if best_tuner_ix == 0 else tuner
     else:
       best_tuner = tuner
-    logging.info(f'MetaLearning Algorithm: {metalearning_algorithm}.')
     tfx_tuner.write_best_hyperparameters(best_tuner, output_dict)
     tuner_plot_path = os.path.join(
         artifact_utils.get_single_uri(output_dict['trial_summary_plot']),

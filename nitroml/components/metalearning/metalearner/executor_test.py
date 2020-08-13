@@ -26,6 +26,7 @@ from nitroml.components.metalearning import artifacts
 import tensorflow as tf
 from tfx.types import standard_artifacts
 from tfx.utils import io_utils
+from tfx.utils import path_utils
 
 
 class ExecutorTest(absltest.TestCase):

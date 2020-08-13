@@ -46,9 +46,9 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
                 data_dir: str = None,
                 use_keras: bool = True,
                 enable_tuning: bool = True):
+
     for i, task in enumerate(
-        nitroml.suites.OpenMLCC18(
-            data_dir, mock_data=mock_data, set_instance_name=False)):
+        nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data)):
 
       if not mock_data and i not in range(20, 40):
         # Use only 20 of the datasets for now.

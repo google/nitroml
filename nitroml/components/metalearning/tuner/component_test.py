@@ -101,7 +101,7 @@ class ComponentTest(absltest.TestCase):
         module_file='some/random/path/tuner_fn',
         metalearning_algorithm='nearest_neighbor',
         warmup_hyperparameters=self.warmup_hyperparams,
-        meta_model=self.meta_model,
+        metamodel=self.meta_model,
         custom_config=self.custom_config)
     self._verify_outputs(tuner)
 
