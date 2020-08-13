@@ -75,7 +75,8 @@ class AugmentedTunerSpec(ComponentSpec):
 
 
 # TODO(nikhilmehta): Find a better way to use existing tfx.Tuner implementation.
-# Currently, inheritance isn't viable since tfx.Tuner doesn't accept custom spec.
+# Currently, inheritance isn't viable since tfx.Tuner doesn't accept custom
+# spec.
 class AugmentedTuner(base_component.BaseComponent):
   """A custom TFX component for model hyperparameter tuning."""
 

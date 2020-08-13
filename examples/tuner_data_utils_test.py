@@ -26,9 +26,6 @@ import tensorflow as tf
 
 class TunerDataUtils(absltest.TestCase):
 
-  def setUp(self):
-    super(TunerDataUtils, self).setUp()
-
   def test_aggregate_tuner_data(self):
 
     d1 = {

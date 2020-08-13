@@ -17,12 +17,13 @@
 
 import os
 
-from examples import metalearning_benchmark
-from ml_metadata import metadata_store
 from nitroml import results
+from examples import metalearning_benchmark
 from nitroml.suites import testing_utils
 from nitroml.testing import e2etest
 import requests_mock
+
+from ml_metadata import metadata_store
 
 
 class MetaLearningTest(e2etest.BenchmarkTestCase):

@@ -15,7 +15,7 @@
 # Lint as: python3
 """NitroML Tuner utils."""
 
-from itertools import cycle
+import itertools
 from typing import Dict, List, Any
 
 import matplotlib.pyplot as plt
@@ -28,13 +28,12 @@ def aggregate_tuner_data(keys: List[str],
                          max_trial_count: int = 0) -> Dict[str, List[int]]:
   """Returns the mean and its std_error for a list of dicts with same keys.
 
+  Args:
+    keys: List of string keys to aggregate which are common to all dicts.
+    data_list: List of dicts to aggregate.
 
-    Args:
-      keys: List of common string keys to find the mean and average for.
-      data_list: List of dicts to aggregate.
-
-    Returns:
-      aggregate_data: Aggregated dict.
+  Returns:
+    Aggregate data dict.
   """
 
   aggregate_data = {}
@@ -65,9 +64,9 @@ def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]],
                                        max_trial_count: int = 0):
   """Plots the tuner data with error bars.
 
-    Args:
-      data_list: List of dicts representing tuner data.
-      save_plot: If True, saves the plot in local dir.
+  Args:
+    data_list: List of dicts representing tuner data.
+    save_plot: If True, saves the plot in local dir.
   """
 
   # keys = ['warmup_trial_data', 'tuner_trial_data', 'best_cumulative_score']
@@ -76,7 +75,7 @@ def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]],
   data['objective'] = data_list[0]['objective']
 
   _, axs = plt.subplots(1, len(keys), figsize=(6 * len(keys), 5))
-  cycol = cycle('bgrcmk')
+  cycol = itertools.cycle('bgrcmk')
 
   ymax = 0
   ymin = 1.0

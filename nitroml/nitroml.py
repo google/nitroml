@@ -61,6 +61,7 @@ except ModuleNotFoundError:
 
 T = TypeVar("T")
 
+
 FLAGS = flags.FLAGS
 
 # FLAGS
@@ -70,7 +71,7 @@ flags.DEFINE_string(
     '`--match=".*mnist.*"` will execute only the benchmarks whose names '
     'contain the substring "mnist" and skip the rest.')
 flags.DEFINE_integer(
-    "runs_per_benchmark", 0,
+    "runs_per_benchmark", None,
     "Specifies the number of times each benchmark should be executed. The "
     "benchmarks' pipelines are concatenated into a single DAG so that the "
     "orchestrator can run them in parallel. For example, passing "
@@ -450,6 +451,8 @@ def get_default_kubeflow_dag_runner():
     raise e
 
 
+
+
 def run(benchmarks: List[Benchmark],
         tfx_runner: Optional[tfx_runner_lib.TfxRunner] = None,
         pipeline_name: Optional[Text] = None,
@@ -490,8 +493,9 @@ def run(benchmarks: List[Benchmark],
   """
 
   runs_per_benchmark = FLAGS.runs_per_benchmark
-  if not runs_per_benchmark:
+  if runs_per_benchmark is None:
     runs_per_benchmark = int(os.environ.get("NITROML_RUNS_PER_BENCHMARK", 1))
+
 
   if not tfx_runner:
     logging.info("Setting TFX runner to OSS default: BeamDagRunner.")
