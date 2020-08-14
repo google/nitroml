@@ -10,22 +10,29 @@ Canonical examples of how to use NitroML. These examples are maintained by the N
 
 ## Run Nitroml on the Cloud with KubeFlow
 
-- Open the jupyter notebook `nitroml_kubeflow.ipynb`. Be sure to update the `ENDPOINT` in the notebook.
-- Update the `GCP_BUCKET_NAME` in `examples/config.py` based on your Google Cloud Project.
+- Open the jupyter notebook `nitroml_kubeflow.ipynb` and follow the steps.
+  - To open the jupyter notebook: execute `jupyter notebook` from `examples/` dir.
+  - Set the Kubeflow `ENDPOINT` in the `examples/config.py`.
+  - Set the `GCS_BUCKET_NAME` in the `examples/config.py`.
+  - For most up-to-date information on finding your `ENDPOINT` and `GCS_BUCKET_NAME` please see this [tutorial](https://www.tensorflow.org/tfx/tutorials/tfx/cloud-ai-platform-pipelines).
+- Kubeflow uses TFX Docker image when running pipelines. You can find latest images on [docker hub](https://hub.docker.com/r/tensorflow/tfx/tags). If you want to change the TFX version, just change the `TFX_IMAGE` variable in `examples/config.py` based on images uploaded on [docker hub](https://hub.docker.com/r/tensorflow/tfx/tags).
 
 ## Connect to MLMD database when working on Cloud and Kubeflow
 
 - Step 0: Download and [configure gcloud SDK](https://cloud.google.com/sdk/docs/initializing) using your account.
 
 - Step 1: Configure your cluster with gcloud.
+
   - Run `gcloud container clusters get-credentials <cluster_name> --zone <cluster-zone> --project <project-id>` from your local machine.
-  - `cluster_name` is the name of the kubeflow cluster, `cluster-zone` is the zone of the cluster,  `project-id` is the google cloud project.
+  - `cluster_name` is the name of the kubeflow cluster, `cluster-zone` is the zone of the cluster, `project-id` is the google cloud project.
 
 - Step 2: Get the port where the gRPC service is running on the cluster
+
   - `kubectl get configmap metadata-grpc-configmap -o jsonpath={.data}`
   - Use `METADATA_GRPC_SERVICE_PORT` in the next step. The default port used is 8080.
 
 - Step 3: Port forwarding
+
   - `kubectl port-forward deployment/metadata-grpc-deployment 9898:<METADATA_GRPC_SERVICE_PORT>`
 
 - Step 4: Open and run the Jupyter Notebook`kubeflow_metadata_example.ipynb` to visualize the benchmark results.

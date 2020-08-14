@@ -188,7 +188,7 @@ class ExecutorTest(absltest.TestCase):
     np.testing.assert_array_almost_equal(
         expected_weights, model_weights, decimal=4)
 
-  def test_create_keras_model_from_metafeatures_for_nearest_neighbor(self):
+  def test_create_knn_model_from_metafeatures(self):
 
     metadata_indices = [1, 2, 3]
     metafeatures_list = []
@@ -200,8 +200,7 @@ class ExecutorTest(absltest.TestCase):
       metafeatures_list.append(metafeatures['metafeature'])
 
     ex = executor.MetaLearnerExecutor()
-    model = ex._create_keras_model_from_metafeatures_for_nearest_neighbor(
-        metafeatures_list)
+    model = ex._create_knn_model_from_metafeatures(metafeatures_list)
     model_weights = model.get_layer('metafeatures').get_weights()
     self._verify_model_weights(model_weights[0])
 

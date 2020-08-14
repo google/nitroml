@@ -124,7 +124,7 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
 
     return discrete_search_space
 
-  def _create_keras_model_from_metafeatures_for_nearest_neighbor(
+  def _create_knn_model_from_metafeatures(
       self, metafeatures_list: List[List[float]]) -> tf.keras.Model:
     """Creates a model that stores metafeatures as a keras layer for nearest neighbor.
 
@@ -202,8 +202,7 @@ class MetaLearnerExecutor(base_executor.BaseExecutor):
       # Build nearest_neighbor model
       output_path = artifact_utils.get_single_uri(output_dict[OUTPUT_MODEL])
       serving_model_dir = path_utils.serving_model_dir(output_path)
-      model = self._create_keras_model_from_metafeatures_for_nearest_neighbor(
-          metafeatures_list)
+      model = self._create_knn_model_from_metafeatures(metafeatures_list)
       # TODO(nikhilmehta): Consider adding signature here.
       model.save(serving_model_dir)
 
