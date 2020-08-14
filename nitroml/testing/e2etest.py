@@ -35,6 +35,7 @@ from absl.testing import parameterized
 import nitroml
 import tensorflow as tf
 from tfx.components.base import base_component
+from tfx.components.base import base_driver
 from tfx.orchestration import metadata
 from tfx.orchestration import pipeline
 from tfx.orchestration.beam import beam_dag_runner
@@ -158,7 +159,9 @@ class TestCase(parameterized.TestCase, absltest.TestCase):
     if len(artifact_subdirs) != 1:
       raise ValueError(
           f"Expected a single artifact dir, got: {artifact_subdirs}")
-    return os.path.join(root, artifact_subdirs[0], artifact_subdir)
+    base_uri = base_driver._generate_output_uri(  # pylint: disable=protected-access
+        self.pipeline_root, artifact_root, artifact_subdirs[0])
+    return os.path.join(base_uri, artifact_subdir)
 
 
 class BenchmarkTestCase(TestCase):
