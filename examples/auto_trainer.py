@@ -25,7 +25,7 @@ from typing import Any, Callable, List, Optional, Dict
 from absl import logging
 import kerastuner
 from kerastuner.engine import hyperparameters as hp_module
-from nitroml.components.tuner.executor import get_tuner_cls_with_callbacks
+from nitroml.components.metalearning.tuner.executor import get_tuner_cls_with_callbacks
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
 import tensorflow_transform as tft

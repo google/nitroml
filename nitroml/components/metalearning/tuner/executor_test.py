@@ -22,8 +22,9 @@ import tempfile
 from absl import flags
 from absl.testing import absltest
 from kerastuner.engine.hyperparameters import HyperParameters
-from nitroml.components.tuner import component as tuner_component
-from nitroml.components.tuner import executor
+from nitroml.components.metalearning import artifacts
+from nitroml.components.metalearning.tuner import component as tuner_component
+from nitroml.components.metalearning.tuner import executor
 from examples import auto_trainer as tuner_module
 import tensorflow as tf
 from tfx.proto import trainer_pb2
@@ -89,11 +90,11 @@ class ExecutorTest(absltest.TestCase):
     self._exec_properties = {
         'train_args':
             json_format.MessageToJson(
-                trainer_pb2.TrainArgs(num_steps=10),
+                trainer_pb2.TrainArgs(num_steps=2),
                 preserving_proto_field_name=True),
         'eval_args':
             json_format.MessageToJson(
-                trainer_pb2.EvalArgs(num_steps=5),
+                trainer_pb2.EvalArgs(num_steps=1),
                 preserving_proto_field_name=True),
     }
 
@@ -135,9 +136,13 @@ class ExecutorTest(absltest.TestCase):
 
     self._verify_output()
 
-  def testDoWithWarmupHyperparams(self):
-    self._exec_properties['tuner_fn'] = '%s.%s' % (
-        tuner_module.tuner_fn.__module__, tuner_module.tuner_fn.__name__)
+  def testDoWithMajoritVoting(self):
+
+    exec_properties = self._exec_properties.copy()
+    exec_properties['tuner_fn'] = '%s.%s' % (tuner_module.tuner_fn.__module__,
+                                             tuner_module.tuner_fn.__name__)
+    exec_properties['metalearning_algorithm'] = 'majority_voting'
+
     input_dict = self._input_dict.copy()
 
     ps_type = ps_pb2.Type(
@@ -149,21 +154,68 @@ class ExecutorTest(absltest.TestCase):
             type=ps_type,
         )])
 
-    self._exec_properties['custom_config'] = json_utils.dumps({
+    exec_properties['custom_config'] = json_utils.dumps({
         'problem_statement':
             text_format.MessageToString(message=ps, as_utf8=True),
     })
+    hps_artifact = artifacts.KCandidateHyperParameters()
+    hps_artifact.uri = os.path.join(self._testdata_dir,
+                                    'MetaLearner.majority_voting',
+                                    'hparams_out')
+    input_dict['warmup_hyperparameters'] = [hps_artifact]
 
-    hp_artifact = standard_artifacts.HyperParameters()
-    hp_artifact.uri = os.path.join(self._testdata_dir, 'MetaLearner.mockdata',
-                                   'output_hyperparameters', '1')
-    input_dict['warmup_hyperparameters'] = [hp_artifact]
     tuner = executor.Executor(self._context)
     tuner.Do(
         input_dict=input_dict,
         output_dict=self._output_dict,
-        exec_properties=self._exec_properties)
+        exec_properties=exec_properties)
+    self._verify_output()
 
+  def testDoWithNearestNeighbor(self):
+
+    exec_properties = self._exec_properties.copy()
+    exec_properties['tuner_fn'] = '%s.%s' % (tuner_module.tuner_fn.__module__,
+                                             tuner_module.tuner_fn.__name__)
+    exec_properties['metalearning_algorithm'] = 'nearest_neighbor'
+
+    input_dict = self._input_dict.copy()
+
+    ps_type = ps_pb2.Type(
+        binary_classification=ps_pb2.BinaryClassification(label='class'))
+    ps = ps_pb2.ProblemStatement(
+        owner=['nitroml'],
+        tasks=[ps_pb2.Task(
+            name='mockdata_1',
+            type=ps_type,
+        )])
+
+    exec_properties['custom_config'] = json_utils.dumps({
+        'problem_statement':
+            text_format.MessageToString(message=ps, as_utf8=True),
+    })
+
+    hps_artifact = artifacts.KCandidateHyperParameters()
+    hps_artifact.uri = os.path.join(self._testdata_dir,
+                                    'MetaLearner.nearest_neighbor',
+                                    'hparams_out')
+    input_dict['warmup_hyperparameters'] = [hps_artifact]
+
+    model_artifact = standard_artifacts.Model()
+    model_artifact.uri = os.path.join(self._testdata_dir,
+                                      'MetaLearner.nearest_neighbor', 'model')
+    input_dict['metamodel'] = [model_artifact]
+
+    metafeature = artifacts.MetaFeatures()
+    metafeature.uri = os.path.join(self._testdata_dir,
+                                   'MetaFeatureGen.test_mockdata',
+                                   'metafeatures')
+    input_dict['metafeature'] = [metafeature]
+
+    tuner = executor.Executor(self._context)
+    tuner.Do(
+        input_dict=input_dict,
+        output_dict=self._output_dict,
+        exec_properties=exec_properties)
     self._verify_output()
 
   def testTuneArgs(self):

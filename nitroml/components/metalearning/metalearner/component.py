@@ -48,10 +48,10 @@ class MetaLearnerSpec(ComponentSpec):
       }
   }
   OUTPUTS = {
-      'metalearned_model':
+      'metamodel':
           ChannelParameter(type=standard_artifacts.Model),
       'output_hyperparameters':
-          ChannelParameter(type=standard_artifacts.HyperParameters),
+          ChannelParameter(type=artifacts.KCandidateHyperParameters),
   }
 
 
@@ -88,11 +88,11 @@ class MetaLearner(base_component.BaseComponent):
     model = types.Channel(
         type=standard_artifacts.Model, artifacts=[standard_artifacts.Model()])
     output_hyperparameters = types.Channel(
-        type=standard_artifacts.HyperParameters,
-        artifacts=[standard_artifacts.HyperParameters()])
+        type=artifacts.KCandidateHyperParameters,
+        artifacts=[artifacts.KCandidateHyperParameters()])
     spec = MetaLearnerSpec(
         algorithm=algorithm,
-        metalearned_model=model,
+        metamodel=model,
         output_hyperparameters=output_hyperparameters,
         custom_config=custom_config,
         **meta_train_data)

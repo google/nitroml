@@ -66,7 +66,6 @@ class OpenMLCC18(suite.Suite):
     self.root_dir = os.path.join(root_dir, 'openML_datasets')
     self.max_threads = max_threads
     self.api_key = api_key
-
     if use_cache:
 
       if tf.io.gfile.exists(self.root_dir):

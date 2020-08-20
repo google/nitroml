@@ -52,6 +52,8 @@ class OpenMLTask(task.Task):
     self._num_classes = num_classes
     self._description = description
     self._label_key = label_key
+    # TODO(nikhilmehta, weill): Subbenchmarking also appends task.name
+    # to the component_id. Fix this when variable scoping is introduced.
     self._example_gen = tfx.CsvExampleGen(
         input_base=os.path.join(root_dir, f'{dataset_name}', 'data'),
         instance_name=self.name)

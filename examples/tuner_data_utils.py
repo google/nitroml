@@ -16,10 +16,12 @@
 """NitroML Tuner utils."""
 
 import itertools
+import string
 from typing import Dict, List, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn import metrics
 
 
 def aggregate_tuner_data(
@@ -27,9 +29,8 @@ def aggregate_tuner_data(
   """Returns the mean and its std_error for a list of dicts with same keys.
 
   Args:
-    keys: List of common string keys to find the mean and average for.
+    keys: List of string keys to aggregate which are common to all dicts.
     data_list: List of dicts to aggregate.
-
   Returns:
     Aggregate data dict.
   """
@@ -62,8 +63,7 @@ def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]],
     save_plot: If True, saves the plot in local dir.
   """
 
-  # keys = ['warmup_trial_data', 'tuner_trial_data', 'best_cumulative_score']
-  keys = ['warmup_trial_data', 'tuner_trial_data']
+  keys = ['warmup_trial_data', 'tuner_trial_data', 'best_cumulative_score']
   data = aggregate_tuner_data(keys, data_list)
   data['objective'] = data_list[0]['objective']
 
@@ -86,12 +86,9 @@ def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]],
         linewidth=2,
         marker='o')
 
-    if key == 'warmup_trial_data':
-      title = 'MetaLearning-based Tuner'
-    else:
-      title = 'Random Tuner'
-
-    axs[ix].set_title(f'{title} ({num_trials} trials)')
+    alc = metrics.auc(np.arange(1, num_trials + 1), tuner_score_mean)
+    title = string.capwords(key.replace(' ', '_'))
+    axs[ix].set_title(f'{title} (ALC = {alc:.2f} for {num_trials} trials)')
 
     ymax = max(np.max(tuner_score_mean), ymax)
     ymin = min(np.min(tuner_score_mean), ymin)
@@ -104,11 +101,11 @@ def display_tuner_data_with_error_bars(data_list: List[Dict[str, Any]],
     ax.set_ylim(ymin, ymax)
     ax.set_xlabel('Trial')
   if save_plot:
-    plt.savefig('result.png', bbox_inches='tight', pad_inches=0)
+    plt.savefig('result.png', bbox_inches='tight')
   plt.show()
 
 
-def display_tuner_data(data):
+def display_tuner_data(data, save_plot=True):
   """Plots tuner data."""
 
   warmup_tuner_score = data['warmup_trial_data']
@@ -157,5 +154,8 @@ def display_tuner_data(data):
   axs[2].set_ylim(ymin, ymax)
   axs[2].set_title(f'Random Tuning ({num_random_trials} trials)')
   axs[2].set_xlabel('Trial')
+
+  if save_plot:
+    plt.savefig('display_tuner_data.png', bbox_inches='tight')
 
   plt.show()

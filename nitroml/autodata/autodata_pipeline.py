@@ -66,6 +66,7 @@ class AutoData:
 
     self._preprocessor = preprocessor
     self._instance_name = instance_name
+    self._problem_statement = problem_statement
 
     # Computes statistics over data for visualization and example validation.
     self._statistics_gen = self._build_statistics_gen(examples, self.id)
@@ -86,6 +87,12 @@ class AutoData:
     if self._instance_name:
       autodata_instance_name = f'{autodata_instance_name}.{self._instance_name}'
     return autodata_instance_name
+
+  @property
+  def problem_statement(self) -> ps_pb2.ProblemStatement:
+    """Returns the problem_statement associated with the AutoData."""
+
+    return self._problem_statement
 
   @property
   def components(self) -> List[base_component.BaseComponent]:

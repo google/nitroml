@@ -38,16 +38,27 @@ class ComponentTest(absltest.TestCase):
 
     self.custom_config = {'some': 'thing', 'some other': 1, 'thing': 2}
 
-  def testConstruct(self):
-    algorithm = 'majority_voting'
+  def testConstructWithMajorityVoting(self):
+
     metalearner = MetaLearner(
-        algorithm=algorithm,
+        algorithm='majority_voting',
         custom_config=self.custom_config,
         **self.meta_train_data)
-    self.assertEqual(standard_artifacts.HyperParameters.TYPE_NAME,
+    self.assertEqual(artifacts.KCandidateHyperParameters.TYPE_NAME,
                      metalearner.outputs['output_hyperparameters'].type_name)
     self.assertEqual(standard_artifacts.Model.TYPE_NAME,
-                     metalearner.outputs['metalearned_model'].type_name)
+                     metalearner.outputs['metamodel'].type_name)
+
+  def testConstructWithNearestNeighbor(self):
+
+    metalearner = MetaLearner(
+        algorithm='nearest_neighbor',
+        custom_config=self.custom_config,
+        **self.meta_train_data)
+    self.assertEqual(artifacts.KCandidateHyperParameters.TYPE_NAME,
+                     metalearner.outputs['output_hyperparameters'].type_name)
+    self.assertEqual(standard_artifacts.Model.TYPE_NAME,
+                     metalearner.outputs['metamodel'].type_name)
 
 
 if __name__ == '__main__':
