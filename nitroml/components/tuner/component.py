@@ -56,6 +56,9 @@ class AugmentedTunerSpec(ComponentSpec):
       'transform_graph':
           ChannelParameter(
               type=standard_artifacts.TransformGraph, optional=True),
+      'warmup_hyperparameters':
+          ChannelParameter(
+              type=standard_artifacts.HyperParameters, optional=True),
   }
   OUTPUTS = {
       'best_hyperparameters':
@@ -83,6 +86,7 @@ class AugmentedTuner(base_component.BaseComponent):
                eval_args: trainer_pb2.EvalArgs = None,
                tune_args: Optional[tuner_pb2.TuneArgs] = None,
                custom_config: Optional[Dict[str, Any]] = None,
+               warmup_hyperparameters: Optional[types.Channel] = None,
                best_hyperparameters: Optional[types.Channel] = None,
                instance_name: Optional[str] = None):
     """Constructs custom Tuner component that stores trial learning curve.
@@ -117,6 +121,10 @@ class AugmentedTuner(base_component.BaseComponent):
         Currently only num_parallel_trials is available.
       custom_config: A dict which contains addtional training job parameters
         that will be passed into user module.
+      warmup_hyperparameters: Optional Channel of type
+        `standard_artifacts.HyperParameters` representing a narrow search space
+        for warm-starting the tuner (generally the output of a metalearning
+        component or subpipeline).
       best_hyperparameters: Optional Channel of type
         `standard_artifacts.HyperParameters` for result of the best hparams.
       instance_name: Optional unique instance name. Necessary if multiple Tuner
@@ -140,6 +148,7 @@ class AugmentedTuner(base_component.BaseComponent):
         train_args=train_args,
         eval_args=eval_args,
         tune_args=tune_args,
+        warmup_hyperparameters=warmup_hyperparameters,
         best_hyperparameters=best_hyperparameters,
         trial_summary_plot=trial_summary_plot,
         custom_config=json_utils.dumps(custom_config),

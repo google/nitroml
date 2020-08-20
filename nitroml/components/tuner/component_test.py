@@ -41,6 +41,8 @@ class ComponentTest(absltest.TestCase):
     self.train_args = trainer_pb2.TrainArgs(num_steps=100)
     self.eval_args = trainer_pb2.EvalArgs(num_steps=50)
     self.tune_args = tuner_pb2.TuneArgs(num_parallel_trials=3)
+    self.warmup_hyperparams = channel_utils.as_channel(
+        [standard_artifacts.HyperParameters()])
 
   def _verify_outputs(self, tuner):
     self.assertEqual(standard_artifacts.HyperParameters.TYPE_NAME,
@@ -69,6 +71,21 @@ class ComponentTest(absltest.TestCase):
         eval_args=self.eval_args,
         tune_args=self.tune_args,
         module_file='some/random/path/tuner_fn',
+        custom_config=self.custom_config)
+    self._verify_outputs(tuner)
+
+  def testConstructWithWarmStarting(self):
+    custom_config = self.custom_config.copy()
+    custom_config['metalearning_algorithm'] = 'max_voting'
+    tuner = tuner_component.AugmentedTuner(
+        examples=self.examples,
+        schema=self.schema,
+        transform_graph=self.transform_graph,
+        train_args=self.train_args,
+        eval_args=self.eval_args,
+        tune_args=self.tune_args,
+        module_file='some/random/path/tuner_fn',
+        warmup_hyperparameters=self.warmup_hyperparams,
         custom_config=self.custom_config)
     self._verify_outputs(tuner)
 

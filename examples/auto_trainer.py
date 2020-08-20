@@ -24,6 +24,7 @@ from typing import Any, Callable, List, Optional, Dict
 
 from absl import logging
 import kerastuner
+from kerastuner.engine import hyperparameters as hp_module
 from nitroml.components.tuner.executor import get_tuner_cls_with_callbacks
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
@@ -44,6 +45,7 @@ def _get_hyperparameters() -> kerastuner.HyperParameters:
 
   hp = kerastuner.HyperParameters()
   hp.Choice('learning_rate', [1e-1, 1e-2, 1e-3], default=1e-2)
+  hp.Choice('optimizer', ['Adam', 'SGD', 'RMSprop', 'Adagrad'], default='Adam')
   hp.Int('num_layers', min_value=1, max_value=5, step=1, default=2)
   hp.Int('num_nodes', min_value=32, max_value=512, step=32, default=128)
   return hp
@@ -80,15 +82,20 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
       transform_graph_dir=fn_args.transform_graph_path)
 
   build_keras_model = lambda hparams: _build_keras_model(data_provider, hparams)
+  if 'warmup_hyperparameters' in fn_args.custom_config:
+    hyperparameters = hp_module.HyperParameters.from_config(
+        fn_args.custom_config['warmup_hyperparameters'])
+  else:
+    hyperparameters = _get_hyperparameters()
   tuner_cls = get_tuner_cls_with_callbacks(kerastuner.RandomSearch)
   tuner = tuner_cls(
       build_keras_model,
       max_trials=fn_args.custom_config.get('max_trials', 10),
-      hyperparameters=_get_hyperparameters(),
+      hyperparameters=hyperparameters,
       allow_new_entries=False,
-      objective=kerastuner.Objective('val_accuracy', 'max'),
+      objective=data_provider.tuner_objective,
       directory=fn_args.working_dir,
-      project_name='_'.join([data_provider.task_name, 'tuning']))
+      project_name=f'{data_provider.task_name}_tuning')
 
   train_dataset = data_provider.get_input_fn(
       file_pattern=fn_args.train_files,
@@ -108,7 +115,6 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
           'x': train_dataset,
           'validation_data': eval_dataset,
           'steps_per_epoch': fn_args.train_steps,
-          'validation_steps': fn_args.eval_steps,
       })
 
 
@@ -233,8 +239,10 @@ class KerasDataProvider:
 
   @property
   def num_classes(self) -> int:
+    """Returns the total classes using (num_buckets - num_oov_buckets) from tft."""
+
     return self._tf_transform_output.num_buckets_for_transformed_feature(
-        self.label_key)
+        self.label_key) - 1
 
   @property
   def task_name(self) -> str:
@@ -253,7 +261,6 @@ class KerasDataProvider:
 
     return self.raw_label_keys
 
-  # TODO(nikhilmehta): Consider seperating "head" and "loss" from the adapter.
   @property
   def head_size(self) -> int:
     """Returns the head size for this task."""
@@ -282,6 +289,7 @@ class KerasDataProvider:
 
   @property
   def metrics(self) -> List[tf.keras.metrics.Metric]:
+    """Returns the keras metrics for evaluation."""
 
     if self.num_classes == 2:
       return [
@@ -293,6 +301,15 @@ class KerasDataProvider:
         tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy'),
         tf.keras.metrics.SparseCategoricalCrossentropy(name='average_loss')
     ]
+
+  @property
+  def tuner_objective(self) -> kerastuner.Objective:
+    """Returns the target objective of the tuner."""
+
+    if self.num_classes == 2:
+      return kerastuner.Objective('val_auc', 'max')
+    else:
+      return kerastuner.Objective('val_accuracy', 'max')
 
   def get_input_layers(self) -> Dict[str, tf.keras.layers.Input]:
     """Returns input layers for a Keras Model."""
@@ -616,10 +633,21 @@ def _build_keras_model(data_provider: KerasDataProvider,
           x)
 
   model = tf.keras.Model(input_layers, output)
+
+  lr = float(hparams.get('learning_rate'))
+  optimizer_str = hparams.get('optimizer')
+  if optimizer_str == 'Adam':
+    optimizer = tf.keras.optimizers.Adam(lr=lr)
+  elif optimizer_str == 'Adagrad':
+    optimizer = tf.keras.optimizers.Adagrad(lr=lr)
+  elif optimizer_str == 'RMSprop':
+    optimizer = tf.keras.optimizers.RMSprop(lr=lr)
+  elif optimizer_str == 'SGD':
+    optimizer = tf.keras.optimizers.SGD(lr=lr)
+
   model.compile(
       loss=data_provider.loss,
-      optimizer=tf.keras.optimizers.Adam(
-          lr=float(hparams.get('learning_rate'))),
+      optimizer=optimizer,
       metrics=data_provider.metrics)
   model.summary()
 
