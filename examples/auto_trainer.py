@@ -44,10 +44,10 @@ def _get_hyperparameters() -> kerastuner.HyperParameters:
   """Returns hyperparameters for building Keras model."""
 
   hp = kerastuner.HyperParameters()
-  hp.Choice('learning_rate', [1e-1, 1e-2, 1e-3], default=1e-2)
+  hp.Choice('learning_rate', [1e-1, 1e-2, 1e-3, 1e-4], default=1e-1)
   hp.Choice('optimizer', ['Adam', 'SGD', 'RMSprop', 'Adagrad'], default='Adam')
-  hp.Int('num_layers', min_value=1, max_value=5, step=1, default=2)
-  hp.Int('num_nodes', min_value=32, max_value=512, step=32, default=128)
+  hp.Int('num_layers', min_value=1, max_value=5, step=1, default=1)
+  hp.Int('num_nodes', min_value=32, max_value=512, step=32, default=512)
   return hp
 
 
@@ -87,6 +87,7 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
         fn_args.custom_config['warmup_hyperparameters'])
   else:
     hyperparameters = _get_hyperparameters()
+
   tuner_cls = get_tuner_cls_with_callbacks(kerastuner.RandomSearch)
   tuner = tuner_cls(
       build_keras_model,
@@ -97,15 +98,16 @@ def tuner_fn(fn_args: fn_args_utils.FnArgs) -> TunerFnResult:
       directory=fn_args.working_dir,
       project_name=f'{data_provider.task_name}_tuning')
 
+  # TODO(nikhilmehta): Make batch-size tunable hyperparameter.
   train_dataset = data_provider.get_input_fn(
       file_pattern=fn_args.train_files,
-      batch_size=64,
+      batch_size=128,
       num_epochs=None,
       shuffle=True)()
 
   eval_dataset = data_provider.get_input_fn(
       file_pattern=fn_args.eval_files,
-      batch_size=64,
+      batch_size=128,
       num_epochs=1,
       shuffle=False)()
 

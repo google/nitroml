@@ -41,11 +41,9 @@ class MetaLearningTest(e2etest.BenchmarkTestCase):
                           mock_data=True,
                           algorithm=algorithm)
 
-    self.assertComponentExecutionCount(15)
-
     train_dataset_ids = [1]
     for ix in train_dataset_ids:
-      instance_name = 'MetaLearningBenchmark.benchmark.OpenML.mockdata_2'
+      instance_name = 'MetaLearningBenchmark.benchmark'
       self.assertComponentSucceeded(
           f'CsvExampleGen.OpenML.mockdata_{ix}.{instance_name}')
       self.assertComponentSucceeded(

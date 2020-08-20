@@ -105,7 +105,7 @@ class ExecutorTest(absltest.TestCase):
     with tf.io.gfile.GFile(best_hparams_path, mode='r') as f:
       best_hparams_config = json.loads(f.read())
     best_hparams = HyperParameters.from_config(best_hparams_config)
-    self.assertIn(best_hparams.get('learning_rate'), (1e-1, 1e-2, 1e-3))
+    self.assertBetween(best_hparams.get('learning_rate'), 1e-4, 1.01)
     self.assertBetween(best_hparams.get('num_layers'), 1, 5)
 
   def testDoWithTunerFn(self):
