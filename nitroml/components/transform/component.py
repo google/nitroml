@@ -20,8 +20,8 @@ from typing import Any, Dict, Optional, Text, Union
 
 from nitroml.components.transform import executor
 from tfx import types
-from tfx.components.base import base_component
-from tfx.components.base import executor_spec
+from tfx.dsl.components.base import base_component
+from tfx.dsl.components.base import executor_spec
 from tfx.orchestration import data_types
 from tfx.types import artifact
 from tfx.types import artifact_utils

@@ -25,7 +25,7 @@ import kerastuner
 from nitroml.components.metalearning import artifacts
 import numpy as np
 import tensorflow as tf
-from tfx.components.base import base_executor
+from tfx.dsl.components.base import base_executor
 from tfx.types import artifact_utils
 from tfx.types.artifact import Artifact
 from tfx.utils import io_utils

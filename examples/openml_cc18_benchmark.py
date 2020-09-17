@@ -25,14 +25,15 @@ To run in open-source:
 # pylint: disable=g-import-not-at-top
 import os
 import sys
+
 # Required since Python binaries ignore relative paths when importing:
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
 from examples import config
 from tfx import components as tfx
-from tfx.components.base import executor_spec
 from tfx.components.trainer import executor as trainer_executor
+from tfx.dsl.components.base import executor_spec
 from tfx.proto import trainer_pb2
 
 from google.protobuf import text_format

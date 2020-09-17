@@ -20,8 +20,8 @@ from typing import Any, Dict, Optional
 from nitroml.components.metalearning import artifacts
 from nitroml.components.metalearning.tuner import executor
 from tfx import types
-from tfx.components.base import base_component
-from tfx.components.base import executor_spec
+from tfx.dsl.components.base import base_component
+from tfx.dsl.components.base import executor_spec
 from tfx.proto import trainer_pb2
 from tfx.proto import tuner_pb2
 from tfx.types import standard_artifacts

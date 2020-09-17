@@ -46,7 +46,7 @@ import tensorflow as tf
 import tensorflow_model_analysis as tfma
 from tfx import components as tfx
 from tfx import types
-from tfx.components.base import base_component
+from tfx.dsl.components.base import base_component
 from tfx.orchestration import pipeline as pipeline_lib
 from tfx.orchestration import tfx_runner as tfx_runner_lib
 from tfx.orchestration.beam import beam_dag_runner

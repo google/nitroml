@@ -18,8 +18,8 @@
 from typing import Text
 
 from nitroml.components.publisher import executor
-from tfx.components.base import base_component
-from tfx.components.base import executor_spec
+from tfx.dsl.components.base import base_component
+from tfx.dsl.components.base import executor_spec
 from tfx.types import channel_utils
 from tfx.types import standard_artifacts
 from tfx.types.artifact import Artifact

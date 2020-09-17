@@ -22,7 +22,7 @@ from nitroml.components.metalearning.metafeature_gen.component import MetaFeatur
 from nitroml.components.metalearning.metalearner import component as metalearner
 from nitroml.components.metalearning.tuner import component as tuner_component
 from tfx import types
-from tfx.components.base import base_component
+from tfx.dsl.components.base import base_component
 from tfx.proto import trainer_pb2
 
 from google.protobuf import text_format

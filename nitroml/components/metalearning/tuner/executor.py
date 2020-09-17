@@ -18,7 +18,7 @@
 import json
 import os
 import sys
-from typing import cast, Any, Dict, List, Tuple, Type
+from typing import Any, Dict, List, Tuple, Type, cast
 
 from absl import logging
 import kerastuner
@@ -26,11 +26,11 @@ from kerastuner.engine import base_tuner
 import numpy as np
 import tensorflow as tf
 from tfx import types
-from tfx.components.base import base_executor
 from tfx.components.trainer import fn_args_utils
 from tfx.components.tuner import executor as tfx_tuner
 from tfx.components.tuner.component import TunerFnResult
 from tfx.components.util import udf_utils
+from tfx.dsl.components.base import base_executor
 from tfx.types import artifact_utils
 from tfx.utils import io_utils
 

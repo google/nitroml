@@ -23,7 +23,7 @@ from nitroml.autodata.preprocessors import preprocessor as pp
 from nitroml.components.transform import component as transform
 from tfx import components as tfx
 from tfx import types
-from tfx.components.base import base_component
+from tfx.dsl.components.base import base_component
 
 from nitroml.protos import problem_statement_pb2 as ps_pb2
 

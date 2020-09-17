@@ -21,7 +21,7 @@ from nitroml import results
 import tensorflow.compat.v2 as tf
 import tensorflow_model_analysis as tfma
 
-from tfx.components.base import base_executor
+from tfx.dsl.components.base import base_executor
 from tfx.types import artifact_utils
 from tfx.types.artifact import Artifact
 

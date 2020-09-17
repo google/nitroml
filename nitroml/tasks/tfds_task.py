@@ -22,7 +22,7 @@ from nitroml.tasks import task
 import tensorflow_datasets as tfds
 from tfx import components as tfx
 from tfx import types
-from tfx.components.base import base_component
+from tfx.dsl.components.base import base_component
 from tfx.proto import example_gen_pb2
 from tfx.utils.dsl_utils import external_input
 

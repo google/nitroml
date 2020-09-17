@@ -18,7 +18,7 @@ r"""An AutoML benchmark tasks."""
 import abc
 from typing import List
 from tfx import types
-from tfx.components.base import base_component
+from tfx.dsl.components.base import base_component
 
 from nitroml.protos import problem_statement_pb2 as ps_pb2
 

@@ -34,8 +34,8 @@ from absl.testing import parameterized
 
 import nitroml
 import tensorflow as tf
-from tfx.components.base import base_component
-from tfx.components.base import base_driver
+from tfx.dsl.components.base import base_component
+from tfx.dsl.components.base import base_driver
 from tfx.orchestration import metadata
 from tfx.orchestration import pipeline
 from tfx.orchestration.beam import beam_dag_runner
