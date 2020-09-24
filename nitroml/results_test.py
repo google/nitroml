@@ -490,5 +490,58 @@ class GetBenchmarkResultsTest(absltest.TestCase):
     self.assertEqual(want_result, result)
 
 
+class GetStatisticsGenDirectoryTest(absltest.TestCase):
+
+  def setUp(self):
+    super(GetStatisticsGenDirectoryTest, self).setUp()
+    config = metadata_store_pb2.ConnectionConfig()
+    config.fake_database.SetInParent()
+    self.store = metadata_store.MetadataStore(config)
+    self.exec_type_id = self._put_execution_type()
+    self.artifact_type_id = self._put_artifact_type()
+
+  def _put_execution_type(self) -> int:
+    exec_type = metadata_store_pb2.ExecutionType()
+    exec_type.name = 'BenchmarkResultPublisher'
+    exec_type.properties[results.RUN_ID_KEY] = metadata_store_pb2.STRING
+    return self.store.put_execution_type(exec_type)
+
+  def _put_artifact_type(self) -> int:
+    artifact_type = metadata_store_pb2.ArtifactType()
+    artifact_type.name = results._STATS
+    return self.store.put_artifact_type(artifact_type)
+
+  def _put_execution(self, run_id: str) -> int:
+    execution = metadata_store_pb2.Execution()
+    execution.properties[results.RUN_ID_KEY].string_value = run_id
+    execution.type_id = self.exec_type_id
+    return self.store.put_executions([execution])[0]
+
+  def _put_artifact(self, properties: Dict[str, str]) -> int:
+    artifact = metadata_store_pb2.Artifact()
+    artifact.uri = 'test/path/to/statsgen'
+    artifact.type_id = self.artifact_type_id
+    for name, val in properties.items():
+      artifact.custom_properties[name].string_value = val
+    return self.store.put_artifacts([artifact])[0]
+
+  def _put_event(self, artifact_id: int, execution_id: int) -> None:
+    event = metadata_store_pb2.Event()
+    event.type = metadata_store_pb2.Event.OUTPUT
+    event.artifact_id = artifact_id
+    event.execution_id = execution_id
+    self.store.put_events([event])
+
+  def testGetStatistictsGenDir(self):
+    run_id = '0'
+    artifact_id = self._put_artifact({'test_element': 'test_output'})
+    execution_id = self._put_execution(run_id)
+    self._put_event(artifact_id, execution_id)
+
+    expected_dirs = ['test/path/to/statsgen']
+    result_dirs = results.get_statisticsgen_dir_list(self.store)
+    self.assertEqual(result_dirs, expected_dirs)
+
+
 if __name__ == '__main__':
   absltest.main()

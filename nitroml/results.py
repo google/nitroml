@@ -44,6 +44,7 @@ _BENCHMARK_RESULT = 'NitroML.BenchmarkResult'
 _KAGGLE_RESULT = 'NitroML.KaggleSubmissionResult'
 _KAGGLE_PUBLISHER = 'nitroml.google.autokaggle.components.publisher.component.KagglePublisher'
 _KAGGLE_PUBLISHER_PREFIX = 'KagglePublisher'
+_STATS = 'ExampleStatistics'
 
 # Name constants
 _HPARAMS = 'hparams'
@@ -299,6 +300,15 @@ def get_model_dir_map(store: metadata_store.MetadataStore) -> Dict[str, str]:
   return _eval_execs_to_model_dir_map(evaluator_execs)
 
 
+def get_statisticsgen_dir_list(
+    store: metadata_store.MetadataStore) -> List[str]:
+  """Obtains a list of statisticsgen_dir from the store."""
+
+  stats_artifacts = store.get_artifacts_by_type(_STATS)
+  stat_dirs_list = list(map(lambda x: x.uri, stats_artifacts))
+  return stat_dirs_list
+
+
 def _make_dataframe(metrics_list: List[Dict[str, Any]],
                     columns: List[str]) -> pd.DataFrame:
   """Makes pandas.DataFrame from metrics_list."""
@@ -363,9 +373,9 @@ def overview(
 
   Args:
     store: MetaDataStore object for connecting to an MLMD instance.
-    metric_aggregators: Iterable of functions and/or function names,
-      e.g. [np.sum, 'mean']. Groups individual runs by their contextual features
-      (run id, hparams), and aggregates metrics by the given functions. If a
+    metric_aggregators: Iterable of functions and/or function names, e.g.
+      [np.sum, 'mean']. Groups individual runs by their contextual features (run
+      id, hparams), and aggregates metrics by the given functions. If a
       function, must either work when passed a DataFrame or when passed to
       DataFrame.apply.
 
