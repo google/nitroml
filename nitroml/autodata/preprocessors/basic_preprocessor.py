@@ -15,7 +15,7 @@
 # Lint as: python3
 """An basic implementation of an automatic data preprocessor."""
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Union
 
 from nitroml.autodata.preprocessors import preprocessor
 import tensorflow as tf
@@ -49,8 +49,7 @@ class BasicPreprocessor(preprocessor.Preprocessor):
     return 'nitroml.autodata.preprocessors.basic_preprocessor.preprocessing_fn'
 
   def custom_config(
-      self,
-      problem_statement: ps_pb2.ProblemStatement) -> Optional[Dict[str, Any]]:
+      self, problem_statement: ps_pb2.ProblemStatement) -> Dict[str, Any]:
     """Returns the custom config to pass to preprocessing_fn."""
 
     return {
