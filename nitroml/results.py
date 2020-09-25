@@ -305,7 +305,7 @@ def get_statisticsgen_dir_list(
   """Obtains a list of statisticsgen_dir from the store."""
 
   stats_artifacts = store.get_artifacts_by_type(_STATS)
-  stat_dirs_list = list(map(lambda x: x.uri, stats_artifacts))
+  stat_dirs_list = [artifact.uri for artifact in stats_artifacts]
   return stat_dirs_list
 
 
