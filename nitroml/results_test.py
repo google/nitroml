@@ -17,12 +17,12 @@
 
 import datetime
 import os
-from typing import Dict
 
 from absl.testing import absltest
 from absl.testing import parameterized
 
 from nitroml import results
+from nitroml.testing import test_mlmd
 from ml_metadata import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 
@@ -377,12 +377,13 @@ class MergeResultTest(absltest.TestCase):
 
 class GetHparamsTest(absltest.TestCase):
 
+  def __init__(self, *args, **kwargs):
+    super(GetHparamsTest, self).__init__(*args, **kwargs)
+    self.test_mlmd = test_mlmd.TestMLMD(exec_type_name=results._TRAINER)
+
   def setUp(self):
     super(GetHparamsTest, self).setUp()
-    config = metadata_store_pb2.ConnectionConfig()
-    config.fake_database.SetInParent()
-    self.store = metadata_store.MetadataStore(config)
-    self.exec_type_id = self._put_execution_type()
+    self._put_execution_type()
 
   def _put_execution_type(self) -> int:
     exec_type = metadata_store_pb2.ExecutionType()
@@ -390,15 +391,16 @@ class GetHparamsTest(absltest.TestCase):
     exec_type.properties[results.RUN_ID_KEY] = metadata_store_pb2.STRING
     exec_type.properties[results._HPARAMS] = metadata_store_pb2.STRING
     exec_type.properties[results._COMPONENT_ID] = metadata_store_pb2.STRING
-    return self.store.put_execution_type(exec_type)
+    return self.test_mlmd.store.put_execution_type(exec_type,
+                                                   can_add_fields=True)
 
   def _put_execution(self, run_id: str, trainer_name: str, hparam: str):
     execution = metadata_store_pb2.Execution()
     execution.properties[results._HPARAMS].string_value = hparam
     execution.properties[results.RUN_ID_KEY].string_value = run_id
     execution.properties[results._COMPONENT_ID].string_value = trainer_name
-    execution.type_id = self.exec_type_id
-    self.store.put_executions([execution])
+    execution.type_id = self.test_mlmd.exec_type_id
+    self.test_mlmd.store.put_executions([execution])
 
   def testGetHparams(self):
     hparam = "['batch_size=256', 'learning_rate=0.05', 'decay_rate=0.95']"
@@ -406,7 +408,7 @@ class GetHparamsTest(absltest.TestCase):
     trainer_name = results._TRAINER_PREFIX + '.Test'
     self._put_execution(run_id, trainer_name, hparam)
 
-    result = results._get_hparams(self.store)
+    result = results._get_hparams(self.test_mlmd.store)
 
     want_result = results._Result(
         properties={
@@ -425,56 +427,21 @@ class GetHparamsTest(absltest.TestCase):
 
 class GetBenchmarkResultsTest(absltest.TestCase):
 
-  def setUp(self):
-    super(GetBenchmarkResultsTest, self).setUp()
-    config = metadata_store_pb2.ConnectionConfig()
-    config.fake_database.SetInParent()
-    self.store = metadata_store.MetadataStore(config)
-    self.exec_type_id = self._put_execution_type()
-    self.artifact_type_id = self._put_artifact_type()
-
-  def _put_execution_type(self) -> int:
-    exec_type = metadata_store_pb2.ExecutionType()
-    exec_type.name = 'BenchmarkResultPublisher'
-    exec_type.properties[results.RUN_ID_KEY] = metadata_store_pb2.STRING
-    return self.store.put_execution_type(exec_type)
-
-  def _put_artifact_type(self) -> int:
-    artifact_type = metadata_store_pb2.ArtifactType()
-    artifact_type.name = results._BENCHMARK_RESULT
-    return self.store.put_artifact_type(artifact_type)
-
-  def _put_execution(self, run_id: str) -> int:
-    execution = metadata_store_pb2.Execution()
-    execution.properties[results.RUN_ID_KEY].string_value = run_id
-    execution.type_id = self.exec_type_id
-    return self.store.put_executions([execution])[0]
-
-  def _put_artifact(self, properties: Dict[str, str]) -> int:
-    artifact = metadata_store_pb2.Artifact()
-    artifact.type_id = self.artifact_type_id
-    for name, val in properties.items():
-      artifact.custom_properties[name].string_value = val
-    return self.store.put_artifacts([artifact])[0]
-
-  def _put_event(self, artifact_id: int, execution_id: int) -> None:
-    event = metadata_store_pb2.Event()
-    event.type = metadata_store_pb2.Event.OUTPUT
-    event.artifact_id = artifact_id
-    event.execution_id = execution_id
-    self.store.put_events([event])
+  def __init__(self, *args, **kwargs):
+    super(GetBenchmarkResultsTest, self).__init__(*args, **kwargs)
+    self.test_mlmd = test_mlmd.TestMLMD()
 
   def testGetBenchmarkResults(self):
     run_id = '0'
-    artifact_id = self._put_artifact({
+    artifact_id = self.test_mlmd.put_artifact({
         'accuracy': '0.25',
         'average_loss': '2.40',
         results.BENCHMARK_KEY: 'Test'
     })
-    execution_id = self._put_execution(run_id)
-    self._put_event(artifact_id, execution_id)
+    execution_id = self.test_mlmd.put_execution(run_id)
+    self.test_mlmd.put_event(artifact_id, execution_id)
 
-    result = results._get_benchmark_results(self.store)
+    result = results._get_benchmark_results(self.test_mlmd.store)
 
     want_result = results._Result(
         properties={
@@ -492,54 +459,18 @@ class GetBenchmarkResultsTest(absltest.TestCase):
 
 class GetStatisticsGenDirectoryTest(absltest.TestCase):
 
-  def setUp(self):
-    super(GetStatisticsGenDirectoryTest, self).setUp()
-    config = metadata_store_pb2.ConnectionConfig()
-    config.fake_database.SetInParent()
-    self.store = metadata_store.MetadataStore(config)
-    self.exec_type_id = self._put_execution_type()
-    self.artifact_type_id = self._put_artifact_type()
-
-  def _put_execution_type(self) -> int:
-    exec_type = metadata_store_pb2.ExecutionType()
-    exec_type.name = 'BenchmarkResultPublisher'
-    exec_type.properties[results.RUN_ID_KEY] = metadata_store_pb2.STRING
-    return self.store.put_execution_type(exec_type)
-
-  def _put_artifact_type(self) -> int:
-    artifact_type = metadata_store_pb2.ArtifactType()
-    artifact_type.name = results._STATS
-    return self.store.put_artifact_type(artifact_type)
-
-  def _put_execution(self, run_id: str) -> int:
-    execution = metadata_store_pb2.Execution()
-    execution.properties[results.RUN_ID_KEY].string_value = run_id
-    execution.type_id = self.exec_type_id
-    return self.store.put_executions([execution])[0]
-
-  def _put_artifact(self, properties: Dict[str, str]) -> int:
-    artifact = metadata_store_pb2.Artifact()
-    artifact.uri = 'test/path/to/statsgen'
-    artifact.type_id = self.artifact_type_id
-    for name, val in properties.items():
-      artifact.custom_properties[name].string_value = val
-    return self.store.put_artifacts([artifact])[0]
-
-  def _put_event(self, artifact_id: int, execution_id: int) -> None:
-    event = metadata_store_pb2.Event()
-    event.type = metadata_store_pb2.Event.OUTPUT
-    event.artifact_id = artifact_id
-    event.execution_id = execution_id
-    self.store.put_events([event])
+  def __init__(self, *args, **kwargs):
+    super(GetStatisticsGenDirectoryTest, self).__init__(*args, **kwargs)
+    self.test_mlmd = test_mlmd.TestMLMD(artifact_type=results._STATS)
 
   def testGetStatistictsGenDir(self):
     run_id = '0'
-    artifact_id = self._put_artifact({'test_element': 'test_output'})
-    execution_id = self._put_execution(run_id)
-    self._put_event(artifact_id, execution_id)
+    artifact_id = self.test_mlmd.put_artifact({'test_element': 'test_output'})
+    execution_id = self.test_mlmd.put_execution(run_id)
+    self.test_mlmd.put_event(artifact_id, execution_id)
 
-    expected_dirs = ['test/path/to/statsgen']
-    result_dirs = results.get_statisticsgen_dir_list(self.store)
+    expected_dirs = ['test/path/']
+    result_dirs = results.get_statisticsgen_dir_list(self.test_mlmd.store)
     self.assertEqual(result_dirs, expected_dirs)
 
 
