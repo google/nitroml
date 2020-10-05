@@ -27,9 +27,9 @@ class Executor(executor.Executor):
   """Transform executor."""
 
   def _GetPreprocessingFn(self, inputs: Mapping[Text, Any],
-                          unused_outputs: Mapping[Text, Any]) -> Any:
+                          outputs: Mapping[Text, Any]) -> Any:
     """See base class."""
-    fn = super(Executor, self)._GetPreprocessingFn(inputs, unused_outputs)
+    fn = super(Executor, self)._GetPreprocessingFn(inputs, outputs)
     # The internal function's inputs argument shadows the external inputs
     # argument. We can't rename either in case inputs are specified as kwargs,
     # so we keep a reference to the external inputs here instead.
@@ -37,13 +37,19 @@ class Executor(executor.Executor):
 
     def preprocessing_fn(inputs):
       """The preprocessing_fn to return."""
-      args = {}
+      kwargs = {}
       argspec = inspect.getfullargspec(fn).args
+
       if 'schema' in argspec:
         schema_path = components.util.value_utils.GetSoleValue(
             inputs_dict, labels.SCHEMA_PATH_LABEL)
         schema = self._GetSchema(schema_path)
-        args['schema'] = schema
-      return fn(inputs, **args)
+        kwargs['schema'] = schema
+
+      if 'transform_graph_dir' in argspec:
+        kwargs[
+            'transform_graph_dir'] = components.util.value_utils.GetSoleValue(
+                outputs, labels.TRANSFORM_METADATA_OUTPUT_PATH_LABEL)
+      return fn(inputs, **kwargs)
 
     return preprocessing_fn
