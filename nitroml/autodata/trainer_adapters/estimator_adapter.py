@@ -20,7 +20,7 @@ The consumed artifacts include:
  * TensorFlow Transform outputs.
 """
 
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Union
 
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
@@ -78,7 +78,7 @@ class EstimatorAdapter:
   def head(self) -> tf.estimator.Head:
     """Returns the Estimator Head for this task."""
 
-    # TODO(github.com/googleinterns/nitroml/issues/29): Regression tasks
+    # TODO(github.com/google/nitroml/issues/29): Regression tasks
     # (self._num_classes==0)
     if self._num_classes > 2:
       return tf.estimator.MultiClassHead(self._num_classes)
@@ -200,7 +200,7 @@ class EstimatorAdapter:
 
   def get_input_fn(
       self,
-      file_pattern: str,
+      file_pattern: Union[str, List[str]],
       batch_size: int,
       num_epochs: Optional[int] = None,
       shuffle: Optional[bool] = True,
