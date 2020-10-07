@@ -30,7 +30,7 @@ import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
-from nitroml.components.metalearning import metalearning_wrapper
+from nitroml.components.metalearning import metalearning
 from nitroml.components.metalearning.tuner import component as tuner_component
 from examples import config
 from tfx import components as tfx
@@ -86,8 +86,8 @@ class MetaLearningBenchmark(nitroml.Benchmark):
       # Params.
       tuner = tuner_component.AugmentedTuner(
           tuner_fn='examples.auto_trainer.tuner_fn',
-          examples=autodata.transformed_examples,
-          transform_graph=autodata.transform_graph,
+          examples=autodata.outputs.transformed_examples,
+          transform_graph=autodata.outputs.transform_graph,
           train_args=trainer_pb2.TrainArgs(num_steps=train_steps),
           eval_args=trainer_pb2.EvalArgs(num_steps=1),
           custom_config={
@@ -105,11 +105,11 @@ class MetaLearningBenchmark(nitroml.Benchmark):
           f'hparams_train_{len(train_autodata_list)}'] = tuner.outputs.best_hyperparameters
 
     # Construct a MetaLearningHelper that creates the metalearning subpipeline.
-    metalearner_helper = metalearning_wrapper.MetaLearningWrapper(
+    metalearner_helper = metalearning.MetaLearning(
         train_autodata_list=train_autodata_list,
         meta_train_data=meta_train_data,
         algorithm=algorithm)
-    pipeline += metalearner_helper.pipeline
+    pipeline += metalearner_helper.components
     self.create_subpipeline_shared_with_subbenchmarks(pipeline)
 
     for task in test_tasks:
@@ -131,9 +131,9 @@ class MetaLearningBenchmark(nitroml.Benchmark):
             run_fn='examples.auto_trainer.run_fn',
             custom_executor_spec=(executor_spec.ExecutorClassSpec(
                 trainer_executor.GenericExecutor)),
-            transformed_examples=autodata.transformed_examples,
-            transform_graph=autodata.transform_graph,
-            schema=autodata.schema,
+            transformed_examples=autodata.outputs.transformed_examples,
+            transform_graph=autodata.outputs.transform_graph,
+            schema=autodata.outputs.schema,
             train_args=trainer_pb2.TrainArgs(num_steps=train_steps),
             eval_args=trainer_pb2.EvalArgs(num_steps=1),
             hyperparameters=best_hparams,

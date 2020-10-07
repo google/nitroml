@@ -17,6 +17,7 @@ r"""Meta Learning helper class the defines the meta learning DAG."""
 
 from typing import Any, Dict, Optional, List, Tuple
 
+from nitroml import subpipeline
 from nitroml.autodata.autodata_pipeline import AutoData
 from nitroml.components.metalearning.metafeature_gen.component import MetaFeatureGen
 from nitroml.components.metalearning.metalearner import component as metalearner
@@ -28,13 +29,14 @@ from tfx.proto import trainer_pb2
 from google.protobuf import text_format
 
 
-class MetaLearningWrapper(object):
+class MetaLearning(subpipeline.Subpipeline):
   """A helper class that wraps definition of meta learning sub-pipeline."""
 
   def __init__(self,
                train_autodata_list: List[AutoData],
                meta_train_data: Dict[str, Any],
-               algorithm: str = 'majority_voting'):
+               algorithm: str = 'majority_voting',
+               instance_name: Optional[str] = None):
 
     self._train_autodata_list = train_autodata_list
     self._meta_train_data = meta_train_data
@@ -42,19 +44,27 @@ class MetaLearningWrapper(object):
     self._algorithm = algorithm
     self._recommended_search_space = None
     self._metamodel = None
+    self._instance_name = instance_name
     self._build_metalearner()
 
   @property
-  def pipeline(self) -> List[base_component.BaseComponent]:
+  def id(self) -> str:
+    """Returns the string ID."""
+    metadata_instance_name = 'MetaLearning'
+    if self._instance_name:
+      metadata_instance_name = f'{metadata_instance_name}.{self._instance_name}'
+    return metadata_instance_name
+
+  @property
+  def components(self) -> List[base_component.BaseComponent]:
     return self._pipeline
 
   @property
-  def recommended_search_space(self) -> types.Channel:
-    return self._recommended_search_space
-
-  @property
-  def metamodel(self) -> types.Channel:
-    return self._metamodel
+  def outputs(self) -> subpipeline.SubpipelineOutputs:
+    return subpipeline.SubpipelineOutputs({
+        'recommended_search_space': self._recommended_search_space,
+        'metamodel': self._metamodel,
+    })
 
   def _build_metalearner(self) -> None:
     """Builds the meta-learning pipeline."""
@@ -68,8 +78,8 @@ class MetaLearningWrapper(object):
       for ix, autodata in enumerate(self._train_autodata_list):
         instance_name = autodata.id.replace('AutoData.', '')
         metafeature_gen = self._create_metafeature_gen(
-            statistics=autodata.statistics,
-            transformed_examples=autodata.transformed_examples,
+            statistics=autodata.outputs.statistics,
+            transformed_examples=autodata.outputs.transformed_examples,
             instance_name=instance_name)
         self._pipeline.append(metafeature_gen)
         self._meta_train_data[
@@ -100,21 +110,21 @@ class MetaLearningWrapper(object):
     test_metafeature = None
     if self._algorithm not in ['majority_voting']:
       metafeature_gen = self._create_metafeature_gen(
-          statistics=test_autodata.statistics,
-          transformed_examples=test_autodata.transformed_examples,
+          statistics=test_autodata.outputs['statistics'],
+          transformed_examples=test_autodata.outputs.transformed_examples,
           instance_name=instance_name)
       test_metafeature = metafeature_gen.outputs.metafeatures
       meta_test_pipeline.append(metafeature_gen)
 
     tuner = tuner_component.AugmentedTuner(
         tuner_fn='examples.auto_trainer.tuner_fn',
-        examples=test_autodata.transformed_examples,
-        transform_graph=test_autodata.transform_graph,
+        examples=test_autodata.outputs.transformed_examples,
+        transform_graph=test_autodata.outputs.transform_graph,
         train_args=trainer_pb2.TrainArgs(num_steps=tuner_steps),
         eval_args=trainer_pb2.EvalArgs(num_steps=1),
         metalearning_algorithm=self._algorithm,
-        warmup_hyperparameters=self.recommended_search_space,
-        metamodel=self.metamodel,
+        warmup_hyperparameters=self.outputs.recommended_search_space,
+        metamodel=self.outputs.metamodel,
         metafeature=test_metafeature,
         custom_config={
             # Pass the problem statement proto as a text proto. Required

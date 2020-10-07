@@ -61,8 +61,8 @@ class TitanicBenchmark(nitroml.Benchmark):
       # Search over search space of model hyperparameters.
       tuner = tfx.Tuner(
           tuner_fn='examples.auto_trainer.tuner_fn',
-          examples=autodata.transformed_examples,
-          transform_graph=autodata.transform_graph,
+          examples=autodata.outputs.transformed_examples,
+          transform_graph=autodata.outputs.transform_graph,
           train_args=trainer_pb2.TrainArgs(num_steps=100),
           eval_args=trainer_pb2.EvalArgs(num_steps=50),
           custom_config={
@@ -80,9 +80,9 @@ class TitanicBenchmark(nitroml.Benchmark):
         if use_keras else 'examples.auto_estimator_trainer.run_fn',
         custom_executor_spec=(executor_spec.ExecutorClassSpec(
             trainer_executor.GenericExecutor)),
-        transformed_examples=autodata.transformed_examples,
-        transform_graph=autodata.transform_graph,
-        schema=autodata.schema,
+        transformed_examples=autodata.outputs.transformed_examples,
+        transform_graph=autodata.outputs.transform_graph,
+        schema=autodata.outputs.schema,
         train_args=trainer_pb2.TrainArgs(num_steps=1000),
         eval_args=trainer_pb2.EvalArgs(num_steps=500),
         hyperparameters=(tuner.outputs.best_hyperparameters

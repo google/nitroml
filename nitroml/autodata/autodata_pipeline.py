@@ -18,6 +18,7 @@
 from typing import List, Optional
 
 from absl import logging
+from nitroml import subpipeline
 from nitroml.autodata.preprocessors import basic_preprocessor
 from nitroml.autodata.preprocessors import preprocessor as pp
 from nitroml.components.transform import component as transform
@@ -28,7 +29,7 @@ from tfx.dsl.components.base import base_component
 from nitroml.protos import problem_statement_pb2 as ps_pb2
 
 
-class AutoData:
+class AutoData(subpipeline.Subpipeline):
   """AutoData preprocesses raw data into artifacts for trainers.
 
   It is intended to be prepended to a pipeline where components like trainers
@@ -101,28 +102,14 @@ class AutoData:
     return [self._schema_gen, self._statistics_gen, self._transform]
 
   @property
-  def statistics(self) -> types.Channel:
-    """Channel containing the dataset statistics proto path."""
-
-    return self._statistics_gen.outputs.statistics
-
-  @property
-  def schema(self) -> types.Channel:
-    """Channel containing the dataset schema proto path."""
-
-    return self._schema_gen.outputs.schema
-
-  @property
-  def transformed_examples(self) -> types.Channel:
-    """Channel containing the transformed examples paths."""
-
-    return self._transform.outputs.transformed_examples
-
-  @property
-  def transform_graph(self) -> types.Channel:
-    """Channel containing the transform output path."""
-
-    return self._transform.outputs.transform_graph
+  def outputs(self) -> subpipeline.SubpipelineOutputs:
+    """Return the AutoData sub-pipeline's outputs."""
+    return subpipeline.SubpipelineOutputs({
+        'statistics': self._statistics_gen.outputs.statistics,
+        'schema': self._schema_gen.outputs.schema,
+        'transformed_examples': self._transform.outputs.transformed_examples,
+        'transform_graph': self._transform.outputs.transform_graph
+    })
 
   def _build_statistics_gen(self, examples: types.Channel,
                             instance_name: Optional[str]) -> tfx.StatisticsGen:
