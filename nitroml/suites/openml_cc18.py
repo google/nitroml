@@ -23,10 +23,9 @@ import os
 from typing import Any, Dict, List, Iterator
 
 from absl import logging
+import nitroml
 from nitroml.suites import data_utils
-from nitroml.suites import suite
 from nitroml.tasks import openml_task
-from nitroml.tasks import task
 import tensorflow as tf
 
 _OPENML_API_URL = 'https://www.openml.org/api/v1/json'
@@ -35,7 +34,7 @@ _DATASET_FILTERS = ['status=active', 'tag=OpenML-CC18']
 _OPENML_API_KEY = 'OPENML_API_KEY'
 
 
-class OpenMLCC18(suite.Suite):
+class OpenMLCC18(nitroml.BenchmarkSuite):
   """The OpenML-CC18 suite of benchmark tasks.
 
   The object downloads the suite of OpenML-CC18 datasets provided by OpenML
@@ -85,12 +84,12 @@ class OpenMLCC18(suite.Suite):
 
       self._get_data()
 
-  def __iter__(self) -> Iterator[task.Task]:
+  def __iter__(self) -> Iterator[nitroml.BenchmarkTask]:
     if not self._tasks:
       self._tasks = self._create_tasks()
     return iter(self._tasks)
 
-  def _load_task(self, dataset_name: str) -> task.Task:
+  def _load_task(self, dataset_name: str) -> nitroml.BenchmarkTask:
     """Loads the task information for the argument dataset."""
 
     with tf.io.gfile.GFile(
@@ -103,7 +102,7 @@ class OpenMLCC18(suite.Suite):
           root_dir=self.root_dir,
           **data)
 
-  def _create_tasks(self) -> List[task.Task]:
+  def _create_tasks(self) -> List[nitroml.BenchmarkTask]:
     """Creates and returns the list of task properties for openML datasets."""
 
     tasks = []

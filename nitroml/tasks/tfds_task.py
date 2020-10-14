@@ -18,7 +18,7 @@ r"""A dataset from a TFDS Dataset."""
 from typing import List
 
 from absl import logging
-from nitroml.tasks import task
+import nitroml
 import tensorflow_datasets as tfds
 from tfx import components as tfx
 from tfx import types
@@ -29,8 +29,8 @@ from tfx.utils.dsl_utils import external_input
 from nitroml.protos import problem_statement_pb2 as ps_pb2
 
 
-class TFDSTask(task.Task):
-  """A NitroML Task from a TensorFlow Datasets (TFDS) Dataset."""
+class TFDSTask(nitroml.BenchmarkTask):
+  """A NitroML BenchmarkTask from a TensorFlow Datasets (TFDS) Dataset."""
 
   def __init__(self, dataset_builder: tfds.core.DatasetBuilder):
     """A NitroML dataset from a TFDS DatasetBuilder.

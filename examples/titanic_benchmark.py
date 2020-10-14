@@ -31,6 +31,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
 from examples import config
+from nitroml.tasks import tfds_task
 import tensorflow_datasets as tfds
 from tfx import components as tfx
 from tfx.components.trainer import executor as trainer_executor
@@ -48,7 +49,7 @@ class TitanicBenchmark(nitroml.Benchmark):
                 use_keras: bool = True,
                 enable_tuning: bool = True):
     # Use TFDSTask to define the task for the titanic dataset.
-    task = nitroml.tasks.TFDSTask(tfds.builder('titanic', data_dir=data_dir))
+    task = tfds_task.TFDSTask(tfds.builder('titanic', data_dir=data_dir))
 
     autodata = nitroml.autodata.AutoData(
         task.problem_statement,

@@ -33,6 +33,7 @@ import nitroml
 from nitroml.components.metalearning import metalearning
 from nitroml.components.metalearning.tuner import component as tuner_component
 from examples import config
+from nitroml.suites import openml_cc18
 from tfx import components as tfx
 from tfx.components.trainer import executor as trainer_executor
 from tfx.dsl.components.base import executor_spec
@@ -64,7 +65,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
 
     train_tasks = []
     test_tasks = []
-    for task in nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data):
+    for task in openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data):
       if task.name in train_task_names:
         train_tasks.append(task)
       if task.name in test_task_names:

@@ -31,6 +31,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
 from examples import config
+from nitroml.suites import openml_cc18
 from tfx import components as tfx
 from tfx.components.trainer import executor as trainer_executor
 from tfx.dsl.components.base import executor_spec
@@ -49,7 +50,7 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
                 enable_tuning: bool = True):
 
     for i, task in enumerate(
-        nitroml.suites.OpenMLCC18(data_dir, mock_data=mock_data)):
+        openml_cc18.OpenMLCC18(data_dir, mock_data=mock_data)):
 
       if not mock_data and i not in range(20, 40):
         # Use only 20 of the datasets for now.

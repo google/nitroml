@@ -23,8 +23,8 @@ from tfx.dsl.components.base import base_component
 from nitroml.protos import problem_statement_pb2 as ps_pb2
 
 
-class Task(abc.ABC):
-  r"""Defines a Task for AutoML."""
+class BenchmarkTask(abc.ABC):
+  r"""Defines a BenchmarkTask for AutoML."""
 
   @abc.abstractproperty
   def name(self) -> str:
@@ -40,4 +40,4 @@ class Task(abc.ABC):
 
   @abc.abstractproperty
   def problem_statement(self) -> ps_pb2.ProblemStatement:
-    """Returns the ProblemStatement associated with this Task."""
+    """Returns the ProblemStatement associated with this BenchmarkTask."""

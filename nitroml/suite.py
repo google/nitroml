@@ -13,12 +13,18 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Package nitroml.suites."""
+r"""A suite of benchmark tasks."""
 
-from nitroml.suites.openml_cc18 import OpenMLCC18
-from nitroml.suites.suite import Suite
+import abc
+from typing import Iterator
 
-__all__ = [
-    "OpenMLCC18",
-    "Suite",
-]
+from nitroml import task
+
+
+class BenchmarkSuite(abc.ABC):
+  r"""Defines a collection of BenchmarkTasks."""
+
+  @abc.abstractmethod
+  def __iter__(self) -> Iterator[task.BenchmarkTask]:
+    """Returns the tasks that compose this suite."""
+    pass

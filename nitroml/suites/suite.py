@@ -18,13 +18,13 @@ r"""A suite of benchmark tasks."""
 import abc
 from typing import Iterator
 
-from nitroml.tasks import task
+import nitroml
 
 
-class Suite(abc.ABC):
-  r"""Defines a collection of Tasks."""
+class BenchmarkSuite(abc.ABC):
+  r"""Defines a collection of BenchmarkTasks."""
 
   @abc.abstractmethod
-  def __iter__(self) -> Iterator[task.Task]:
+  def __iter__(self) -> Iterator[nitroml.BenchmarkTask]:
     """Returns the tasks that compose this suite."""
     pass

@@ -17,18 +17,18 @@
 
 from nitroml import autodata
 from nitroml import results
-from nitroml import suites
-from nitroml import tasks
 from nitroml.nitroml import Benchmark
 from nitroml.nitroml import get_default_kubeflow_dag_runner
 from nitroml.nitroml import main
 from nitroml.nitroml import run
+from nitroml.suite import BenchmarkSuite
+from nitroml.task import BenchmarkTask
 
 __all__ = [
     "autodata",
-    "suites",
-    "tasks",
     "Benchmark",
+    "BenchmarkSuite",
+    "BenchmarkTask",
     "get_default_kubeflow_dag_runner",
     "main",
     "results",
