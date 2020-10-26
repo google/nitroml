@@ -36,20 +36,22 @@ import contextlib
 import os
 import re
 import tempfile
-from typing import List, Optional, Text, TypeVar
+from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union
 
 from absl import app
 from absl import flags
 from absl import logging
 from nitroml.components.publisher.component import BenchmarkResultPublisher
+from nitroml.subpipeline import Subpipeline
+from nitroml.subpipeline import SubpipelineOutputs
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
 from tfx import components as tfx
 from tfx import types
-from tfx.dsl.components.base import base_component
-from tfx.orchestration import pipeline as pipeline_lib
+from tfx.dsl.components.base.base_component import BaseComponent
 from tfx.orchestration import tfx_runner as tfx_runner_lib
 from tfx.orchestration.beam import beam_dag_runner
+from tfx.orchestration.pipeline import Pipeline
 
 from ml_metadata.proto import metadata_store_pb2
 # pylint: disable=g-import-not-at-top
@@ -61,10 +63,17 @@ except ModuleNotFoundError:
 
 T = TypeVar("T")
 
+# List, Tuple, and Dict must contain PipelineLike values, but recursive type
+# annotations are not yet supported in Pytype.
+PipelineLike = Union[BaseComponent, Subpipeline, List, Tuple, Dict]
+
 
 FLAGS = flags.FLAGS
 
 # FLAGS
+
+# TODO(b/168906137): Eliminate `match` flag, once we have programmatic partial
+# run support for partially executing a TFX DAG.
 flags.DEFINE_string(
     "match", "",
     "Specifies a regex to match and filter benchmarks. For example, passing "
@@ -81,7 +90,7 @@ flags.DEFINE_integer(
     "deviations, and other aggregate metrics.")
 
 
-def _validate_regex(regex: Text) -> bool:
+def _validate_regex(regex: str) -> bool:
   try:
     re.compile(regex)
     return True
@@ -93,117 +102,57 @@ flags.register_validator(
     "match", _validate_regex, message="--match must be a valid regex.")
 
 
-def _qualified_name(prefix: Text, name: Text) -> Text:
-  return "{}.{}".format(prefix, name) if prefix else name
+def _runs_suffix(benchmark_run: int, runs_per_benchmark: int) -> str:
+  runs = runs_per_benchmark
+  return f".run_{benchmark_run}_of_{runs}" if runs > 1 else ""
 
 
-class _BenchmarkPipeline(object):
-  """A pipeline for a benchmark."""
+def _qualified_name(prefix: str, name: str, benchmark_run: int,
+                    runs_per_benchmark: int) -> str:
+  name = "{}.{}".format(prefix, name) if prefix else name
+  return name + _runs_suffix(benchmark_run, runs_per_benchmark)
 
-  def __init__(self,
-               benchmark_name: Text,
-               base_pipeline: List[base_component.BaseComponent],
-               evaluator: tfx.Evaluator = None,
-               add_evaluator: bool = True):
+
+class BenchmarkSubpipeline(Subpipeline):
+  """A model-quality benchmark Subpipeline."""
+
+  def __init__(self, benchmark_name: str, components: List[BaseComponent]):
     self._benchmark_name = benchmark_name
-    self._base_pipeline = base_pipeline
-    self._evaluator = evaluator
-    self._add_evaluator = add_evaluator
+    self._components = components
 
   @property
-  def benchmark_name(self) -> Text:
+  def id(self) -> str:
     return self._benchmark_name
 
   @property
-  def base_pipeline(self) -> List[base_component.BaseComponent]:
-    return self._base_pipeline
+  def components(self) -> List[BaseComponent]:
+    return self._components
 
   @property
-  def evaluator(self) -> tfx.Evaluator:
-    return self._evaluator
-
-  @property
-  def pipeline(self) -> List[base_component.BaseComponent]:
-    if self._add_evaluator:
-      return self._base_pipeline + [self._evaluator]
-    else:
-      return self._base_pipeline
+  def outputs(self) -> SubpipelineOutputs:
+    # Returns no outputs.
+    return SubpipelineOutputs({})
 
 
-class _RepeatablePipeline(object):
-  """A repeatable benchmark."""
+class BenchmarkPipeline(Pipeline):
+  """A TFX Pipeline composed of multiple benchmark subpipelines."""
 
   def __init__(self,
-               benchmark_pipeline: _BenchmarkPipeline,
-               repetition: int,
-               num_repetitions: int,
-               add_publisher: bool = True):
-    self.benchmark_pipeline = benchmark_pipeline
-    self._repetition = repetition
-    self._num_repetitions = num_repetitions
-    self._publisher = None
-    self._add_publisher = add_publisher
+               components_to_always_add: List[BaseComponent],
+               benchmark_subpipelines: List[BenchmarkSubpipeline],
+               pipeline_name: Optional[str],
+               pipeline_root: Optional[str],
+               metadata_connection_config: Optional[
+                   metadata_store_pb2.ConnectionConfig] = None,
+               beam_pipeline_args: Optional[List[str]] = None,
+               **kwargs):
 
-  @property
-  def benchmark_name(self) -> Text:
-    name = self.benchmark_pipeline.benchmark_name
-    if self._num_repetitions == 1:
-      return name
-    return f"{name}.run_{self._repetition}_of_{self._num_repetitions}"
-
-  @property
-  def publisher(self) -> BenchmarkResultPublisher:
-    if not self._publisher:
-      self._publisher = BenchmarkResultPublisher(
-          self.benchmark_name,
-          self.benchmark_pipeline.evaluator.outputs.evaluation,
-          run=self._repetition,
-          num_runs=self._num_repetitions)
-    return self._publisher
-
-  @property
-  def components(self) -> List[base_component.BaseComponent]:
-    if self._add_publisher:
-      return self.benchmark_pipeline.pipeline + [self.publisher]
-    else:
-      return self.benchmark_pipeline.pipeline
-
-
-class _ConcatenatedPipelineBuilder(object):
-  """Constructs a pipeline composed of repeatable benchmark pipelines.
-
-  For combining multiple benchmarked pipelines into a single DAG.
-  """
-
-  def __init__(self, pipelines: List[_RepeatablePipeline]):
-    self._pipelines = pipelines
-
-  @property
-  def benchmark_names(self) -> List[Text]:
-    return [p.benchmark_name for p in self._pipelines]
-
-  def build(self,
-            pipeline_name: Optional[Text],
-            pipeline_root: Optional[Text],
-            metadata_connection_config: Optional[
-                metadata_store_pb2.ConnectionConfig] = None,
-            enable_cache: Optional[bool] = False,
-            beam_pipeline_args: Optional[List[Text]] = None,
-            **kwargs) -> pipeline_lib.Pipeline:
-    """Contatenates multiple benchmarks into a single pipeline DAG.
-
-    Args:
-      pipeline_name: name of the pipeline;
-      pipeline_root: path to root directory of the pipeline;
-      metadata_connection_config: the config to connect to ML metadata.
-      enable_cache: whether or not cache is enabled for this run.
-      beam_pipeline_args: Beam pipeline args for beam jobs within executor.
-        Executor will use beam DirectRunner as Default.
-      **kwargs: additional kwargs forwarded as pipeline args.
-
-    Returns:
-      A TFX Pipeline.
-    """
+    if not benchmark_subpipelines and not components_to_always_add:
+      raise ValueError(
+          "Requires at least one benchmark subpipeline or component to run. "
+          "You may want to call `self.add(..., always=True) in order "
+          "to run Components, Subpipelines, or Pipeline even without requiring "
+          "a call to `self.evaluate(...)`.")
 
     # Set defaults.
     if not pipeline_name:
@@ -221,34 +170,27 @@ class _ConcatenatedPipelineBuilder(object):
     # Ensure that pipeline dirs are created.
     _make_pipeline_dirs(pipeline_root, metadata_connection_config)
 
-    dag = []
-    logging.info("NitroML benchmarks:")
-    seen = set()
-    for repeatable_pipeline in self._pipelines:
-      logging.info("\t%s", repeatable_pipeline.benchmark_name)
-      logging.info("\t\tRUNNING")
-      components = repeatable_pipeline.components
-      for component in components:
-        if component in seen:
-          continue
-        # pylint: disable=protected-access
-        component._instance_name = _qualified_name(
-            component._instance_name, repeatable_pipeline.benchmark_name)
-        # pylint: enable=protected-access
-        seen.add(component)
-      dag += components
-    return pipeline_lib.Pipeline(
+    components = set(components_to_always_add)
+    for benchmark_subpipeline in benchmark_subpipelines:
+      for component in benchmark_subpipeline.components:
+        components.add(component)
+    super().__init__(
         pipeline_name=pipeline_name,
         pipeline_root=pipeline_root,
         metadata_connection_config=metadata_connection_config,
-        components=dag,
-        enable_cache=enable_cache,
+        components=list(components),
         beam_pipeline_args=beam_pipeline_args,
         **kwargs)
 
+    self._subpipelines = benchmark_subpipelines
+
+  @property
+  def benchmark_names(self) -> List[str]:
+    return [p.id for p in self._subpipelines]
+
 
 def _make_pipeline_dirs(
-    pipeline_root: Text,
+    pipeline_root: str,
     metadata_connection_config: metadata_store_pb2.ConnectionConfig) -> None:
   """Makes the relevent dirs if needed."""
 
@@ -258,15 +200,18 @@ def _make_pipeline_dirs(
         os.path.dirname(metadata_connection_config.sqlite.filename_uri))
 
 
-class BenchmarkResult(object):
+class BenchmarkResult:
   """Holder for benchmark result information.
 
   Benchmark results are automatically managed by the Benchmark class, and do
   not need to be explicitly manipulated by benchmark authors.
   """
 
-  def __init__(self):
-    self.pipelines = []
+  def __init__(self, benchmark_run: int, runs_per_benchmark: int):
+    self.components_to_always_add = []
+    self.benchmark_subpipelines = []
+    self.benchmark_run = benchmark_run
+    self.runs_per_benchmark = runs_per_benchmark
 
 
 class Benchmark(abc.ABC):
@@ -281,7 +226,7 @@ class Benchmark(abc.ABC):
   def __init__(self):
     self._benchmark = self  # The sub-benchmark stack.
     self._result = None
-    self._seen_benchmarks = None
+    self._components = []
 
   @abc.abstractmethod
   def benchmark(self, **kwargs):
@@ -293,7 +238,7 @@ class Benchmark(abc.ABC):
     """
 
   @contextlib.contextmanager
-  def sub_benchmark(self, name: Text):
+  def sub_benchmark(self, name: str):
     """Executes the enclosed code block as a sub-benchmark.
 
     A benchmark can contain any number of sub-benchmark declarations, and they
@@ -316,23 +261,32 @@ class Benchmark(abc.ABC):
     finally:
       self._benchmark = benchmark
 
+  def _all_components(self) -> List[BaseComponent]:
+    """Returns the components currently registered to this Benchmark."""
+
+    return self._components
+
   def evaluate(
       self,
-      pipeline: List[base_component.BaseComponent],
       examples: types.Channel,
       model: types.Channel,
       eval_config: tfma.EvalConfig = None,
   ) -> None:
     """Adds a benchmark subgraph to the benchmark suite's workflow DAG.
 
-    Automatically appends a TFX Evaluator component to the given DAG in order
-    to evaluate the given `model` on `examples`. The Evaluator uses TensorFlow
-    Model Analysis (TFMA) to compute the desired metrics, which are then stored
+    Appends a TFX Evaluator component to the given model in order to evaluate
+    the given `model` on `examples`. The Evaluator uses TensorFlow Model
+    Analysis (TFMA) to compute the desired metrics, which are then stored
     in MLMD.
 
+    Requires the user to call `self.add(...)` on any components on the path to
+    this evaluation.
+
+    If the current pipeline does not produce a model, the caller should call
+    `self.add(...)` with the `always=True` for all components in the pipeline.
+
     Args:
-      pipeline: List of TFX components of the workflow DAG to benchmark.
-      examples: An `standard_artifacts.Examples` Channel, usually produced by an
+      examples: A `standard_artifacts.Examples` Channel, usually produced by an
         ExampleGen component. Input to the benchmark Evaluator. Will use the
         'eval' key examples as the test dataset.
       model: A `standard_artifacts.Model` Channel, usually produced by a Trainer
@@ -342,47 +296,133 @@ class Benchmark(abc.ABC):
     """
 
     # Strip common parts of benchmark names from benchmark ID.
-    benchmark_name = self._benchmark.id()
-    if benchmark_name in self._seen_benchmarks:
+    benchmark_name = self._benchmark.id() + _runs_suffix(
+        self._result.benchmark_run, self._result.runs_per_benchmark)
+    seen_benchmarks = set(p.id for p in self._result.benchmark_subpipelines)
+    if benchmark_name in seen_benchmarks:
       raise ValueError("evaluate was already called once for this benchmark. "
-                       "Consider creating a sub-benchmark instead.")
-    self._seen_benchmarks.add(benchmark_name)
+                       "Consider calling `with self.sub_benchmark(...):` and "
+                       "then calling `self.evaluate(...)` within its scope.")
 
     # Automatically add an Evaluator component to evaluate the produced model on
     # the test set.
     # TODO(b/146611976): Include a Model-agnostic Evaluator which computes
     # metrics according to task type.
-    evaluator = tfx.Evaluator(examples, model, eval_config=eval_config)
-    self._result.pipelines.append(
-        _BenchmarkPipeline(benchmark_name, pipeline, evaluator))
+    # TODO(b/168906137): Much of this complexity can be removed once we have
+    # partial run support in the IR.
+    evaluator = self.add(
+        tfx.Evaluator(examples, model, eval_config=eval_config))
+    result_publisher = self.add(
+        BenchmarkResultPublisher(
+            benchmark_name=benchmark_name,
+            evaluation=evaluator.outputs.evaluation,
+            run=self._result.benchmark_run,
+            num_runs=self._result.runs_per_benchmark))
 
-  def id(self) -> Text:
+    self._result.benchmark_subpipelines.append(
+        BenchmarkSubpipeline(
+            benchmark_name, components=self._benchmark._all_components()))  # pylint: disable=protected-access
+
+  def id(self) -> str:
     """The unique ID of this benchmark."""
 
     return f"{self.__class__.__qualname__}.benchmark"
 
-  # This is used in metalearning_benchmark where subpipeline containing DAGs on
-  # train datasets are shared across multiple subbenchmarks for test datasets.
-  # TODO(nikhilmehta, weill): Consider alternate design options.
-  # DEPRECATED: Will be removed in a future version.
-  def create_subpipeline_shared_with_subbenchmarks(
-      self, global_components: List[base_component.BaseComponent]):
-    """Adds the global components that are shared across all sub-benchmarks."""
+  def add(self, pipeline: PipelineLike, always: bool = False) -> Any:
+    """Adds the given nodes to the current benchmark DAG scope.
 
-    benchmark_name = self._benchmark.id()
-    self._result.pipelines.append(
-        _BenchmarkPipeline(
-            benchmark_name, global_components, add_evaluator=False))
+    There are several ways `self.add(...)` can be called. Suppose you have two
+    `tfx.BaseComponent` subclasses, `MyExampleGen` and `MyTrainer`. The
+    following are equivalent:
 
-  def __call__(self, *args, **kwargs):
-    result = BenchmarkResult()
-    self._seen_benchmarks = set()
+        example_gen, trainer = self.add((MyExampleGen(), MyTrainer()))
+
+    and
+
+        example_gen = self.add(MyExampleGen())
+        trainer = self.add(MyTrainer())
+
+    and
+
+        example_gen = MyExampleGen())
+        trainer = MyTrainer()
+        self.add((example_gen, trainer))
+
+    This method can also be called with a `nitroml.Subpipeline`. For example:
+
+        my_subpipeline = self.add(MySubpipeline())
+
+    When called within a `with self.sub_benchmark(...):` block, the current
+    scope of the subbenchmark is appended to the Component instance names, so
+    that the user does not need to manually set the instance name of each
+    component.
+
+    In order to run a DAG that does not produce a model, in which case you
+    cannot call self.evaluate(), instead call self.add(..., always=True).
+
+    Args:
+      pipeline: A tfx.BaseComponent, nitroml.Subpipeline, or tfx.Pipeline
+        subclass instance, or nested dict, list, or tuple of these objects. The
+        components that compose them will be registered to the benchmark DAG to
+        be executed by the TFX Runner.
+      always: When `True`, signals to always run the given components in
+        `pipeline`, even when a subbenchmark is filtered with the `match`
+        flag. TODO(b/168906137): Remove once we have built-in partial DAG run
+        support.
+
+    Returns:
+      The argument passed to `pipeline`.
+    """
+
+    # Recursive PipelineLike types.
+    if isinstance(pipeline, list):
+      return [self.add(x) for x in pipeline]
+
+    if isinstance(pipeline, tuple):
+      return tuple(self.add(x) for x in pipeline)
+
+    if isinstance(pipeline, dict):
+      return {k: self.add(v) for k, v in pipeline.items()}
+
+    components = []
+    if isinstance(pipeline, BaseComponent):
+      components.append(pipeline)
+    elif isinstance(pipeline, Subpipeline):
+      components += pipeline.components
+    else:
+      raise ValueError(f"Unsupported type for `pipeline`: {pipeline}")
+
+    # All this subbenchmark's parents' and own components.
+    # TODO(b/168906137): Much of this complexity can be removed once we have
+    # partial run support in the IR.
+    preexisting_components = frozenset(self._benchmark._all_components())  # pylint: disable=protected-access
+    new_components = set()
+    for component in components:
+      if component in new_components or component in preexisting_components:
+        continue
+      # pylint: disable=protected-access
+      component._instance_name = _qualified_name(
+          prefix=component._instance_name,
+          name=self._benchmark.id(),
+          benchmark_run=self._result.benchmark_run,
+          runs_per_benchmark=self._result.runs_per_benchmark)
+      # pylint: enable=protected-access
+      new_components.add(component)
+
+    self._benchmark._components += list(new_components)
+    if always:
+      self._result.components_to_always_add += list(new_components)
+
+    return pipeline
+
+  def __call__(self, benchmark_run: int, runs_per_benchmark: int, *args,
+               **kwargs):
+    result = BenchmarkResult(benchmark_run, runs_per_benchmark)
     self._result = result
     try:
       self.benchmark(**kwargs)
     finally:
       self._result = None
-      self._seen_benchmarks = set()
     return result
 
 
@@ -394,17 +434,22 @@ class _SubBenchmark(Benchmark):
   between benchmarks for maximum resource efficiency.
   """
 
-  def __init__(self, parent: Benchmark, name: Text):
+  def __init__(self, parent: Benchmark, name: str):
     super(_SubBenchmark, self).__init__()
     self._parent = parent
     self._name = name
+
+  def _all_components(self) -> List[BaseComponent]:
+    """Returns all this subbenchmark's parents' and own components."""
+
+    return self._parent._all_components() + self._components  # pylint: disable=protected-access
 
   def benchmark(self):
     # Implement abstract method so that _SubBenchmarks can be instantiated
     # directly.
     raise RuntimeError("Sub-benchmarks are not intended to be called directly.")
 
-  def id(self) -> Text:
+  def id(self) -> str:
     return f"{self._parent.id()}.{self._name}"
 
 
@@ -455,13 +500,13 @@ def get_default_kubeflow_dag_runner():
 
 def run(benchmarks: List[Benchmark],
         tfx_runner: Optional[tfx_runner_lib.TfxRunner] = None,
-        pipeline_name: Optional[Text] = None,
-        pipeline_root: Optional[Text] = None,
+        pipeline_name: Optional[str] = None,
+        pipeline_root: Optional[str] = None,
         metadata_connection_config: Optional[
             metadata_store_pb2.ConnectionConfig] = None,
         enable_cache: Optional[bool] = False,
-        beam_pipeline_args: Optional[List[Text]] = None,
-        **kwargs) -> List[Text]:
+        beam_pipeline_args: Optional[List[str]] = None,
+        **kwargs) -> BenchmarkPipeline:
   """Runs the given benchmarks as part of a single pipeline DAG.
 
   First it concatenates all the benchmark pipelines into a single DAG
@@ -486,7 +531,7 @@ def run(benchmarks: List[Benchmark],
     **kwargs: Additional kwargs forwarded as kwargs to benchmarks.
 
   Returns:
-    The string list of benchmark names that were included in this run.
+    Returns the BenchmarkPipeline that was passed to the tfx_runner.
 
   Raises:
     ValueError: If the given tfx_runner is not supported.
@@ -505,30 +550,43 @@ def run(benchmarks: List[Benchmark],
     raise ValueError("runs_per_benchmark must be strictly positive; "
                      f"got runs_per_benchmark={runs_per_benchmark} instead.")
 
-  pipelines = []
+  benchmark_subpipelines = []
   for b in benchmarks:
     for benchmark_run in range(runs_per_benchmark):
       # Call benchmarks with pipeline args.
-      result = b(**kwargs)
-      for pipeline in result.pipelines:
-        if re.match(FLAGS.match, pipeline.benchmark_name):
-          pipelines.append(
-              _RepeatablePipeline(
-                  pipeline,
-                  repetition=benchmark_run + 1,  # One-index runs.
-                  num_repetitions=runs_per_benchmark,
-                  add_publisher=pipeline.evaluator is not None))
-  pipeline_builder = _ConcatenatedPipelineBuilder(pipelines)
+      result = b(
+          benchmark_run=benchmark_run + 1,
+          runs_per_benchmark=runs_per_benchmark,
+          **kwargs)
+      for benchmark_subpipeline in result.benchmark_subpipelines:
+        if re.match(FLAGS.match, benchmark_subpipeline.id):
+          benchmark_subpipelines.append(benchmark_subpipeline)
 
-  benchmark_pipeline = pipeline_builder.build(
+  if FLAGS.match and not benchmark_subpipelines:
+    if result.components_to_always_add:
+      logging.info(
+          "No benchmarks matched the pattern '%s'. "
+          "Running components passed to self.add(..., always=True) only.",
+          FLAGS.match)
+    else:
+      raise ValueError(f"No benchmarks matched the pattern '{FLAGS.match}'")
+
+  benchmark_pipeline = BenchmarkPipeline(
+      components_to_always_add=result.components_to_always_add,
+      benchmark_subpipelines=benchmark_subpipelines,
       pipeline_name=pipeline_name,
       pipeline_root=pipeline_root,
       metadata_connection_config=metadata_connection_config,
       enable_cache=enable_cache,
       beam_pipeline_args=beam_pipeline_args,
       **kwargs)
+
+  logging.info("NitroML benchmarks:")
+  for benchmark_name in benchmark_pipeline.benchmark_names:
+    logging.info("\t%s", benchmark_name)
+    logging.info("\t\tRUNNING")
   tfx_runner.run(benchmark_pipeline)
-  return pipeline_builder.benchmark_names
+  return benchmark_pipeline
 
 
 def main(*args, **kwargs) -> None:

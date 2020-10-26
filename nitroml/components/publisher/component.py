@@ -15,7 +15,7 @@
 # Lint as: python3
 """Component for publishing NitroML benchmark results to MLMD."""
 
-from typing import Text
+from typing import Optional
 
 from nitroml.components.publisher import executor
 from tfx.dsl.components.base import base_component
@@ -37,7 +37,7 @@ class BenchmarkResult(Artifact):
 class BenchmarkResultPublisherSpec(ComponentSpec):
   """BenchmarkResultPublisher component spec."""
   PARAMETERS = {
-      'benchmark_name': ExecutionParameter(type=Text),
+      'benchmark_name': ExecutionParameter(type=str),
       'run': ExecutionParameter(type=int),
       'num_runs': ExecutionParameter(type=int),
   }
@@ -56,8 +56,12 @@ class BenchmarkResultPublisher(base_component.BaseComponent):
   EXECUTOR_SPEC = executor_spec.ExecutorClassSpec(
       executor.BenchmarkResultPublisherExecutor)
 
-  def __init__(self, benchmark_name: Text, evaluation: Channel, run: int,
-               num_runs: int):
+  def __init__(self,
+               benchmark_name: str,
+               evaluation: Channel,
+               run: int,
+               num_runs: int,
+               instance_name: Optional[str] = None):
     """Construct a BenchmarkResultPublisher.
 
     Args:
@@ -65,6 +69,8 @@ class BenchmarkResultPublisher(base_component.BaseComponent):
       evaluation: A Channel of `ModelEvaluation` to load evaluation results.
       run: The integer benchmark run repetition.
       num_runs: The integer total number of benchmark run repetitions.
+      instance_name: Optional unique instance name. Necessary iff multiple
+        BenchmarkResultPublisher components are declared in the same pipeline.
     """
     if not benchmark_name:
       raise ValueError(
@@ -91,4 +97,5 @@ class BenchmarkResultPublisher(base_component.BaseComponent):
         evaluation=evaluation,
         benchmark_result=benchmark_result)
 
-    super(BenchmarkResultPublisher, self).__init__(spec=spec)
+    super(BenchmarkResultPublisher, self).__init__(
+        spec=spec, instance_name=instance_name)

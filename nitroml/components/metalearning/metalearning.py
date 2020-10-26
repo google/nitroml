@@ -105,14 +105,12 @@ class MetaLearning(subpipeline.Subpipeline):
       channel.
     """
 
-    instance_name = test_autodata.id.replace('AutoData.', '')
     meta_test_pipeline = []
     test_metafeature = None
     if self._algorithm not in ['majority_voting']:
       metafeature_gen = self._create_metafeature_gen(
-          statistics=test_autodata.outputs['statistics'],
-          transformed_examples=test_autodata.outputs.transformed_examples,
-          instance_name=instance_name)
+          statistics=test_autodata.outputs.statistics,
+          transformed_examples=test_autodata.outputs.transformed_examples)
       test_metafeature = metafeature_gen.outputs.metafeatures
       meta_test_pipeline.append(metafeature_gen)
 
@@ -132,8 +130,7 @@ class MetaLearning(subpipeline.Subpipeline):
             'problem_statement':
                 text_format.MessageToString(
                     message=test_autodata.problem_statement, as_utf8=True),
-        },
-        instance_name=instance_name)
+        })
     meta_test_pipeline += [tuner]
 
     return meta_test_pipeline, tuner.outputs.best_hyperparameters
