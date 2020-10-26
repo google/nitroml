@@ -78,8 +78,8 @@ class RunDBTest(absltest.TestCase):
     properties3 = {'pipeline_name': 'taxi3', 'run_id': '1', 'component_id': '3'}
     context_id = self.test_mlmd.put_context('context3', properties=properties3)
     execution_id = self.test_mlmd.put_execution('3', 'stats_gen')
-    artifact_id = self.test_mlmd.put_artifact({'property': 'value'},
-                                              'test_artifact')
+    artifact_id = self.test_mlmd.put_artifact({'property': 'value',
+                                               'name': 'test_artifact'})
     pipeline_run = self.run_db.get_run('1')
     self.test_mlmd.put_association(context_id, execution_id)
     self.test_mlmd.put_attribution(context_id, artifact_id)

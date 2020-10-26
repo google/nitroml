@@ -109,13 +109,14 @@ class ComponentRun:
         if 'component_id' in context.properties
     ]
     artifacts = self._store.get_artifacts_by_context(component_run_context.id)
-    return PropertyDictWrapper(
-        {artifact.name: artifact for artifact in artifacts})
+    return PropertyDictWrapper({
+        artifact.custom_properties['name'].string_value: artifact
+        for artifact in artifacts
+    })
 
   @property
   def exec_properties(self) -> Dict[str, Any]:
-    """A dictionary of user defined exec properties of this component.
-    """
+    """A dictionary of user defined exec properties of this component."""
     return self._execution.properties
 
   @property
@@ -183,7 +184,7 @@ class Analytics:
 
     Args:
       config: Configuration to connect to the database or the metadata store
-      server.
+        server.
       store: A store for the artifact metadata.
     """
     if bool(store) == bool(config):
