@@ -31,6 +31,6 @@ class MaterializedArtifact(abc.ABC):
   def show(self) -> None:
     """Displays respective visualization for artifact type."""
 
-  @abc.abstractproperty
-  def to_dataframe(self) -> pd.Dataframe:
+  @abc.abstractmethod
+  def to_dataframe(self) -> pd.DataFrame:
     """Returns dataframe representation of the artifact."""
