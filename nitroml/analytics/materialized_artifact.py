@@ -18,18 +18,16 @@
 import abc
 import pandas as pd
 
+from tfx.orchestration.experimental.interactive import visualizations
 
-class MaterializedArtifact(abc.ABC):
+
+class MaterializedArtifact(visualizations.ArtifactVisualization):
   """Abstract base class for materialized artifacts.
 
   Represents an output of a tfx component that has been materialized on disk.
   Subclasses provide implementations to load and display a specific artifact
   type.
   """
-
-  @abc.abstractmethod
-  def show(self) -> None:
-    """Displays respective visualization for artifact type."""
 
   @abc.abstractmethod
   def to_dataframe(self) -> pd.DataFrame:
