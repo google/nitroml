@@ -41,12 +41,11 @@ from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union
 from absl import app
 from absl import flags
 from absl import logging
-from nitroml.components.publisher.component import BenchmarkResultPublisher
 from nitroml.subpipeline import Subpipeline
 from nitroml.subpipeline import SubpipelineOutputs
+from nitroml.task import BenchmarkTask
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
-from tfx import components as tfx
 from tfx import types
 from tfx.dsl.components.base.base_component import BaseComponent
 from tfx.orchestration import tfx_runner as tfx_runner_lib
@@ -266,18 +265,15 @@ class Benchmark(abc.ABC):
 
     return self._components
 
-  def evaluate(
-      self,
-      examples: types.Channel,
-      model: types.Channel,
-      eval_config: tfma.EvalConfig = None,
-  ) -> None:
+  def evaluate(self,
+               task: BenchmarkTask,
+               model: types.Channel,
+               eval_config: Optional[tfma.EvalConfig] = None,
+               **kwargs) -> None:
     """Adds a benchmark subgraph to the benchmark suite's workflow DAG.
 
-    Appends a TFX Evaluator component to the given model in order to evaluate
-    the given `model` on `examples`. The Evaluator uses TensorFlow Model
-    Analysis (TFMA) to compute the desired metrics, which are then stored
-    in MLMD.
+    Appends BenchmarkTask evaluation components to the given model in order to
+    evaluate it.
 
     Requires the user to call `self.add(...)` on any components on the path to
     this evaluation.
@@ -286,16 +282,17 @@ class Benchmark(abc.ABC):
     `self.add(...)` with the `always=True` for all components in the pipeline.
 
     Args:
-      examples: A `standard_artifacts.Examples` Channel, usually produced by an
-        ExampleGen component. Input to the benchmark Evaluator. Will use the
-        'eval' key examples as the test dataset.
+      task: A `BenchmarkTask` subclass instance that specifies the evaluations.
       model: A `standard_artifacts.Model` Channel, usually produced by a Trainer
         component. Input to the benchmark Evaluator.
       eval_config: A TFMA `EvalConfig` for customizing the TFMA evaluation.
         Required when `model` was produced from `tf.keras.Model#save`.
+      **kwargs: Additional kwargs to pass to `Task#make_evaluation`.
     """
 
     # Strip common parts of benchmark names from benchmark ID.
+    # TODO(b/168906137): Much of this complexity can be removed once we have
+    # partial run support in the IR.
     benchmark_name = self._benchmark.id() + _runs_suffix(
         self._result.benchmark_run, self._result.runs_per_benchmark)
     seen_benchmarks = set(p.id for p in self._result.benchmark_subpipelines)
@@ -304,20 +301,14 @@ class Benchmark(abc.ABC):
                        "Consider calling `with self.sub_benchmark(...):` and "
                        "then calling `self.evaluate(...)` within its scope.")
 
-    # Automatically add an Evaluator component to evaluate the produced model on
-    # the test set.
-    # TODO(b/146611976): Include a Model-agnostic Evaluator which computes
-    # metrics according to task type.
-    # TODO(b/168906137): Much of this complexity can be removed once we have
-    # partial run support in the IR.
-    evaluator = self.add(
-        tfx.Evaluator(examples, model, eval_config=eval_config))
-    result_publisher = self.add(
-        BenchmarkResultPublisher(
-            benchmark_name=benchmark_name,
-            evaluation=evaluator.outputs.evaluation,
-            run=self._result.benchmark_run,
-            num_runs=self._result.runs_per_benchmark))
+    self.add(
+        task.make_evaluation(
+            model=model,
+            benchmark_name=self._benchmark.id(),
+            benchmark_run=self._result.benchmark_run,
+            runs_per_benchmark=self._result.runs_per_benchmark,
+            eval_config=eval_config,
+            **kwargs))
 
     self._result.benchmark_subpipelines.append(
         BenchmarkSubpipeline(

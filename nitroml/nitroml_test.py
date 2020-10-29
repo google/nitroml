@@ -29,6 +29,7 @@ from absl.testing import parameterized
 from nitroml import nitroml
 from nitroml.subpipeline import Subpipeline
 from nitroml.subpipeline import SubpipelineOutputs
+from nitroml.task import BenchmarkTask
 
 from tfx import types as tfx_types
 from tfx.dsl.components.base.base_component import BaseComponent
@@ -36,6 +37,8 @@ from tfx.orchestration.beam import beam_dag_runner
 from tfx.orchestration.pipeline import Pipeline
 from tfx.types import channel_utils
 from tfx.types import standard_artifacts
+
+from nitroml.protos import problem_statement_pb2 as ps_pb2
 
 FLAGS = flags.FLAGS
 
@@ -81,7 +84,6 @@ class FakeSubpipeline(Subpipeline):
 
   def __init__(self, instance_name: str = ''):
     # Intentionally skip calling super. Goal is to match the parent type only.
-    self.example_gen = FakeExampleGen(instance_name)
     self.trainer = FakeTrainer(instance_name)
 
   @property
@@ -90,11 +92,7 @@ class FakeSubpipeline(Subpipeline):
 
   @property
   def components(self) -> List[BaseComponent]:
-    return [self.example_gen, self.trainer]
-
-  @property
-  def examples(self) -> tfx_types.Channel:
-    return self.example_gen.outputs.examples
+    return [self.trainer]
 
   @property
   def model(self) -> tfx_types.Channel:
@@ -102,7 +100,7 @@ class FakeSubpipeline(Subpipeline):
 
   @property
   def outputs(self) -> SubpipelineOutputs:
-    return SubpipelineOutputs({'model': self.model, 'examples': self.examples})
+    return SubpipelineOutputs({'model': self.model})
 
 
 class FakePipeline(Pipeline):
@@ -125,6 +123,45 @@ class FakeBeamDagRunner(beam_dag_runner.BeamDagRunner):
     return pipeline
 
 
+class FakeBenchmarkTask(BenchmarkTask):
+
+  def __init__(self):
+    self._example_gen = FakeExampleGen()
+
+  @property
+  def name(self) -> str:
+    """Returns the task's name."""
+
+    return 'FakeBenchmarkTask'
+
+  @property
+  def components(self) -> List[BaseComponent]:
+    """Returns TFX components required for the task."""
+
+    return [self._example_gen]
+
+  @property
+  def train_and_eval_examples(self) -> tfx_types.Channel:
+    """Returns train and eval labeled examples."""
+
+    return self._example_gen.outputs.examples
+
+  @property
+  def problem_statement(self) -> ps_pb2.ProblemStatement:
+    """Returns the ProblemStatement associated with this BenchmarkTask."""
+
+    return ps_pb2.ProblemStatement(
+        owner=['nitroml'],
+        tasks=[
+            ps_pb2.Task(
+                name='Test',
+                type=ps_pb2.Type(
+                    one_dimensional_regression=ps_pb2.OneDimensionalRegression(
+                        label='test')),
+            )
+        ])
+
+
 
 
 class Benchmarks:
@@ -133,137 +170,162 @@ class Benchmarks:
   class Benchmark1(nitroml.Benchmark):
 
     def test_this_benchmark(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components)
       pipeline = self.add(FakeSubpipeline())
-      self.evaluate(examples=pipeline.examples, model=pipeline.model)
+      self.evaluate(task=task, model=pipeline.model)
 
     def _benchmark(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components)
       pipeline = self.add(FakeSubpipeline())
-      self.evaluate(examples=pipeline.examples, model=pipeline.model)
+      self.evaluate(task=task, model=pipeline.model)
 
     def benchmark(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components)
       pipeline = self.add(FakeSubpipeline())
-      self.evaluate(examples=pipeline.examples, model=pipeline.model)
+      self.evaluate(task=task, model=pipeline.model)
 
     def benchmark_my_pipeline(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components)
       pipeline = self.add(FakeSubpipeline())
-      self.evaluate(examples=pipeline.examples, model=pipeline.model)
+      self.evaluate(task=task, model=pipeline.model)
 
   class BenchmarkComponents(nitroml.Benchmark):
 
     def benchmark(self):
-      example_gen = self.add(FakeExampleGen())
+      task = FakeBenchmarkTask()
+      self.add(task.components)
       trainer = self.add(FakeTrainer())
-      self.evaluate(
-          examples=example_gen.outputs.examples, model=trainer.outputs.model)
+      self.evaluate(task=task, model=trainer.outputs.model)
 
   class BenchmarkSubpipeline(nitroml.Benchmark):
 
     def benchmark(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components)
       pipeline = self.add(FakeSubpipeline())
-      self.evaluate(examples=pipeline.examples, model=pipeline.model)
+      self.evaluate(task=task, model=pipeline.model)
 
   class BenchmarkTuple(nitroml.Benchmark):
 
     def benchmark(self):
-      example_gen, trainer = self.add((FakeExampleGen(), FakeTrainer()))
-      self.evaluate(
-          examples=example_gen.outputs.examples, model=trainer.outputs.model)
+      task = FakeBenchmarkTask()
+      _, trainer = self.add((task.components, FakeTrainer()))
+      self.evaluate(task=task, model=trainer.outputs.model)
 
   class BenchmarkList(nitroml.Benchmark):
 
     def benchmark(self):
-      example_gen, trainer = self.add([FakeExampleGen(), FakeTrainer()])
-      self.evaluate(
-          examples=example_gen.outputs.examples, model=trainer.outputs.model)
+      task = FakeBenchmarkTask()
+      _, trainer = self.add([task.components, FakeTrainer()])
+      self.evaluate(task=task, model=trainer.outputs.model)
 
   class BenchmarkDict(nitroml.Benchmark):
 
     def benchmark(self):
+      task = FakeBenchmarkTask()
       components = self.add({
           'example_gen': FakeExampleGen(),
           'trainer': FakeTrainer()
       })
-      self.evaluate(
-          examples=components['example_gen'].outputs.examples,
-          model=components['trainer'].outputs.model)
+      self.evaluate(task=task, model=components['trainer'].outputs.model)
 
   class BenchmarkDeeplyNested(nitroml.Benchmark):
 
     def benchmark(self):
+      task = FakeBenchmarkTask()
       components = self.add({
-          'components': [FakeExampleGen(), {
+          'components': [task.components, {
               'trainer': FakeTrainer()
           }],
       })
       self.evaluate(
-          examples=components['components'][0].outputs.examples,
-          model=components['components'][1]['trainer'].outputs.model)
+          task=task, model=components['components'][1]['trainer'].outputs.model)
 
   class SubBenchmark(nitroml.Benchmark):
 
     def benchmark(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components)
       pipeline = self.add(FakeSubpipeline())
       with self.sub_benchmark('one'):
-        self.evaluate(examples=pipeline.examples, model=pipeline.model)
+        self.evaluate(task=task, model=pipeline.model)
 
   class BenchmarkAndSubBenchmark(nitroml.Benchmark):
 
     def benchmark(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components)
       pipeline = self.add(FakeSubpipeline())
-      self.evaluate(examples=pipeline.examples, model=pipeline.model)
+      self.evaluate(task=task, model=pipeline.model)
       with self.sub_benchmark('one'):
-        self.evaluate(examples=pipeline.examples, model=pipeline.model)
+        self.evaluate(task=task, model=pipeline.model)
 
   class NestedSubBenchmarks(nitroml.Benchmark):
 
     def benchmark(self):
       with self.sub_benchmark('one'):
         with self.sub_benchmark('two'):
+          task = FakeBenchmarkTask()
+          self.add(task.components)
           pipeline = self.add(FakeSubpipeline())
-          self.evaluate(examples=pipeline.examples, model=pipeline.model)
+          self.evaluate(task=task, model=pipeline.model)
 
   class SharedNestedSubBenchmarks(nitroml.Benchmark):
 
     def benchmark(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components)
       pipeline = self.add(FakeSubpipeline())
       with self.sub_benchmark('one'):
         with self.sub_benchmark('two'):
-          self.evaluate(examples=pipeline.examples, model=pipeline.model)
+          self.evaluate(task=task, model=pipeline.model)
 
   class MultipleSubBenchmarks(nitroml.Benchmark):
 
     def benchmark(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components)
       pipeline = self.add(FakeSubpipeline())
       with self.sub_benchmark('mnist'):
-        self.evaluate(examples=pipeline.examples, model=pipeline.model)
+        self.evaluate(task=task, model=pipeline.model)
       with self.sub_benchmark('chicago_taxi'):
-        self.evaluate(examples=pipeline.examples, model=pipeline.model)
+        self.evaluate(task=task, model=pipeline.model)
 
   # Error causing benchmarks below:
 
   class CallAddBenchmarkTwice(nitroml.Benchmark):
 
     def benchmark(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components)
       pipeline = self.add(FakeSubpipeline())
-      self.evaluate(examples=pipeline.examples, model=pipeline.model)
-      self.evaluate(examples=pipeline.examples, model=pipeline.model)
+      self.evaluate(task=task, model=pipeline.model)
+      self.evaluate(task=task, model=pipeline.model)
 
   class CallAddBenchmarkTwiceInSubBenchmark(nitroml.Benchmark):
 
     def benchmark(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components)
       pipeline = self.add(FakeSubpipeline())
       with self.sub_benchmark('one'):
-        self.evaluate(examples=pipeline.examples, model=pipeline.model)
-        self.evaluate(examples=pipeline.examples, model=pipeline.model)
+        self.evaluate(task=task, model=pipeline.model)
+        self.evaluate(task=task, model=pipeline.model)
 
   class TwoSubBenchmarksWithSameName(nitroml.Benchmark):
 
     def benchmark(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components)
       pipeline = self.add(FakeSubpipeline())
       with self.sub_benchmark('one'):
-        self.evaluate(examples=pipeline.examples, model=pipeline.model)
+        self.evaluate(task=task, model=pipeline.model)
       with self.sub_benchmark('one'):
-        self.evaluate(examples=pipeline.examples, model=pipeline.model)
+        self.evaluate(task=task, model=pipeline.model)
 
   class BenchmarkSubpipelineWithoutAlways(nitroml.Benchmark):
 

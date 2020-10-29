@@ -96,13 +96,10 @@ class TitanicBenchmark(nitroml.Benchmark):
                     text_format.MessageToString(
                         message=task.problem_statement, as_utf8=True),
             }))
-
     # Finally, call evaluate() on the workflow DAG outputs. This will
     # automatically append Evaluators to compute metrics from the given
     # SavedModel and 'eval' TF Examples.
-    self.evaluate(
-        examples=task.train_and_eval_examples,
-        model=trainer.outputs.model)
+    self.evaluate(task=task, model=trainer.outputs.model)
 
 
 if __name__ == '__main__':

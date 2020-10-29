@@ -72,6 +72,7 @@ class BenchmarkResultPublisher(base_component.BaseComponent):
       instance_name: Optional unique instance name. Necessary iff multiple
         BenchmarkResultPublisher components are declared in the same pipeline.
     """
+
     if not benchmark_name:
       raise ValueError(
           'A valid benchmark name is required to run BenchmarkResultPublisher component.'
@@ -79,13 +80,6 @@ class BenchmarkResultPublisher(base_component.BaseComponent):
     if not evaluation:
       raise ValueError(
           'An evaluation channel is required to run BenchmarkResultPublisher component.'
-      )
-    if not run:
-      raise ValueError(
-          'A positive is required to run BenchmarkResultPublisher component.')
-    if not num_runs:
-      raise ValueError(
-          'A positive num_runs is required to run BenchmarkResultPublisher component.'
       )
 
     benchmark_result = channel_utils.as_channel([BenchmarkResult()])
