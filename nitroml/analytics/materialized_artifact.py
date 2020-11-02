@@ -15,20 +15,70 @@
 # Lint as: python3
 """A generic Materialized Artifact definition."""
 
-import abc
+import collections
+from typing import Type
+
 import pandas as pd
+from tfx import types
 
-from tfx.orchestration.experimental.interactive import visualizations
 
+class MaterializedArtifact:
+  """TFX artifact used for artifact analysis and visualization."""
 
-class MaterializedArtifact(visualizations.ArtifactVisualization):
-  """Abstract base class for materialized artifacts.
+  def __init__(self, artifact: types.Artifact):
+    self.artifact = artifact
 
-  Represents an output of a tfx component that has been materialized on disk.
-  Subclasses provide implementations to load and display a specific artifact
-  type.
-  """
+  def __str__(self):
+    return f'{self.artifact.artifact_type} Artifact'
 
-  @abc.abstractmethod
+  def __repr__(self):
+    return f'<{self.__str__()}>'
+
+  # Artifact type (of type `Type[types.Artifact]`).
+  ARTIFACT_TYPE = types.Artifact
+
+  def show(self) -> None:
+    """Displays respective visualization for artifact type."""
+    raise NotImplementedError("Artifact type '%s' not registered." %
+                              self.artifact.type_name)
+
   def to_dataframe(self) -> pd.DataFrame:
     """Returns dataframe representation of the artifact."""
+    properties = collections.defaultdict(list)
+    for key, value in self.artifact.mlmd_artifact.properties.items():
+      properties['Property'].append(key)
+      properties['Value'].append(value.string_value)
+
+    for key, value in self.artifact.mlmd_artifact.custom_properties.items():
+      properties['Property'].append(key)
+      properties['Value'].append(value.string_value)
+
+    return pd.DataFrame(properties)
+
+
+class ArtifactRegistry(object):
+  """Registry of artifact definitions."""
+
+  def __init__(self):
+    self.artifacts = {}
+
+  def register(self, artifact_class: Type[MaterializedArtifact]):
+    artifact_type = artifact_class.ARTIFACT_TYPE
+    if not (issubclass(artifact_type, types.Artifact) and
+            artifact_type.TYPE_NAME is not None):
+      raise TypeError(
+          'Artifact class must provide subclass of types.Artifact in its '
+          'ARTIFACT_TYPE attribute. This subclass must have non-None TYPE_NAME '
+          'attribute.')
+    self.artifacts[artifact_type.TYPE_NAME] = artifact_class
+
+  def get_artifact_class(self,
+                         artifact_type_name: str) -> Type[MaterializedArtifact]:
+    return self.artifacts.get(artifact_type_name, MaterializedArtifact)
+
+
+_REGISTRY = ArtifactRegistry()
+
+
+def get_registry():
+  return _REGISTRY

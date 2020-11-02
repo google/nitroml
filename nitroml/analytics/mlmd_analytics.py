@@ -17,7 +17,10 @@
 
 from typing import Any, Dict, ItemsView, KeysView, Optional, Union, ValuesView
 
+from nitroml.analytics import materialized_artifact
 import pandas as pd
+from tfx import types
+
 from ml_metadata.google.services.mlmd_service.proto import mlmd_service_pb2
 from ml_metadata.google.tfx import metadata_store
 from ml_metadata.proto import metadata_store_pb2
@@ -109,10 +112,17 @@ class ComponentRun:
         if 'component_id' in context.properties
     ]
     artifacts = self._store.get_artifacts_by_context(component_run_context.id)
-    return PropertyDictWrapper({
-        artifact.custom_properties['name'].string_value: artifact
-        for artifact in artifacts
-    })
+    output = {}
+    artifact_types = self._store.get_artifact_types_by_id(
+        [artifact.type_id for artifact in artifacts])
+    for artifact, artifact_type in zip(artifacts, artifact_types):
+      tfx_artifact = types.Artifact(artifact_type)
+      tfx_artifact.set_mlmd_artifact(artifact)
+      materialized_artifact_class = materialized_artifact.get_registry(
+      ).get_artifact_class(tfx_artifact.type_name)
+      output[tfx_artifact.name] = materialized_artifact_class(tfx_artifact)
+
+    return PropertyDictWrapper(output)
 
   @property
   def exec_properties(self) -> Dict[str, Any]:
