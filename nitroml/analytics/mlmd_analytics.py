@@ -15,15 +15,37 @@
 # Lint as: python3
 """A collection of objects to analyze and visualize Machine Learning Metadata."""
 
-from typing import Any, Dict, ItemsView, KeysView, Optional, Union, ValuesView
+from typing import Any, Dict, ItemsView, KeysView, Optional, Type, Union, ValuesView
 
 from nitroml.analytics import materialized_artifact
+from nitroml.analytics import standard_materialized_artifacts
 import pandas as pd
 from tfx import types
 
 from ml_metadata.google.services.mlmd_service.proto import mlmd_service_pb2
 from ml_metadata.google.tfx import metadata_store
 from ml_metadata.proto import metadata_store_pb2
+
+
+def register_standard_artifacts():
+  """Registers all artifact classes in 'standard_materialized_artifacts.py'."""
+  standard_materialized_artifacts.register_standard_artifacts()
+
+
+def register_artifact_class(artifact_class:
+                            Type[materialized_artifact.MaterializedArtifact]):
+  """Registers a subclass of MaterializedArtifact to artifact registery.
+
+  If an artifact_class is registered with the same ARTIFACT_TYPE field,
+  it is replaced.
+
+  Args:
+    artifact_class: A subclass of MaterializedArtifact to be registered.
+  """
+  if not issubclass(artifact_class, materialized_artifact.MaterializedArtifact):
+    raise ValueError("Artifact class does not subclass "
+                     "'materialized_artifact.MaterializedArtifact'")
+  materialized_artifact.get_registry().register(artifact_class)
 
 
 class PropertyDictWrapper:

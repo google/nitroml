@@ -21,6 +21,8 @@ from typing import Type
 import pandas as pd
 from tfx import types
 
+from google3.pyglib import gfile
+
 
 class MaterializedArtifact:
   """TFX artifact used for artifact analysis and visualization."""
@@ -36,6 +38,18 @@ class MaterializedArtifact:
 
   # Artifact type (of type `Type[types.Artifact]`).
   ARTIFACT_TYPE = types.Artifact
+
+  def _validate_payload(self):
+    """Raises error if the artifact uri is not readable.
+
+    Raises:
+      IOError: Error raised if no conclusive determination could be made
+      of files state (either because the path definitely does not exist or
+      because some error occurred trying to query the file's state).
+    """
+
+    if not gfile.Readable(self.artifact.uri):
+      raise IOError(f'Artifact URI {self.artifact.uri} not readable.')
 
   def show(self) -> None:
     """Displays respective visualization for artifact type."""
