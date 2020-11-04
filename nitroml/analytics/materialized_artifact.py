@@ -31,7 +31,7 @@ class MaterializedArtifact:
     self.artifact = artifact
 
   def __str__(self):
-    return f'{self.artifact.artifact_type} Artifact'
+    return f'{self.artifact.artifact_type.name} Artifact'
 
   def __repr__(self):
     return f'<{self.__str__()}>'
