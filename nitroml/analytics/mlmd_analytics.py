@@ -113,7 +113,7 @@ class ComponentRun:
   @property
   def component_name(self):
     """The name of this component."""
-    return self._execution.property['component_id'].string_value
+    return self.exec_properties['component_id']
 
   @property
   def inputs(self) -> PropertyDictWrapper:
@@ -149,7 +149,11 @@ class ComponentRun:
   @property
   def exec_properties(self) -> Dict[str, Any]:
     """A dictionary of user defined exec properties of this component."""
-    return self._execution.properties
+    exec_dict = {}
+    for key, val in self._execution.properties.items():
+      exec_dict[key] = getattr(val, val.WhichOneof('value'))
+
+    return exec_dict
 
   @property
   def describe(self) -> pd.Series:
