@@ -48,7 +48,7 @@ class MaterializedArtifact:
       because some error occurred trying to query the file's state).
     """
 
-    if not gfile.Readable(self.artifact.uri):
+    if not gfile.Exists(self.artifact.uri):
       raise IOError(f'Artifact URI {self.artifact.uri} not readable.')
 
   def show(self) -> None:
@@ -70,7 +70,7 @@ class MaterializedArtifact:
     return pd.DataFrame(properties)
 
 
-class ArtifactRegistry(object):
+class ArtifactRegistry:
   """Registry of artifact definitions."""
 
   def __init__(self):
