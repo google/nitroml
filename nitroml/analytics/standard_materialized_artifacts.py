@@ -30,7 +30,15 @@ class StatisticsGenArtifact(materialized_artifact.MaterializedArtifact):
         self.artifact)
 
 
-_STANDARD_ARTIFACTS = frozenset([StatisticsGenArtifact])
+class SchemaGenArtifact(materialized_artifact.MaterializedArtifact):
+  """Visualization for standard_artifacts.Schema."""
+
+  ARTIFACT_TYPE = standard_artifacts.Schema
+
+  def show(self):
+    standard_visualizations.SchemaVisualization().display(self.artifact)
+
+_STANDARD_ARTIFACTS = frozenset([StatisticsGenArtifact, SchemaGenArtifact])
 
 
 def register_standard_artifacts():
