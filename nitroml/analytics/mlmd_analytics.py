@@ -32,8 +32,8 @@ def register_standard_artifacts():
   standard_materialized_artifacts.register_standard_artifacts()
 
 
-def register_artifact_class(artifact_class:
-                            Type[materialized_artifact.MaterializedArtifact]):
+def register_artifact_class(
+    artifact_class: Type[materialized_artifact.MaterializedArtifact]):
   """Registers a subclass of MaterializedArtifact to artifact registery.
 
   If an artifact_class is registered with the same ARTIFACT_TYPE field,
@@ -43,8 +43,8 @@ def register_artifact_class(artifact_class:
     artifact_class: A subclass of MaterializedArtifact to be registered.
   """
   if not issubclass(artifact_class, materialized_artifact.MaterializedArtifact):
-    raise ValueError("Artifact class does not subclass "
-                     "'materialized_artifact.MaterializedArtifact'")
+    raise ValueError('Artifact class does not subclass '
+                     '`materialized_artifact.MaterializedArtifact`')
   materialized_artifact.get_registry().register(artifact_class)
 
 
@@ -115,26 +115,16 @@ class ComponentRun:
     """The name of this component."""
     return self.exec_properties['component_id']
 
-  @property
-  def inputs(self) -> PropertyDictWrapper:
-    """List of input artifacts in this components workflow.
-
-    Raises:
-      NotImplementedError: If this functionality has yet to be implemented.
-    """
-    raise NotImplementedError(
-        'ComponentRun.inputs() is currently unimplemented.')
-
-  @property
-  def outputs(self) -> PropertyDictWrapper:
-    """List of output artifacts in this components workflow."""
+  def _get_artifacts(
+      self) -> Dict[str, materialized_artifact.MaterializedArtifact]:
+    """Returns all artifacts associated with this component."""
     [component_run_context] = [
         context
         for context in self._store.get_contexts_by_execution(self._execution.id)
         if 'component_id' in context.properties
     ]
     artifacts = self._store.get_artifacts_by_context(component_run_context.id)
-    output = {}
+    artifact_dict = {}
     artifact_types = self._store.get_artifact_types_by_id(
         [artifact.type_id for artifact in artifacts])
     for artifact, artifact_type in zip(artifacts, artifact_types):
@@ -142,9 +132,27 @@ class ComponentRun:
       tfx_artifact.set_mlmd_artifact(artifact)
       materialized_artifact_class = materialized_artifact.get_registry(
       ).get_artifact_class(tfx_artifact.type_name)
-      output[tfx_artifact.name] = materialized_artifact_class(tfx_artifact)
+      artifact_dict[tfx_artifact.name] = materialized_artifact_class(
+          tfx_artifact)
+    return artifact_dict
 
-    return PropertyDictWrapper(output)
+  @property
+  def inputs(self) -> PropertyDictWrapper:
+    """Dictionary of input artifacts in this components run."""
+    return PropertyDictWrapper({
+        artifact_name: artifact
+        for artifact_name, artifact in self._get_artifacts().items()
+        if (artifact.producer_component != self.component_name)
+    })
+
+  @property
+  def outputs(self) -> PropertyDictWrapper:
+    """Dictionary of output artifacts in this components run."""
+    return PropertyDictWrapper({
+        artifact_name: artifact
+        for artifact_name, artifact in self._get_artifacts().items()
+        if (artifact.producer_component == self.component_name)
+    })
 
   @property
   def exec_properties(self) -> Dict[str, Any]:

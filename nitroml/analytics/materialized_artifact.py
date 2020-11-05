@@ -39,6 +39,11 @@ class MaterializedArtifact:
   # Artifact type (of type `Type[types.Artifact]`).
   ARTIFACT_TYPE = types.Artifact
 
+  @property
+  def producer_component(self) -> str:
+    """The producer component of this artifact."""
+    return self.artifact.producer_component
+
   def _validate_payload(self):
     """Raises error if the artifact uri is not readable.
 

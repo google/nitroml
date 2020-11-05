@@ -43,10 +43,10 @@ class PropertyDictTest(absltest.TestCase):
     self.assertEqual(want, got)
 
 
-class RunDBTest(absltest.TestCase):
+class AnalyticsTest(absltest.TestCase):
 
   def __init__(self, *args, **kwargs):
-    super(RunDBTest, self).__init__(*args, **kwargs)
+    super(AnalyticsTest, self).__init__(*args, **kwargs)
     self.test_mlmd = test_mlmd.TestMLMD()
     self.properties1 = {'pipeline_name': 'taxi1', 'run_id': '1'}
     self.properties2 = {'pipeline_name': 'taxi2', 'run_id': '2'}
@@ -78,15 +78,25 @@ class RunDBTest(absltest.TestCase):
     properties3 = {'pipeline_name': 'taxi3', 'run_id': '1', 'component_id': '3'}
     context_id = self.test_mlmd.put_context('context3', properties=properties3)
     execution_id = self.test_mlmd.put_execution('3', 'stats_gen')
-    artifact_id = self.test_mlmd.put_artifact({'property': 'value',
-                                               'name': 'test_artifact'})
+    artifact_id_output = self.test_mlmd.put_artifact({
+        'property': 'value',
+        'name': 'test_artifact_output',
+        'producer_component': 'stats_gen'
+    })
+    artifact_id_input = self.test_mlmd.put_artifact({
+        'property': 'value',
+        'name': 'test_artifact_input',
+        'producer_component': 'example_gen'
+    })
     pipeline_run = self.run_db.get_run('1')
     self.test_mlmd.put_association(context_id, execution_id)
-    self.test_mlmd.put_attribution(context_id, artifact_id)
+    self.test_mlmd.put_attribution(context_id, artifact_id_output)
+    self.test_mlmd.put_attribution(context_id, artifact_id_input)
     component_run = pipeline_run.components['stats_gen']
     self.assertIn('run_id', component_run.exec_properties)
     self.assertIn('component_id', component_run.exec_properties)
-    self.assertIn('test_artifact', component_run.outputs)
+    self.assertIn('test_artifact_output', component_run.outputs)
+    self.assertIn('test_artifact_input', component_run.inputs)
 
 if __name__ == '__main__':
   absltest.main()
