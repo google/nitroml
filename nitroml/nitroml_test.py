@@ -55,6 +55,7 @@ class FakeExampleGen(BaseComponent):
     self._downstream_nodes = set()
     self._upstream_nodes = set()
     self._instance_name = instance_name
+    self._id = None
 
   @property
   def outputs(self):
@@ -73,6 +74,7 @@ class FakeTrainer(BaseComponent):
     self._downstream_nodes = set()
     self._upstream_nodes = set()
     self._instance_name = instance_name
+    self._id = None
 
   @property
   def outputs(self):
