@@ -47,6 +47,7 @@ from nitroml.task import BenchmarkTask
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
 from tfx import types
+from tfx.dsl.compiler import compiler
 from tfx.dsl.components.base.base_component import BaseComponent
 from tfx.orchestration import tfx_runner as tfx_runner_lib
 from tfx.orchestration.beam import beam_dag_runner
@@ -200,7 +201,7 @@ def _make_pipeline_dirs(
 
 
 class BenchmarkResult:
-  """Holder for benchmark result information.
+  """Holder for benchmark call information.
 
   Benchmark results are automatically managed by the Benchmark class, and do
   not need to be explicitly manipulated by benchmark authors.
@@ -211,6 +212,15 @@ class BenchmarkResult:
     self.benchmark_subpipelines = []
     self.benchmark_run = benchmark_run
     self.runs_per_benchmark = runs_per_benchmark
+
+  @property
+  def components(self) -> List[BaseComponent]:
+    """Returns the components produced when calling a Benchmark."""
+
+    components = self.components_to_always_add
+    for subpipeline in self.benchmark_subpipelines:
+      components.extend(subpipeline.components)
+    return list(set(components))
 
 
 class Benchmark(abc.ABC):
@@ -497,6 +507,7 @@ def run(benchmarks: List[Benchmark],
             metadata_store_pb2.ConnectionConfig] = None,
         enable_cache: Optional[bool] = False,
         beam_pipeline_args: Optional[List[str]] = None,
+        compile_pipeline: bool = False,
         **kwargs) -> BenchmarkPipeline:
   """Runs the given benchmarks as part of a single pipeline DAG.
 
@@ -519,6 +530,9 @@ def run(benchmarks: List[Benchmark],
     enable_cache: Whether or not cache is enabled for this run.
     beam_pipeline_args: Beam pipeline args for beam jobs within executor.
       Executor will use beam DirectRunner as Default.
+    compile_pipeline: When `True`, compiles the tfx.Pipeline containing the
+      benchmarks into its IR proto format before calling `tfx_runner#run` on it.
+      Required for certain types of `tfx_runner`.
     **kwargs: Additional kwargs forwarded as kwargs to benchmarks.
 
   Returns:
@@ -576,7 +590,11 @@ def run(benchmarks: List[Benchmark],
   for benchmark_name in benchmark_pipeline.benchmark_names:
     logging.info("\t%s", benchmark_name)
     logging.info("\t\tRUNNING")
-  tfx_runner.run(benchmark_pipeline)
+  pipeline_to_run = benchmark_pipeline
+  if compile_pipeline:
+    dsl_compiler = compiler.Compiler()
+    pipeline_to_run = dsl_compiler.compile(pipeline_to_run)
+  tfx_runner.run(pipeline_to_run)
   return benchmark_pipeline
 
 
