@@ -4,7 +4,6 @@ from absl import logging
 from absl.testing import absltest
 from nitroml.analytics import mlmd_analytics
 from nitroml.testing import test_mlmd
-import pandas as pd
 
 logging.set_stderrthreshold('error')
 
@@ -55,8 +54,8 @@ class AnalyticsTest(absltest.TestCase):
     self.run_db = mlmd_analytics.Analytics(store=self.test_mlmd.store)
 
   def testListRuns(self):
-    want = pd.DataFrame([self.properties1, self.properties2]).to_dict()
-    got = self.run_db.list_runs().to_dict()
+    want = {'1': self.properties1, '2': self.properties2}
+    got = self.run_db.list_runs()
     self.assertCountEqual(want, got)
 
   def testGetRun(self):
@@ -97,6 +96,7 @@ class AnalyticsTest(absltest.TestCase):
     self.assertIn('component_id', component_run.exec_properties)
     self.assertIn('test_artifact_output', component_run.outputs)
     self.assertIn('test_artifact_input', component_run.inputs)
+
 
 if __name__ == '__main__':
   absltest.main()

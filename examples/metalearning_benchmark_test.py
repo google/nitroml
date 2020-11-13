@@ -18,9 +18,11 @@
 import os
 
 from nitroml import results
+from nitroml.analytics import mlmd_analytics
 from examples import metalearning_benchmark
 from nitroml.suites import testing_utils
 from nitroml.testing import e2etest
+import pandas as pd
 import requests_mock
 
 from ml_metadata import metadata_store
@@ -59,21 +61,21 @@ class MetaLearningTest(e2etest.BenchmarkTestCase):
     self.assertComponentSucceeded(
         f'Transform.AutoData.train.OpenML.mockdata_1.{instance_name}')
 
-    instance_name = 'MetaLearningBenchmark.benchmark.OpenML.mockdata_2'
+    instance_name_2 = 'MetaLearningBenchmark.benchmark.OpenML.mockdata_2'
     self.assertComponentSucceeded(
-        f'CsvExampleGen.OpenML.mockdata_2.{instance_name}')
+        f'CsvExampleGen.OpenML.mockdata_2.{instance_name_2}')
     self.assertComponentSucceeded(
-        f'SchemaGen.AutoData.{instance_name}')
+        f'SchemaGen.AutoData.{instance_name_2}')
     self.assertComponentSucceeded(
-        f'StatisticsGen.AutoData.{instance_name}')
+        f'StatisticsGen.AutoData.{instance_name_2}')
     self.assertComponentSucceeded(
-        f'Transform.AutoData.{instance_name}')
+        f'Transform.AutoData.{instance_name_2}')
     self.assertComponentSucceeded(
-        f'AugmentedTuner.{instance_name}')
+        f'AugmentedTuner.{instance_name_2}')
     self.assertComponentSucceeded(
-        f'Trainer.{instance_name}')
-    self.assertComponentSucceeded(f'Evaluator.{instance_name}')
-    self.assertComponentSucceeded(f'BenchmarkResultPublisher.{instance_name}')
+        f'Trainer.{instance_name_2}')
+    self.assertComponentSucceeded(f'Evaluator.{instance_name_2}')
+    self.assertComponentSucceeded(f'BenchmarkResultPublisher.{instance_name_2}')
 
     # Load benchmark results.
     store = metadata_store.MetadataStore(self.metadata_config)
@@ -90,7 +92,39 @@ class MetaLearningTest(e2etest.BenchmarkTestCase):
     ], df.columns.values.tolist())
     self.assertSameElements([1], df['run'].tolist())
     self.assertSameElements([1], df['num_runs'].tolist())
-    self.assertSameElements([instance_name], df.benchmark.unique())
+    self.assertSameElements([instance_name_2], df.benchmark.unique())
+
+    # Load Analytics
+    analytics = mlmd_analytics.Analytics(store=store)
+    # Check test_pipeline run analysis
+    runs = analytics.list_runs()
+    [run_id] = runs.keys()
+    [run_info] = runs.values()
+    self.assertEqual('test_pipeline', run_info['pipeline_name'])
+    run = analytics.get_run(run_id)
+
+    want_components = {
+        f'CsvExampleGen.OpenML.mockdata_1.{instance_name}',
+        f'AugmentedTuner.train.OpenML.mockdata_1.{instance_name}',
+        f'SchemaGen.AutoData.train.OpenML.mockdata_1.{instance_name}',
+        f'StatisticsGen.AutoData.train.OpenML.mockdata_1.{instance_name}',
+        f'Transform.AutoData.train.OpenML.mockdata_1.{instance_name}',
+        f'CsvExampleGen.OpenML.mockdata_2.{instance_name_2}',
+        f'SchemaGen.AutoData.{instance_name_2}',
+        f'StatisticsGen.AutoData.{instance_name_2}',
+        f'Transform.AutoData.{instance_name_2}',
+        f'AugmentedTuner.{instance_name_2}',
+        f'Trainer.{instance_name_2}',
+        f'Evaluator.{instance_name_2}',
+        f'BenchmarkResultPublisher.{instance_name_2}',
+    }
+
+    self.assertContainsSubset(want_components, run.components.keys())
+
+    component = f'Transform.AutoData.{instance_name_2}'
+    self.assertIs(type(
+        run.components[component].outputs.transformed_examples.to_dataframe(
+            'train', 5)), pd.DataFrame)
 
 
 if __name__ == '__main__':

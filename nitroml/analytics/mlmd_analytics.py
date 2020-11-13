@@ -27,9 +27,7 @@ from ml_metadata.google.tfx import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 
 
-def register_standard_artifacts():
-  """Registers all artifact classes in 'standard_materialized_artifacts.py'."""
-  standard_materialized_artifacts.register_standard_artifacts()
+standard_materialized_artifacts.register_standard_artifacts()
 
 
 def register_artifact_class(
@@ -197,6 +195,10 @@ class PipelineRun:
     self._context_id = context_id
     self._store = store
 
+  def _repr_html_(self):
+    return pd.DataFrame(self.components.keys(),
+                        columns=['Components']).to_html(index=False)
+
   @property
   def components(self) -> Dict[str, ComponentRun]:
     """A dictionary of (Component Name, ComponentRun) key-value pairs."""
@@ -236,7 +238,7 @@ class Analytics:
     self._store = store if store else metadata_store.MetadataStore(config)
 
   def _get_runs(self) -> Dict[str, Dict[str, Any]]:
-    """Returns a dictionary of runs with pipeline names, runids, and context ids."""
+    """Returns a dictionary of runs ids mapped to run and context information."""
     ctxs = self._store.get_contexts_by_type('run')
     runs = {}
     for ctx in ctxs:
@@ -244,13 +246,23 @@ class Analytics:
       runs[run_id] = {
           'pipeline_name': ctx.properties['pipeline_name'].string_value,
           'run_id': run_id,
-          'context_id': ctx.id
+          'context_id': ctx.id,
+          'create_time': ctx.create_time_since_epoch,
+          'last_update_time': ctx.last_update_time_since_epoch
       }
     return runs
 
-  def list_runs(self) -> pd.DataFrame:
-    """Returns a dataframe of pipeline names and runids."""
-    return pd.DataFrame(self._get_runs().values())[['pipeline_name', 'run_id']]
+  def list_runs(self) -> Dict[str, Dict[str, Any]]:
+    """Returns a dictionary of run ids mapped to relevant run information."""
+    runs = {}
+    for key, val in self._get_runs().items():
+      runs[key] = {
+          'pipeline_name': val['pipeline_name'],
+          'run_id': val['run_id'],
+          'create_time': val['create_time'],
+          'last_update_time': val['last_update_time']
+      }
+    return runs
 
   def get_run(self, run_id: str) -> PipelineRun:
     """Returns a Run object with the given run_id.

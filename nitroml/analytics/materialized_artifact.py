@@ -15,13 +15,11 @@
 # Lint as: python3
 """A generic Materialized Artifact definition."""
 
-import collections
-from typing import Type
+from typing import Dict, Type
 
 import pandas as pd
+from tensorflow.io import gfile
 from tfx import types
-
-from google3.pyglib import gfile
 
 
 class MaterializedArtifact:
@@ -53,7 +51,7 @@ class MaterializedArtifact:
       because some error occurred trying to query the file's state).
     """
 
-    if not gfile.Exists(self.artifact.uri):
+    if not gfile.exists(self.artifact.uri):
       raise IOError(f'Artifact URI {self.artifact.uri} not readable.')
 
   def show(self) -> None:
@@ -61,18 +59,16 @@ class MaterializedArtifact:
     raise NotImplementedError("Artifact type '%s' not registered." %
                               self.artifact.type_name)
 
-  def to_dataframe(self) -> pd.DataFrame:
-    """Returns dataframe representation of the artifact."""
-    properties = collections.defaultdict(list)
+  def properties(self) -> Dict[str, str]:
+    """Returns dictionary of custom and default properties of the artifact."""
+    properties = {}
     for key, value in self.artifact.mlmd_artifact.properties.items():
-      properties['Property'].append(key)
-      properties['Value'].append(value.string_value)
+      properties[key] = value.string_value
 
     for key, value in self.artifact.mlmd_artifact.custom_properties.items():
-      properties['Property'].append(key)
-      properties['Value'].append(value.string_value)
+      properties[key] = value.string_value
 
-    return pd.DataFrame(properties)
+    return properties
 
 
 class ArtifactRegistry:
@@ -80,6 +76,13 @@ class ArtifactRegistry:
 
   def __init__(self):
     self.artifacts = {}
+
+  def __repr__(self) -> str:
+    return repr(self.artifacts)
+
+  def _repr_html_(self) -> str:
+    return pd.DataFrame.from_dict(self.artifacts, orient='index',
+                                  columns=['Artifact']).to_html()
 
   def register(self, artifact_class: Type[MaterializedArtifact]):
     artifact_type = artifact_class.ARTIFACT_TYPE
