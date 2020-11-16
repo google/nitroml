@@ -17,10 +17,10 @@
 
 import os
 
-from nitroml import results
 from nitroml.analytics import mlmd_analytics
+from nitroml.benchmark import results
+from nitroml.benchmark.suites import testing_utils
 from examples import metalearning_benchmark
-from nitroml.suites import testing_utils
 from nitroml.testing import e2etest
 import pandas as pd
 import requests_mock
@@ -64,16 +64,11 @@ class MetaLearningTest(e2etest.BenchmarkTestCase):
     instance_name_2 = 'MetaLearningBenchmark.benchmark.OpenML.mockdata_2'
     self.assertComponentSucceeded(
         f'CsvExampleGen.OpenML.mockdata_2.{instance_name_2}')
-    self.assertComponentSucceeded(
-        f'SchemaGen.AutoData.{instance_name_2}')
-    self.assertComponentSucceeded(
-        f'StatisticsGen.AutoData.{instance_name_2}')
-    self.assertComponentSucceeded(
-        f'Transform.AutoData.{instance_name_2}')
-    self.assertComponentSucceeded(
-        f'AugmentedTuner.{instance_name_2}')
-    self.assertComponentSucceeded(
-        f'Trainer.{instance_name_2}')
+    self.assertComponentSucceeded(f'SchemaGen.AutoData.{instance_name_2}')
+    self.assertComponentSucceeded(f'StatisticsGen.AutoData.{instance_name_2}')
+    self.assertComponentSucceeded(f'Transform.AutoData.{instance_name_2}')
+    self.assertComponentSucceeded(f'AugmentedTuner.{instance_name_2}')
+    self.assertComponentSucceeded(f'Trainer.{instance_name_2}')
     self.assertComponentSucceeded(f'Evaluator.{instance_name_2}')
     self.assertComponentSucceeded(f'BenchmarkResultPublisher.{instance_name_2}')
 
@@ -122,9 +117,10 @@ class MetaLearningTest(e2etest.BenchmarkTestCase):
     self.assertContainsSubset(want_components, run.components.keys())
 
     component = f'Transform.AutoData.{instance_name_2}'
-    self.assertIs(type(
-        run.components[component].outputs.transformed_examples.to_dataframe(
-            'train', 5)), pd.DataFrame)
+    self.assertIs(
+        type(
+            run.components[component].outputs.transformed_examples.to_dataframe(
+                'train', 5)), pd.DataFrame)
 
 
 if __name__ == '__main__':

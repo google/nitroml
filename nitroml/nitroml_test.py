@@ -27,9 +27,9 @@ from absl import flags
 from absl.testing import absltest
 from absl.testing import parameterized
 from nitroml import nitroml
+from nitroml.benchmark.task import BenchmarkTask
 from nitroml.subpipeline import Subpipeline
 from nitroml.subpipeline import SubpipelineOutputs
-from nitroml.task import BenchmarkTask
 
 from tfx import types as tfx_types
 from tfx.dsl.components.base.base_component import BaseComponent

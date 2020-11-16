@@ -1,7 +1,7 @@
 """Testing MLMD object with basic insert functionality."""
 
 from typing import Dict
-from nitroml import results
+from nitroml.benchmark import results
 
 from ml_metadata import metadata_store
 from ml_metadata.proto import metadata_store_pb2

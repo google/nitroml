@@ -30,10 +30,11 @@ import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
-from nitroml.components.metalearning import metalearning as mtl
-from nitroml.components.metalearning.tuner import component as tuner_component
+from nitroml.automl import autodata as ad
+from nitroml.automl.metalearning import metalearning as mtl
+from nitroml.automl.metalearning.tuner import component as tuner_component
+from nitroml.benchmark.suites import openml_cc18
 from examples import config
-from nitroml.suites import openml_cc18
 from tfx import components as tfx
 from tfx.components.trainer import executor as trainer_executor
 from tfx.dsl.components.base import executor_spec
@@ -80,10 +81,10 @@ class MetaLearningBenchmark(nitroml.Benchmark):
       # Create the autodata instance for this task, which creates Transform,
       # StatisticsGen and SchemaGen component.
       autodata = self.add(
-          nitroml.autodata.AutoData(
+          ad.AutoData(
               task.problem_statement,
               examples=task.train_and_eval_examples,
-              preprocessor=nitroml.autodata.BasicPreprocessor(),
+              preprocessor=ad.BasicPreprocessor(),
               instance_name=f'train.{task.name}'))
 
       # Add a tuner component for each metatrain dataset that finds the optimum
@@ -121,10 +122,10 @@ class MetaLearningBenchmark(nitroml.Benchmark):
 
         # Create the autodata instance for the test task.
         autodata = self.add(
-            nitroml.autodata.AutoData(
+            ad.AutoData(
                 task.problem_statement,
                 examples=task.train_and_eval_examples,
-                preprocessor=nitroml.autodata.BasicPreprocessor()))
+                preprocessor=ad.BasicPreprocessor()))
 
         test_meta_components, best_hparams = metalearning.create_test_components(
             autodata, tuner_steps=train_steps)

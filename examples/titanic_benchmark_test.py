@@ -15,7 +15,7 @@
 # Lint as: python3
 """Tests for nitroml.examples.titanic_benchmark."""
 
-from nitroml import results
+from nitroml.benchmark import results
 from examples import titanic_benchmark
 from nitroml.testing import e2etest
 

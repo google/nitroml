@@ -20,9 +20,9 @@
 
 import os
 
-from nitroml import results
+from nitroml.benchmark import results
+from nitroml.benchmark.suites import testing_utils
 from examples import openml_cc18_benchmark
-from nitroml.suites import testing_utils
 from nitroml.testing import e2etest
 import requests_mock
 

@@ -30,8 +30,9 @@ import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
+from nitroml.automl import autodata as ad
+from nitroml.benchmark.suites import openml_cc18
 from examples import config
-from nitroml.suites import openml_cc18
 from tfx import components as tfx
 from tfx.components.trainer import executor as trainer_executor
 from tfx.dsl.components.base import executor_spec
@@ -65,10 +66,10 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
         self.add(task.components)
 
         autodata = self.add(
-            nitroml.autodata.AutoData(
+            ad.AutoData(
                 task.problem_statement,
                 examples=task.train_and_eval_examples,
-                preprocessor=nitroml.autodata.BasicPreprocessor()))
+                preprocessor=ad.BasicPreprocessor()))
 
         if enable_tuning:
           # Search over search space of model hyperparameters.

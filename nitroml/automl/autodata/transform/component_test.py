@@ -1,0 +1,100 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# =============================================================================
+# Lint as: python3
+"""Tests for nitroml.automl.autodata.transform.component."""
+
+from typing import Text
+
+from absl.testing import absltest
+from nitroml.automl.autodata.transform import component
+from tfx.orchestration import data_types
+from tfx.types import artifact_utils
+from tfx.types import channel_utils
+from tfx.types import standard_artifacts
+
+
+class ComponentTest(absltest.TestCase):
+
+  def setUp(self):
+    super(ComponentTest, self).setUp()
+    examples_artifact = standard_artifacts.Examples()
+    examples_artifact.split_names = artifact_utils.encode_split_names(
+        ['train', 'eval'])
+    self.examples = channel_utils.as_channel([examples_artifact])
+    self.schema = channel_utils.as_channel([standard_artifacts.Schema()])
+    self.custom_config = {'some': 'thing', 'some other': 1, 'thing': 2}
+
+  def _verify_outputs(self, transform):
+    self.assertEqual(standard_artifacts.TransformGraph.TYPE_NAME,
+                     transform.outputs['transform_graph'].type_name)
+    self.assertEqual(standard_artifacts.Examples.TYPE_NAME,
+                     transform.outputs['transformed_examples'].type_name)
+
+  def testConstructFromModuleFile(self):
+    module_file = '/path/to/preprocessing.py'
+    transform = component.Transform(
+        examples=self.examples,
+        schema=self.schema,
+        module_file=module_file,
+        custom_config=self.custom_config,
+    )
+    self._verify_outputs(transform)
+    self.assertEqual(module_file, transform.spec.exec_properties['module_file'])
+
+  def testConstructWithParameter(self):
+    module_file = data_types.RuntimeParameter(name='module-file', ptype=Text)
+    transform = component.Transform(
+        examples=self.examples,
+        schema=self.schema,
+        module_file=module_file,
+        custom_config=self.custom_config,
+    )
+    self._verify_outputs(transform)
+    self.assertJsonEqual(
+        str(module_file), str(transform.spec.exec_properties['module_file']))
+
+  def testConstructFromPreprocessingFn(self):
+    preprocessing_fn = 'path.to.my_preprocessing_fn'
+    transform = component.Transform(
+        examples=self.examples,
+        schema=self.schema,
+        preprocessing_fn=preprocessing_fn,
+        custom_config=self.custom_config,
+    )
+    self._verify_outputs(transform)
+    self.assertEqual(preprocessing_fn,
+                     transform.spec.exec_properties['preprocessing_fn'])
+
+  def testConstructMissingUserModule(self):
+    with self.assertRaises(ValueError):
+      _ = component.Transform(
+          examples=self.examples,
+          schema=self.schema,
+          custom_config=self.custom_config,
+      )
+
+  def testConstructDuplicateUserModule(self):
+    with self.assertRaises(ValueError):
+      _ = component.Transform(
+          examples=self.examples,
+          schema=self.schema,
+          module_file='/path/to/preprocessing.py',
+          preprocessing_fn='path.to.my_preprocessing_fn',
+          custom_config=self.custom_config,
+      )
+
+
+if __name__ == '__main__':
+  absltest.main()

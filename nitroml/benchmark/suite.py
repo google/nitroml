@@ -13,22 +13,18 @@
 # limitations under the License.
 # =============================================================================
 # Lint as: python3
-"""Package nitroml."""
+r"""A suite of benchmark tasks."""
 
-from nitroml.benchmark import results
-from nitroml.benchmark.suite import BenchmarkSuite
-from nitroml.benchmark.task import BenchmarkTask
-from nitroml.nitroml import Benchmark
-from nitroml.nitroml import get_default_kubeflow_dag_runner
-from nitroml.nitroml import main
-from nitroml.nitroml import run
+import abc
+from typing import Iterator
 
-__all__ = [
-    "Benchmark",
-    "BenchmarkSuite",
-    "BenchmarkTask",
-    "get_default_kubeflow_dag_runner",
-    "main",
-    "results",
-    "run",
-]
+from nitroml.benchmark import task
+
+
+class BenchmarkSuite(abc.ABC):
+  r"""Defines a collection of BenchmarkTasks."""
+
+  @abc.abstractmethod
+  def __iter__(self) -> Iterator[task.BenchmarkTask]:
+    """Returns the tasks that compose this suite."""
+    pass

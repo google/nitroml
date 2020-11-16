@@ -41,9 +41,9 @@ from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union
 from absl import app
 from absl import flags
 from absl import logging
+from nitroml.benchmark.task import BenchmarkTask
 from nitroml.subpipeline import Subpipeline
 from nitroml.subpipeline import SubpipelineOutputs
-from nitroml.task import BenchmarkTask
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
 from tfx import types

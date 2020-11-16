@@ -25,9 +25,9 @@ import functools
 from absl import logging
 import kerastuner
 from kerastuner.engine import hyperparameters as hp_module
-from nitroml.autodata.trainer_adapters import estimator_adapter as ea
-from nitroml.autodata.trainer_adapters import keras_model_adapter as kma
-from nitroml.components.metalearning.tuner.executor import get_tuner_cls_with_callbacks
+from nitroml.automl.autodata.trainer_adapters import estimator_adapter as ea
+from nitroml.automl.autodata.trainer_adapters import keras_model_adapter as kma
+from nitroml.automl.metalearning.tuner.executor import get_tuner_cls_with_callbacks
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
 from tfx.components.trainer import executor as trainer_executor

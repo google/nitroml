@@ -23,7 +23,7 @@ The consumed artifacts include:
 from typing import Any
 
 from absl import logging
-from nitroml.autodata.trainer_adapters import estimator_adapter
+from nitroml.automl.autodata.trainer_adapters import estimator_adapter
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
 from tfx.components.trainer import executor as trainer_executor
