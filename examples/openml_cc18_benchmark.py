@@ -31,14 +31,9 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import nitroml
 from nitroml.automl import autodata as ad
+from nitroml.automl.autotrainer import subpipeline as at
 from nitroml.benchmark.suites import openml_cc18
 from examples import config
-from tfx import components as tfx
-from tfx.components.trainer import executor as trainer_executor
-from tfx.dsl.components.base import executor_spec
-from tfx.proto import trainer_pb2
-
-from google.protobuf import text_format
 
 
 class OpenMLCC18Benchmark(nitroml.Benchmark):
@@ -71,44 +66,17 @@ class OpenMLCC18Benchmark(nitroml.Benchmark):
                 examples=task.train_and_eval_examples,
                 preprocessor=ad.BasicPreprocessor()))
 
-        if enable_tuning:
-          # Search over search space of model hyperparameters.
-          tuner = self.add(
-              tfx.Tuner(
-                  tuner_fn='examples.auto_trainer.tuner_fn',
-                  examples=autodata.outputs.transformed_examples,
-                  transform_graph=autodata.outputs.transform_graph,
-                  train_args=trainer_pb2.TrainArgs(num_steps=10),
-                  eval_args=trainer_pb2.EvalArgs(num_steps=5),
-                  custom_config={
-                      # Pass the problem statement proto as a text proto. Required
-                      # since custom_config must be JSON-serializable.
-                      'problem_statement':
-                          text_format.MessageToString(
-                              message=task.problem_statement, as_utf8=True),
-                  }))
-
         # Define a Trainer to train our model on the given task.
         trainer = self.add(
-            tfx.Trainer(
-                run_fn='examples.auto_trainer.run_fn' if use_keras else
-                'examples.auto_estimator_trainer.run_fn',
-                custom_executor_spec=(executor_spec.ExecutorClassSpec(
-                    trainer_executor.GenericExecutor)),
+            at.AutoTrainer(
+                problem_statement=task.problem_statement,
                 transformed_examples=autodata.outputs.transformed_examples,
                 transform_graph=autodata.outputs.transform_graph,
                 schema=autodata.outputs.schema,
-                train_args=trainer_pb2.TrainArgs(num_steps=10),
-                eval_args=trainer_pb2.EvalArgs(num_steps=10),
-                hyperparameters=(tuner.outputs.best_hyperparameters
-                                 if enable_tuning else None),
-                custom_config={
-                    # Pass the problem statement proto as a text proto. Required
-                    # since custom_config must be JSON-serializable.
-                    'problem_statement':
-                        text_format.MessageToString(
-                            message=task.problem_statement, as_utf8=True),
-                }))
+                train_steps=10,
+                eval_steps=10,
+                use_keras=use_keras,
+                enable_tuning=enable_tuning))
         # Finally, call evaluate() on the workflow DAG outputs, This will
         # automatically append Evaluators to compute metrics from the given
         # SavedModel and 'eval' TF Examples.

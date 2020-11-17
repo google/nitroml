@@ -115,7 +115,7 @@ class MetaLearning(subpipeline.Subpipeline):
       meta_test_pipeline.append(metafeature_gen)
 
     tuner = tuner_component.AugmentedTuner(
-        tuner_fn='examples.auto_trainer.tuner_fn',
+        tuner_fn='nitroml.automl.autotrainer.lib.auto_trainer.tuner_fn',
         examples=test_autodata.outputs.transformed_examples,
         transform_graph=test_autodata.outputs.transform_graph,
         train_args=trainer_pb2.TrainArgs(num_steps=tuner_steps),

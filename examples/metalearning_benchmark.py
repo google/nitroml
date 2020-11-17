@@ -91,7 +91,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
       # HParams.
       tuner = self.add(
           tuner_component.AugmentedTuner(
-              tuner_fn='examples.auto_trainer.tuner_fn',
+              tuner_fn='nitroml.automl.autotrainer.lib.auto_trainer.tuner_fn',
               examples=autodata.outputs.transformed_examples,
               transform_graph=autodata.outputs.transform_graph,
               train_args=trainer_pb2.TrainArgs(num_steps=train_steps),
@@ -135,7 +135,7 @@ class MetaLearningBenchmark(nitroml.Benchmark):
         # from the metalearning subpipeline.
         trainer = self.add(
             tfx.Trainer(
-                run_fn='examples.auto_trainer.run_fn',
+                run_fn='nitroml.automl.autotrainer.lib.auto_trainer.run_fn',
                 custom_executor_spec=(executor_spec.ExecutorClassSpec(
                     trainer_executor.GenericExecutor)),
                 transformed_examples=autodata.outputs.transformed_examples,

@@ -22,10 +22,10 @@ import tempfile
 from absl import flags
 from absl.testing import absltest
 from kerastuner.engine.hyperparameters import HyperParameters
+from nitroml.automl.autotrainer.lib import auto_trainer as tuner_module
 from nitroml.automl.metalearning import artifacts
 from nitroml.automl.metalearning.tuner import component as tuner_component
 from nitroml.automl.metalearning.tuner import executor
-from examples import auto_trainer as tuner_module
 import tensorflow as tf
 from tfx.proto import trainer_pb2
 from tfx.proto import tuner_pb2

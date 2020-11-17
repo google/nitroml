@@ -44,7 +44,8 @@ class TitanicBenchmarkTest(e2etest.BenchmarkTestCase):
                         enable_tuning=enable_tuning)
     if enable_tuning:
       self.assertComponentExecutionCount(8)
-      self.assertComponentSucceeded("Tuner.TitanicBenchmark.benchmark")
+      self.assertComponentSucceeded(
+          "Tuner.AutoTrainer.TitanicBenchmark.benchmark")
     else:
       self.assertComponentExecutionCount(7)
     self.assertComponentSucceeded("ImportExampleGen.TitanicBenchmark.benchmark")
@@ -54,7 +55,8 @@ class TitanicBenchmarkTest(e2etest.BenchmarkTestCase):
         "StatisticsGen.AutoData.TitanicBenchmark.benchmark")
     self.assertComponentSucceeded(
         "Transform.AutoData.TitanicBenchmark.benchmark")
-    self.assertComponentSucceeded("Trainer.TitanicBenchmark.benchmark")
+    self.assertComponentSucceeded(
+        "Trainer.AutoTrainer.TitanicBenchmark.benchmark")
     self.assertComponentSucceeded("Evaluator.TitanicBenchmark.benchmark")
     self.assertComponentSucceeded(
         "BenchmarkResultPublisher.TitanicBenchmark.benchmark")
