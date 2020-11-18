@@ -131,7 +131,7 @@ class ComponentRun:
       materialized_artifact_class = materialized_artifact.get_registry(
       ).get_artifact_class(tfx_artifact.type_name)
       artifact_dict[tfx_artifact.name] = materialized_artifact_class(
-          tfx_artifact)
+          tfx_artifact)  # pytype: disable=not-instantiable
     return artifact_dict
 
   @property

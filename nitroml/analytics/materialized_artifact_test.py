@@ -43,7 +43,7 @@ class MaterializedArtifactTest(absltest.TestCase):
     self.assertEqual(
         '<Examples Artifact>',
         repr(
-            materialized_artifact.MaterializedArtifact(
+            materialized_artifact.GenericMaterializedArtifact(
                 types.Artifact(mlmd_artifact_type=artifact_type))))
 
 

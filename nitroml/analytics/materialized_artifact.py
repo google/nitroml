@@ -15,14 +15,15 @@
 # Lint as: python3
 """A generic Materialized Artifact definition."""
 
+import abc
 from typing import Dict, Type
-
 import pandas as pd
 from tensorflow.io import gfile
 from tfx import types
+from tfx.utils import abc_utils
 
 
-class MaterializedArtifact:
+class MaterializedArtifact(abc.ABC):
   """TFX artifact used for artifact analysis and visualization."""
 
   def __init__(self, artifact: types.Artifact):
@@ -35,7 +36,7 @@ class MaterializedArtifact:
     return f'<{self.__str__()}>'
 
   # Artifact type (of type `Type[types.Artifact]`).
-  ARTIFACT_TYPE = types.Artifact
+  ARTIFACT_TYPE = abc_utils.abstract_property()
 
   @property
   def producer_component(self) -> str:
@@ -54,10 +55,10 @@ class MaterializedArtifact:
     if not gfile.exists(self.artifact.uri):
       raise IOError(f'Artifact URI {self.artifact.uri} not readable.')
 
+  @abc.abstractmethod
   def show(self) -> None:
     """Displays respective visualization for artifact type."""
-    raise NotImplementedError("Artifact type '%s' not registered." %
-                              self.artifact.type_name)
+    raise NotImplementedError()
 
   def properties(self) -> Dict[str, str]:
     """Returns dictionary of custom and default properties of the artifact."""
@@ -69,6 +70,17 @@ class MaterializedArtifact:
       properties[key] = value.string_value
 
     return properties
+
+
+class GenericMaterializedArtifact(MaterializedArtifact):
+  """A Generic Artifact class to assign unregistered artifact types."""
+
+  ARTIFACT_TYPE = types.Artifact
+
+  def show(self) -> None:
+    """Displays respective visualization for artifact type."""
+    raise NotImplementedError("Artifact type '%s' not registered." %
+                              self.artifact.type_name)
 
 
 class ArtifactRegistry:
@@ -96,7 +108,7 @@ class ArtifactRegistry:
 
   def get_artifact_class(self,
                          artifact_type_name: str) -> Type[MaterializedArtifact]:
-    return self.artifacts.get(artifact_type_name, MaterializedArtifact)
+    return self.artifacts.get(artifact_type_name, GenericMaterializedArtifact)
 
 
 _REGISTRY = ArtifactRegistry()
