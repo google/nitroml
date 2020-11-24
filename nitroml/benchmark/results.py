@@ -35,6 +35,7 @@ BENCHMARK_FULL_KEY = 'benchmark_fullname'
 BENCHMARK_KEY = 'benchmark'
 RUN_KEY = 'run'
 NUM_RUNS_KEY = 'num_runs'
+ARTIFACT_ID_KEY = 'artifact_id'
 
 # Component constants
 _TRAINER = 'google3.learning.elated_zebra.my_orchestrator.components.trainer.component.EstimatorTrainer'
