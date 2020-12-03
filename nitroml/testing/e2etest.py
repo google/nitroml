@@ -115,6 +115,16 @@ class TestCase(parameterized.TestCase, absltest.TestCase):
     raise ValueError(
         f'Failed to find component "{component_name}". Found {all_components}')
 
+  def assertComponentsSucceeded(self, component_names: List[str]) -> None:
+    """Checks that the components succeeded.
+
+    Args:
+      component_names: Names of the components to check, e.g. 'SchemaGen'.
+    """
+
+    for name in component_names:
+      self.assertComponentSucceeded(name)
+
   def assertComponentExecutionCount(self, count: int) -> None:
     """Checks the number of component executions recorded in MLMD.
 
