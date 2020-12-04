@@ -20,7 +20,7 @@ import datetime
 import json
 import os
 import re
-from typing import Dict, Any, List, NamedTuple, Optional, Text
+from typing import Dict, Any, List, NamedTuple, Optional
 
 import pandas as pd
 import tensorflow.compat.v2 as tf
@@ -58,6 +58,9 @@ _RUN_ID = 'run_id'
 _COMPONENT_ID = 'component_id'
 _KAGGLE = 'kaggle'
 
+# IR-Based TFXDagRunner constants
+_IS_IR_KEY = 'is_ir'
+
 # Default columns
 _DEFAULT_COLUMNS = (STARTED_AT, RUN_ID_KEY, BENCHMARK_KEY, RUN_KEY,
                     NUM_RUNS_KEY)
@@ -76,8 +79,9 @@ class _Result(NamedTuple):
 
 class _RunInfo(NamedTuple):
   """Wrapper for run id and component name."""
-  run_id: Text
-  component_name: Text
+  run_id: str = ''
+  component_name: str = ''
+  started_at: int = 0
 
 
 def _merge_results(results: List[_Result]) -> _Result:
@@ -191,7 +195,9 @@ def _get_artifact_run_info_map(store: metadata_store.MetadataStore,
     component = execution.properties[_COMPONENT_ID].string_value
     artifact_id = exec_to_artifact[execution.id]
     artifact_to_run_info[artifact_id] = _RunInfo(
-        run_id=run_id, component_name=component)
+        run_id=run_id,
+        component_name=component,
+        started_at=execution.create_time_since_epoch)
 
   return artifact_to_run_info
 
@@ -209,9 +215,15 @@ def _get_benchmark_results(store: metadata_store.MetadataStore) -> _Result:
   property_names = set()
   publisher_artifacts = store.get_artifacts_by_type(_BENCHMARK_RESULT)
   for artifact in publisher_artifacts:
-    evals = {}
+    evals = {_IS_IR_KEY: False}
     for key, val in artifact.custom_properties.items():
       evals[key] = _parse_value(val)
+      # Change for the IR world.
+      if key == 'name':
+        new_id = _parse_value(val).split(':')
+        if len(new_id) > 2:
+          evals[RUN_ID_KEY] = new_id[1]
+          evals[_IS_IR_KEY] = True
     property_names = property_names.union(evals.keys())
     metrics[artifact.id] = evals
 
@@ -220,18 +232,25 @@ def _get_benchmark_results(store: metadata_store.MetadataStore) -> _Result:
   properties = {}
   for artifact_id, evals in metrics.items():
     run_info = artifact_to_run_info[artifact_id]
-    evals[RUN_ID_KEY] = run_info.run_id
-    # BeamDagRunner uses iso format timestamp. See for details:
-    # http://google3/third_party/py/tfx/orchestration/beam/beam_dag_runner.py
-    try:
-      evals[STARTED_AT] = datetime.datetime.fromtimestamp(int(run_info.run_id))
-    except ValueError:
-      evals[STARTED_AT] = run_info.run_id
-    result_key = run_info.run_id + '.' + evals[BENCHMARK_KEY]
+    if evals[_IS_IR_KEY]:
+      started_at = run_info.started_at // 1000
+      evals[STARTED_AT] = datetime.datetime.fromtimestamp(started_at)
+      run_id = metrics[artifact_id][RUN_ID_KEY]
+    else:
+      run_id = run_info.run_id
+      evals[RUN_ID_KEY] = run_id
+      # Old BeamDagRunner uses iso format timestamp. See for details:
+      # http://google3/third_party/py/tfx/orchestration/beam/beam_dag_runner.py
+      try:
+        evals[STARTED_AT] = datetime.datetime.fromtimestamp(int(run_id))
+      except ValueError:
+        evals[STARTED_AT] = run_id
+    evals.pop(_IS_IR_KEY)
+    result_key = run_id + '.' + evals[BENCHMARK_KEY]
     properties[result_key] = evals
 
   property_names = property_names.difference(
-      {_NAME, _PRODUCER_COMPONENT, _STATE, *_DEFAULT_COLUMNS})
+      {_NAME, _PRODUCER_COMPONENT, _STATE, *_DEFAULT_COLUMNS, _IS_IR_KEY})
   return _Result(properties=properties, property_names=sorted(property_names))
 
 
@@ -248,11 +267,17 @@ def _get_kaggle_results(store: metadata_store.MetadataStore) -> _Result:
   property_names = set()
   kaggle_artifacts = store.get_artifacts_by_type(_KAGGLE_RESULT)
   for artifact in kaggle_artifacts:
-    submit_info = {}
+    submit_info = {_IS_IR_KEY: False}
     for key, val in artifact.custom_properties.items():
       if key not in _DEFAULT_CUSTOM_PROPERTIES:
         name = _KAGGLE + '_' + key
         submit_info[name] = _parse_value(val)
+      # Change for the IR world.
+      if key == 'name':
+        new_id = _parse_value(val).split(':')
+        if len(new_id) > 2:
+          submit_info[RUN_ID_KEY] = new_id[1]
+          submit_info[_IS_IR_KEY] = True
     property_names = property_names.union(submit_info.keys())
     results[artifact.id] = submit_info
 
@@ -261,12 +286,17 @@ def _get_kaggle_results(store: metadata_store.MetadataStore) -> _Result:
   properties = {}
   for artifact_id, submit_info in results.items():
     run_info = artifact_to_run_info[artifact_id]
-    result_key = run_info.run_id + run_info.component_name.replace(
+    if submit_info[_IS_IR_KEY]:
+      run_id = results[artifact_id][RUN_ID_KEY]
+    else:
+      run_id = run_info.run_id
+    result_key = run_id + run_info.component_name.replace(
         _KAGGLE_PUBLISHER_PREFIX, '')
+    submit_info.pop(_IS_IR_KEY)
     properties[result_key] = submit_info
 
   property_names = property_names.difference(
-      {_NAME, _PRODUCER_COMPONENT, _STATE, *_DEFAULT_COLUMNS})
+      {_NAME, _PRODUCER_COMPONENT, _STATE, *_DEFAULT_COLUMNS, _IS_IR_KEY})
   return _Result(properties=properties, property_names=sorted(property_names))
 
 
