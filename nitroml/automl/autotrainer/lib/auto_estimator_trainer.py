@@ -53,13 +53,14 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
       - eval_steps: Number of eval steps.
       - base_model: Base model that will be used for this training job.
       - hyperparameters: An optional kerastuner.HyperParameters config.
-      - problem_statement: A text-format serialized ProblemStatement proto
-        which defines the task.
+      - custom_config: A dict with a single 'problem_statement' entry containing
+        a text-format serialized ProblemStatement proto which defines the task.
   """
 
   autodata_adapter = estimator_adapter.EstimatorAdapter(
-      problem_statement=text_format.Parse(fn_args.problem_statement,
-                                          ps_pb2.ProblemStatement()),
+      problem_statement=text_format.Parse(
+          fn_args.custom_config['problem_statement'],
+          ps_pb2.ProblemStatement()),
       transform_graph_dir=fn_args.transform_output)
 
   run_config = tf.estimator.RunConfig(

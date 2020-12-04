@@ -136,15 +136,16 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
       - eval_steps: Number of eval steps.
       - base_model: Base model that will be used for this training job.
       - hyperparameters: An optional kerastuner.HyperParameters config.
-      - problem_statement: A text-format serialized ProblemStatement proto
-        which defines the task.
+      - custom_config: A dict with a single 'problem_statement' entry containing
+        a text-format serialized ProblemStatement proto which defines the task.
   """
 
   # Use EstimatorAdapter here because we will wrap the Keras Model into an
   # Estimator for training and export.
   autodata_adapter = ea.EstimatorAdapter(
-      problem_statement=text_format.Parse(fn_args.problem_statement,
-                                          ps_pb2.ProblemStatement()),
+      problem_statement=text_format.Parse(
+          fn_args.custom_config['problem_statement'],
+          ps_pb2.ProblemStatement()),
       transform_graph_dir=fn_args.transform_output)
 
   if fn_args.hyperparameters:
@@ -155,8 +156,9 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
 
   # Use KerasAdapter here because we create need it to create the Keras Model.
   keras_autodata_adapter = kma.KerasModelAdapter(
-      problem_statement=text_format.Parse(fn_args.problem_statement,
-                                          ps_pb2.ProblemStatement()),
+      problem_statement=text_format.Parse(
+          fn_args.custom_config['problem_statement'],
+          ps_pb2.ProblemStatement()),
       transform_graph_dir=fn_args.transform_output)
   model = _build_keras_model(hparams, keras_autodata_adapter)
 
