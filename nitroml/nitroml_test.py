@@ -33,7 +33,7 @@ from nitroml.subpipeline import SubpipelineOutputs
 
 from tfx import types as tfx_types
 from tfx.dsl.components.base.base_component import BaseComponent
-from tfx.orchestration.beam import beam_dag_runner
+from tfx.orchestration.google import beam_dag_runner
 from tfx.orchestration.pipeline import Pipeline
 from tfx.types import channel_utils
 from tfx.types import standard_artifacts

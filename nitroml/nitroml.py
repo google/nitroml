@@ -50,7 +50,7 @@ from tfx import types
 from tfx.dsl.compiler import compiler
 from tfx.dsl.components.base.base_component import BaseComponent
 from tfx.orchestration import tfx_runner as tfx_runner_lib
-from tfx.orchestration.beam import beam_dag_runner
+from tfx.orchestration.google import beam_dag_runner
 from tfx.orchestration.pipeline import Pipeline
 
 from ml_metadata.proto import metadata_store_pb2

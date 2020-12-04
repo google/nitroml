@@ -38,7 +38,7 @@ from tfx.dsl.components.base import base_component
 from tfx.dsl.components.base import base_driver
 from tfx.orchestration import metadata
 from tfx.orchestration import pipeline
-from tfx.orchestration.beam import beam_dag_runner
+from tfx.orchestration.google import beam_dag_runner
 
 from ml_metadata.proto import metadata_store_pb2
 
