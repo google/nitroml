@@ -49,8 +49,29 @@ class AnalyticsTest(absltest.TestCase):
     self.test_mlmd = test_mlmd.TestMLMD()
     self.properties1 = {'pipeline_name': 'taxi1', 'run_id': '1'}
     self.properties2 = {'pipeline_name': 'taxi2', 'run_id': '2'}
-    self.test_mlmd.put_context('context1', properties=self.properties1)
+    context_id = self.test_mlmd.put_context(
+        'context1', properties=self.properties1)
     self.test_mlmd.put_context('context2', properties=self.properties2)
+    execution_id = self.test_mlmd.put_execution('1', 'stats_gen')
+    self.test_mlmd.put_association(context_id, execution_id)
+
+    properties3 = {'pipeline_name': 'taxi3', 'run_id': '1', 'component_id': '3'}
+    context_id = self.test_mlmd.put_context('context3', properties=properties3)
+    execution_id = self.test_mlmd.put_execution('3', 'stats_gen')
+    artifact_id_output = self.test_mlmd.put_artifact({
+        'property': 'value',
+        'name': 'test_artifact_output',
+        'producer_component': 'stats_gen'
+    })
+    artifact_id_input = self.test_mlmd.put_artifact({
+        'property': 'value',
+        'name': 'test_artifact_input',
+        'producer_component': 'example_gen'
+    })
+    self.test_mlmd.put_association(context_id, execution_id)
+    self.test_mlmd.put_attribution(context_id, artifact_id_output)
+    self.test_mlmd.put_attribution(context_id, artifact_id_input)
+
     self.run_db = mlmd_analytics.Analytics(store=self.test_mlmd.store)
 
   def testListRuns(self):
@@ -66,31 +87,13 @@ class AnalyticsTest(absltest.TestCase):
     self.assertEqual('taxi2', pipeline_run.name)
 
   def testPipelineComponent(self):
-    execution_id = self.test_mlmd.put_execution('1', 'stats_gen')
     pipeline_run = self.run_db.get_run('1')
-    self.test_mlmd.put_association(pipeline_run._context_id, execution_id)
     self.assertIn('stats_gen', pipeline_run.components)
     self.assertIsInstance(pipeline_run.components['stats_gen'],
                           mlmd_analytics.ComponentRun)
 
   def testComponentRun(self):
-    properties3 = {'pipeline_name': 'taxi3', 'run_id': '1', 'component_id': '3'}
-    context_id = self.test_mlmd.put_context('context3', properties=properties3)
-    execution_id = self.test_mlmd.put_execution('3', 'stats_gen')
-    artifact_id_output = self.test_mlmd.put_artifact({
-        'property': 'value',
-        'name': 'test_artifact_output',
-        'producer_component': 'stats_gen'
-    })
-    artifact_id_input = self.test_mlmd.put_artifact({
-        'property': 'value',
-        'name': 'test_artifact_input',
-        'producer_component': 'example_gen'
-    })
     pipeline_run = self.run_db.get_run('1')
-    self.test_mlmd.put_association(context_id, execution_id)
-    self.test_mlmd.put_attribution(context_id, artifact_id_output)
-    self.test_mlmd.put_attribution(context_id, artifact_id_input)
     component_run = pipeline_run.components['stats_gen']
     self.assertIn('run_id', component_run.exec_properties)
     self.assertIn('component_id', component_run.exec_properties)
