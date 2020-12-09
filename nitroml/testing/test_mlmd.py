@@ -11,6 +11,12 @@ from ml_metadata.proto import metadata_store_pb2
 class TestMLMD:
   """TestMLMD abstracts setup and insert operations for a fake mlmd database."""
 
+  _DEFAULT_CONTEXT_PROPERTIES = {
+      'pipeline_name': metadata_store_pb2.STRING,
+      'run_id': metadata_store_pb2.STRING,
+      'component_id': metadata_store_pb2.STRING,
+  }
+
   def __init__(self,
                exec_type_name: str = 'BenchmarkResultPublisher',
                artifact_type: str = br.BenchmarkResult.TYPE_NAME,
@@ -36,13 +42,54 @@ class TestMLMD:
     artifact_type.name = self.artifact_type
     return self.store.put_artifact_type(artifact_type)
 
-  def _put_context_type(self) -> int:
+  def _put_context_type(self,
+                        properties: Dict[str, metadata_store_pb2.Value] = None
+                       ) -> int:
+    """Update the context type being inserted by 'put_context'.
+
+    Args:
+      properties: Properties to be associated with this context type.
+
+    Returns:
+      Id of inserted context
+    """
+    if not properties:
+      # Default propeties correspond with non-IR based MLMD stores.
+      properties = self._DEFAULT_CONTEXT_PROPERTIES
     context_type = metadata_store_pb2.ContextType()
     context_type.name = self.context_type
-    context_type.properties['pipeline_name'] = metadata_store_pb2.STRING
-    context_type.properties['run_id'] = metadata_store_pb2.STRING
-    context_type.properties['component_id'] = metadata_store_pb2.STRING
+    for name, property_type in properties.items():
+      context_type.properties[name] = property_type
+
     return self.store.put_context_type(context_type)
+
+  def update_context_type(self,
+                          context_name: str,
+                          properties: Dict[str,
+                                           metadata_store_pb2.Value] = None):
+    """Update the context type being inserted by 'put_context'.
+
+    Args:
+      context_name: Name of the context type to be inserted by 'put_context'.
+      properties: Properties to be associated with this context type. Should be
+      None for existing context types.
+    Raises:
+      ValueError: If properties attempt to be associated with an existing
+      context type.
+    """
+    context_types = self.store.get_context_types()
+    for ctx_type in context_types:
+      if ctx_type.name == context_name:
+        if properties:
+          raise ValueError(
+              'Context type %s already exists, properties cannot be updated' %
+              context_name)
+        self.context_type = context_name
+        self.context_type_id = ctx_type.id
+        return
+    # Context type does not exist
+    self.context_type = context_name
+    self.context_type_id = self._put_context_type(properties)
 
   def put_execution(self, run_id: str, component_id: str = None) -> int:
     """Inserts or Updates an execution into the fake database store.
@@ -80,7 +127,13 @@ class TestMLMD:
       artifact.custom_properties[name].string_value = val
     return self.store.put_artifacts([artifact])[0]
 
-  def put_event(self, artifact_id: int, execution_id: int) -> None:
+  def put_event(
+      self,
+      artifact_id: int,
+      execution_id: int,
+      event_type: metadata_store_pb2.Event.Type = metadata_store_pb2.Event
+      .OUTPUT
+  ) -> None:
     """Inserts event in the fake database.
 
     The execution_id and artifact_id must already exist.
@@ -89,9 +142,10 @@ class TestMLMD:
     Args:
       artifact_id: The artifact id of the event.
       execution_id: The execution id of the event.
+      event_type: The type of the event.
     """
     event = metadata_store_pb2.Event()
-    event.type = metadata_store_pb2.Event.OUTPUT
+    event.type = event_type
     event.artifact_id = artifact_id
     event.execution_id = execution_id
     self.store.put_events([event])

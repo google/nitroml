@@ -15,7 +15,7 @@
 # Lint as: python3
 """A collection of objects to analyze and visualize Machine Learning Metadata."""
 
-from typing import Any, Dict, ItemsView, KeysView, Optional, Type, Union, ValuesView
+from typing import Any, Dict, ItemsView, KeysView, Optional, Set, Type, Union, ValuesView
 
 from nitroml.analytics import materialized_artifact
 from nitroml.analytics import standard_materialized_artifacts
@@ -26,8 +26,20 @@ from ml_metadata.google.services.mlmd_service.proto import mlmd_service_pb2
 from ml_metadata.google.tfx import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 
-
 standard_materialized_artifacts.register_standard_artifacts()
+
+# Type names for IR and Non-IR based MLMD instances respectively.
+_NONIR_RUN_CONTEXT_NAME = 'run'
+_IR_RUN_CONTEXT_NAME = 'pipeline_run'
+_NONIR_COMPONENT_NAME = 'component_run'
+_IR_COMPONENT_NAME = 'node'
+
+_INPUT_EVENT_TYPES = frozenset({metadata_store_pb2.Event.DECLARED_INPUT,
+                                metadata_store_pb2.Event.INPUT,
+                                metadata_store_pb2.Event.INTERNAL_INPUT})
+_OUTPUT_EVENT_TYPES = frozenset({metadata_store_pb2.Event.DECLARED_OUTPUT,
+                                 metadata_store_pb2.Event.OUTPUT,
+                                 metadata_store_pb2.Event.INTERNAL_OUTPUT})
 
 
 def register_artifact_class(
@@ -95,33 +107,61 @@ class ComponentRun:
   """
 
   def __init__(self, run_id: str, execution: metadata_store_pb2.Execution,
-               store: metadata_store.MetadataStore):
+               store: metadata_store.MetadataStore,
+               context: metadata_store_pb2.Context):
     """Initializes instance of ComponentRun in a given pipeline run.
 
 
     Args:
       run_id: The id of the pipeline run that created this component.
-      execution: Execution object containing component execution properties.
+      execution: Execution proto containing component execution properties.
       store: A store for the artifact metadata.
+      context: Context proto to query artifacts.
     """
     self.run_id = run_id
     self._execution = execution
     self._store = store
+    self._context = context
 
   @property
   def component_name(self):
     """The name of this component."""
-    return self.exec_properties['component_id']
+    return self._context.name
+
+  def _get_event_type(
+      self,
+      artifact: metadata_store_pb2.Artifact) -> metadata_store_pb2.Event.Type:
+    """Gets numeric rep of the event type associated with context and execution.
+
+    Args:
+      artifact: An artifact proto.
+
+    Returns:
+      Respective event type of the artifact in this execution.
+    """
+    [event] = [
+        event for event in self._store.get_events_by_artifact_ids([artifact.id])
+        if event.execution_id == self._execution.id
+    ]
+    return event.type
 
   def _get_artifacts(
-      self) -> Dict[str, materialized_artifact.MaterializedArtifact]:
-    """Returns all artifacts associated with this component."""
-    [component_run_context] = [
-        context
-        for context in self._store.get_contexts_by_execution(self._execution.id)
-        if 'component_id' in context.properties
+      self, event_type: Set['metadata_store_pb2.Event.Type']
+  ) -> Dict[str, materialized_artifact.MaterializedArtifact]:
+    """Returns artifacts associated with this component.
+
+    Args:
+      event_type: A set of ints that correspond with Event.Type enumerator.
+
+    Returns:
+      A dict of name, MaterializedArtifact pairs.
+    """
+
+    artifacts = [
+        artifact
+        for artifact in self._store.get_artifacts_by_context(self._context.id)
+        if self._get_event_type(artifact) in event_type
     ]
-    artifacts = self._store.get_artifacts_by_context(component_run_context.id)
     artifact_dict = {}
     artifact_types = self._store.get_artifact_types_by_id(
         [artifact.type_id for artifact in artifacts])
@@ -136,27 +176,26 @@ class ComponentRun:
 
   @property
   def inputs(self) -> PropertyDictWrapper:
-    """Dictionary of input artifacts in this components run."""
-    return PropertyDictWrapper({
-        artifact_name: artifact
-        for artifact_name, artifact in self._get_artifacts().items()
-        if (artifact.producer_component != self.component_name)
-    })
+    """Dictionary of input artifacts in this component run."""
+    return PropertyDictWrapper(
+        self._get_artifacts(_INPUT_EVENT_TYPES)
+    )
 
   @property
   def outputs(self) -> PropertyDictWrapper:
-    """Dictionary of output artifacts in this components run."""
-    return PropertyDictWrapper({
-        artifact_name: artifact
-        for artifact_name, artifact in self._get_artifacts().items()
-        if (artifact.producer_component == self.component_name)
-    })
+    """Dictionary of output artifacts in this component run."""
+    return PropertyDictWrapper(
+        self._get_artifacts(_OUTPUT_EVENT_TYPES)
+    )
 
   @property
   def exec_properties(self) -> Dict[str, Any]:
-    """A dictionary of user defined exec properties of this component."""
+    """A dictionary of exec properties of this component."""
     exec_dict = {}
     for key, val in self._execution.properties.items():
+      exec_dict[key] = getattr(val, val.WhichOneof('value'))
+
+    for key, val in self._execution.custom_properties.items():
       exec_dict[key] = getattr(val, val.WhichOneof('value'))
 
     return exec_dict
@@ -180,8 +219,12 @@ class PipelineRun:
     run_id: The unique id of the pipeline.
   """
 
-  def __init__(self, name: str, run_id: str, context_id: int,
-               store: metadata_store.MetadataStore):
+  def __init__(self,
+               name: str,
+               run_id: str,
+               context_id: int,
+               store: metadata_store.MetadataStore,
+               ir_based_dag_runner: bool = False):
     """Initializes an instance of PipelineRun with an existing run id.
 
     Args:
@@ -189,24 +232,40 @@ class PipelineRun:
       run_id: The unique id of the pipeline.
       context_id: The id of the respective context object to this run.
       store: A store for the artifact metadata.
+      ir_based_dag_runner: Flag defining whether metadata store was populated by
+        an IR based dag runner.
     """
     self.name = name
     self.run_id = run_id
     self._context_id = context_id
     self._store = store
+    self._ir_based_dag_runner = ir_based_dag_runner
+
+    if self._ir_based_dag_runner:
+      context_type_name = _IR_COMPONENT_NAME
+    else:
+      context_type_name = _NONIR_COMPONENT_NAME
+    self._component_run_type = self._store.get_context_type(context_type_name)
 
   def _repr_html_(self):
-    return pd.DataFrame(self.components.keys(),
-                        columns=['Components']).to_html(index=False)
+    return pd.DataFrame(
+        self.components.keys(), columns=['Components']).to_html(index=False)
 
   @property
   def components(self) -> Dict[str, ComponentRun]:
     """A dictionary of (Component Name, ComponentRun) key-value pairs."""
     components = {}
     for execution in self._store.get_executions_by_context(self._context_id):
-      component_name = execution.properties['component_id'].string_value
+      [component_run_ctx] = [
+          ctx for ctx in self._store.get_contexts_by_execution(execution.id)
+          if ctx.type_id == self._component_run_type.id
+      ]
+      if self._ir_based_dag_runner:
+        component_name = component_run_ctx.name
+      else:
+        component_name = execution.properties['component_id'].string_value
       components[component_name] = ComponentRun(self.run_id, execution,
-                                                self._store)
+                                                self._store, component_run_ctx)
 
     return components
 
@@ -236,15 +295,41 @@ class Analytics:
     if bool(store) == bool(config):
       raise ValueError('Expected exactly one of store or config')
     self._store = store if store else metadata_store.MetadataStore(config)
+    self._ir_based_dag_runner = _IR_COMPONENT_NAME in [
+        ctx_type.name for ctx_type in self._store.get_context_types()
+    ]
+
+  def _get_pipeline_name(self, ctx):
+    """Returns the name of the pipeline associated with ctx."""
+
+    if self._ir_based_dag_runner:
+      pipeline_type = self._store.get_context_type('pipeline')
+      # The selected execution is arbitrary as all have an association with
+      # 'pipeline' context
+      execution = self._store.get_executions_by_context(ctx.id)[0]
+      [pipeline_ctx] = [
+          ctx for ctx in self._store.get_contexts_by_execution(execution.id)
+          if ctx.type_id == pipeline_type.id
+      ]
+      return pipeline_ctx.name
+    else:
+      return ctx.properties['pipeline_name'].string_value
 
   def _get_runs(self) -> Dict[str, Dict[str, Any]]:
     """Returns a dictionary of runs ids mapped to run and context information."""
-    ctxs = self._store.get_contexts_by_type('run')
+
+    if self._ir_based_dag_runner:
+      ctx_name = _IR_RUN_CONTEXT_NAME
+    else:
+      ctx_name = _NONIR_RUN_CONTEXT_NAME
+
+    ctxs = self._store.get_contexts_by_type(ctx_name)
     runs = {}
     for ctx in ctxs:
-      run_id = ctx.properties['run_id'].string_value
+      run_id = ctx.name
+      pipeline_name = self._get_pipeline_name(ctx)
       runs[run_id] = {
-          'pipeline_name': ctx.properties['pipeline_name'].string_value,
+          'pipeline_name': pipeline_name,
           'run_id': run_id,
           'context_id': ctx.id,
           'create_time': ctx.create_time_since_epoch,
@@ -277,4 +362,5 @@ class Analytics:
     if run_id not in runs:
       raise ValueError('Run ID "%s" not found in metadata store.' % run_id)
     return PipelineRun(runs[run_id]['pipeline_name'], run_id,
-                       runs[run_id]['context_id'], self._store)
+                       runs[run_id]['context_id'], self._store,
+                       self._ir_based_dag_runner)
