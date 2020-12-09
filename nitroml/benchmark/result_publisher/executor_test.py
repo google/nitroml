@@ -19,7 +19,7 @@ import os
 from typing import Text, Dict, List, Any
 
 from absl.testing import absltest
-from nitroml.benchmark.result_publisher.component import BenchmarkResult
+from nitroml.benchmark.result import BenchmarkResult
 from nitroml.benchmark.result_publisher.executor import BenchmarkResultPublisherExecutor
 
 from tfx.types import standard_artifacts

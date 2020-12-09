@@ -17,7 +17,7 @@
 
 from typing import Any, Dict, List, Text
 
-from nitroml.benchmark import results
+from nitroml.benchmark import result as br
 import tensorflow.compat.v2 as tf
 import tensorflow_model_analysis as tfma
 
@@ -56,11 +56,12 @@ class BenchmarkResultPublisherExecutor(base_executor.BaseExecutor):
     benchmark_result = artifact_utils.get_single_instance(
         output_dict['benchmark_result'])
     benchmark_result.set_string_custom_property(
-        results.BENCHMARK_KEY, exec_properties['benchmark_name'])
-    benchmark_result.set_int_custom_property(results.RUN_KEY,
-                                             exec_properties['run'])
-    benchmark_result.set_int_custom_property(results.NUM_RUNS_KEY,
-                                             exec_properties['num_runs'])
+        br.BenchmarkResult.BENCHMARK_NAME_KEY,
+        exec_properties['benchmark_name'])
+    benchmark_result.set_int_custom_property(
+        br.BenchmarkResult.BENCHMARK_RUN_KEY, exec_properties['run'])
+    benchmark_result.set_int_custom_property(
+        br.BenchmarkResult.RUNS_PER_BENCHMARK_KEY, exec_properties['num_runs'])
 
     # Publish evaluation metrics
     evals = self._load_evaluation(uri)

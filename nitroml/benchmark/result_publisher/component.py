@@ -17,21 +17,16 @@
 
 from typing import Optional
 
+from nitroml.benchmark import result
 from nitroml.benchmark.result_publisher import executor
 from tfx.dsl.components.base import base_component
 from tfx.dsl.components.base import executor_spec
 from tfx.types import channel_utils
 from tfx.types import standard_artifacts
-from tfx.types.artifact import Artifact
 from tfx.types.channel import Channel
 from tfx.types.component_spec import ChannelParameter
 from tfx.types.component_spec import ComponentSpec
 from tfx.types.component_spec import ExecutionParameter
-
-
-class BenchmarkResult(Artifact):
-  """NitroML's custom Artifact to store benchmark results."""
-  TYPE_NAME = 'NitroML.BenchmarkResult'
 
 
 class BenchmarkResultPublisherSpec(ComponentSpec):
@@ -45,7 +40,7 @@ class BenchmarkResultPublisherSpec(ComponentSpec):
       'evaluation': ChannelParameter(type=standard_artifacts.ModelEvaluation),
   }
   OUTPUTS = {
-      'benchmark_result': ChannelParameter(type=BenchmarkResult),
+      'benchmark_result': ChannelParameter(type=result.BenchmarkResult),
   }
 
 
@@ -82,7 +77,7 @@ class BenchmarkResultPublisher(base_component.BaseComponent):
           'An evaluation channel is required to run BenchmarkResultPublisher component.'
       )
 
-    benchmark_result = channel_utils.as_channel([BenchmarkResult()])
+    benchmark_result = channel_utils.as_channel([result.BenchmarkResult()])
 
     spec = BenchmarkResultPublisherSpec(
         benchmark_name=benchmark_name,

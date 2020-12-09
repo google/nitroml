@@ -21,6 +21,7 @@ import os
 from absl.testing import absltest
 from absl.testing import parameterized
 
+from nitroml.benchmark import result as br
 from nitroml.benchmark import results
 from nitroml.testing import test_mlmd
 from ml_metadata import metadata_store
@@ -391,8 +392,8 @@ class GetHparamsTest(absltest.TestCase):
     exec_type.properties[results.RUN_ID_KEY] = metadata_store_pb2.STRING
     exec_type.properties[results._HPARAMS] = metadata_store_pb2.STRING
     exec_type.properties[results._COMPONENT_ID] = metadata_store_pb2.STRING
-    return self.test_mlmd.store.put_execution_type(exec_type,
-                                                   can_add_fields=True)
+    return self.test_mlmd.store.put_execution_type(
+        exec_type, can_add_fields=True)
 
   def _put_execution(self, run_id: str, trainer_name: str, hparam: str):
     execution = metadata_store_pb2.Execution()
@@ -417,7 +418,7 @@ class GetHparamsTest(absltest.TestCase):
                 'learning_rate': 0.05,
                 'decay_rate': 0.95,
                 results.RUN_ID_KEY: '0',
-                results.BENCHMARK_KEY: 'Test',
+                br.BenchmarkResult.BENCHMARK_NAME_KEY: 'Test',
                 results.STARTED_AT: datetime.datetime.fromtimestamp(0)
             }
         },
@@ -436,7 +437,7 @@ class GetBenchmarkResultsTest(absltest.TestCase):
     artifact_id = self.test_mlmd.put_artifact({
         'accuracy': '0.25',
         'average_loss': '2.40',
-        results.BENCHMARK_KEY: 'Test'
+        br.BenchmarkResult.BENCHMARK_NAME_KEY: 'Test'
     })
     execution_id = self.test_mlmd.put_execution(run_id)
     self.test_mlmd.put_event(artifact_id, execution_id)
@@ -449,7 +450,7 @@ class GetBenchmarkResultsTest(absltest.TestCase):
                 'accuracy': 0.25,
                 'average_loss': 2.40,
                 results.RUN_ID_KEY: '0',
-                results.BENCHMARK_KEY: 'Test',
+                br.BenchmarkResult.BENCHMARK_NAME_KEY: 'Test',
                 results.STARTED_AT: datetime.datetime.fromtimestamp(0)
             }
         },

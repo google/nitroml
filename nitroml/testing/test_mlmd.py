@@ -1,6 +1,7 @@
 """Testing MLMD object with basic insert functionality."""
 
 from typing import Dict
+from nitroml.benchmark import result as br
 from nitroml.benchmark import results
 
 from ml_metadata import metadata_store
@@ -12,7 +13,7 @@ class TestMLMD:
 
   def __init__(self,
                exec_type_name: str = 'BenchmarkResultPublisher',
-               artifact_type: str = results._BENCHMARK_RESULT,
+               artifact_type: str = br.BenchmarkResult.TYPE_NAME,
                context_type: str = 'run'):
     self.artifact_type = artifact_type
     self.context_type = context_type
@@ -59,8 +60,7 @@ class TestMLMD:
     execution.type_id = self.exec_type_id
     return self.store.put_executions([execution])[0]
 
-  def put_artifact(self,
-                   properties: Dict[str, str], name: str = None) -> int:
+  def put_artifact(self, properties: Dict[str, str], name: str = None) -> int:
     """Inserts or updates an artifact in the fake database.
 
     Args:

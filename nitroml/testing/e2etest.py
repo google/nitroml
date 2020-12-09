@@ -29,6 +29,7 @@ import tempfile
 from typing import List
 
 from absl import flags
+from absl import logging
 from absl.testing import absltest
 from absl.testing import parameterized
 
@@ -69,7 +70,9 @@ class TestCase(parameterized.TestCase, absltest.TestCase):
     tempdir = tempfile.mkdtemp(dir=absltest.get_default_test_tmpdir())
     self.pipeline_root = os.path.join(tempdir, self.pipeline_name)
     tf.io.gfile.makedirs(self.pipeline_root)
-    self.metadata_path = os.path.join(self.pipeline_root, "metadata.db")
+    logging.info("pipeline_root located at %s", self.pipeline_root)
+    self.metadata_path = os.path.join(self.pipeline_root, "mlmd.sqlite")
+    logging.info("MLMD SQLite instance located at %s", self.metadata_path)
 
   @property
   def metadata_config(self) -> metadata_store_pb2.ConnectionConfig:

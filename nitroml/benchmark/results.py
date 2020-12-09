@@ -22,6 +22,7 @@ import os
 import re
 from typing import Dict, Any, List, NamedTuple, Optional
 
+from nitroml.benchmark import result as br
 import pandas as pd
 import tensorflow.compat.v2 as tf
 
@@ -32,16 +33,12 @@ from ml_metadata.proto import metadata_store_pb2
 RUN_ID_KEY = 'run_id'
 STARTED_AT = 'started_at'
 BENCHMARK_FULL_KEY = 'benchmark_fullname'
-BENCHMARK_KEY = 'benchmark'
-RUN_KEY = 'run'
-NUM_RUNS_KEY = 'num_runs'
 ARTIFACT_ID_KEY = 'artifact_id'
 
 # Component constants
 _TRAINER = 'google3.learning.elated_zebra.my_orchestrator.components.trainer.component.EstimatorTrainer'
 _TRAINER_PREFIX = 'EstimatorTrainer'
 _EVALUATOR = 'tfx.components.evaluator.component.Evaluator'
-_BENCHMARK_RESULT = 'NitroML.BenchmarkResult'
 _KAGGLE_RESULT = 'NitroML.KaggleSubmissionResult'
 _KAGGLE_PUBLISHER = 'nitroml.google.autokaggle.components.publisher.component.KagglePublisher'
 _KAGGLE_PUBLISHER_PREFIX = 'KagglePublisher'
@@ -62,10 +59,14 @@ _KAGGLE = 'kaggle'
 _IS_IR_KEY = 'is_ir'
 
 # Default columns
-_DEFAULT_COLUMNS = (STARTED_AT, RUN_ID_KEY, BENCHMARK_KEY, RUN_KEY,
-                    NUM_RUNS_KEY)
+_DEFAULT_COLUMNS = (STARTED_AT, RUN_ID_KEY,
+                    br.BenchmarkResult.BENCHMARK_NAME_KEY,
+                    br.BenchmarkResult.BENCHMARK_RUN_KEY,
+                    br.BenchmarkResult.RUNS_PER_BENCHMARK_KEY)
 _DATAFRAME_CONTEXTUAL_COLUMNS = (STARTED_AT, RUN_ID_KEY, BENCHMARK_FULL_KEY,
-                                 BENCHMARK_KEY, RUN_KEY, NUM_RUNS_KEY)
+                                 br.BenchmarkResult.BENCHMARK_NAME_KEY,
+                                 br.BenchmarkResult.BENCHMARK_RUN_KEY,
+                                 br.BenchmarkResult.RUNS_PER_BENCHMARK_KEY)
 _DEFAULT_CUSTOM_PROPERTIES = {
     _NAME, _PRODUCER_COMPONENT, _STATE, _PIPELINE_NAME
 }
@@ -159,7 +160,8 @@ def _get_hparams(store: metadata_store.MetadataStore) -> _Result:
     trainer_id = ex.properties[_COMPONENT_ID].string_value.replace(
         _TRAINER_PREFIX, '')
     result_key = run_id + trainer_id
-    hparams[BENCHMARK_KEY] = trainer_id[1:]  # Removing '.' prefix
+    hparams[br.BenchmarkResult.BENCHMARK_NAME_KEY] = trainer_id[
+        1:]  # Removing '.' prefix
     # BeamDagRunner uses iso format timestamp. See for details:
     # http://google3/third_party/py/tfx/orchestration/beam/beam_dag_runner.py
     try:
@@ -213,7 +215,8 @@ def _get_benchmark_results(store: metadata_store.MetadataStore) -> _Result:
   """
   metrics = {}
   property_names = set()
-  publisher_artifacts = store.get_artifacts_by_type(_BENCHMARK_RESULT)
+  publisher_artifacts = store.get_artifacts_by_type(
+      br.BenchmarkResult.TYPE_NAME)
   for artifact in publisher_artifacts:
     evals = {_IS_IR_KEY: False}
     for key, val in artifact.custom_properties.items():
@@ -246,7 +249,7 @@ def _get_benchmark_results(store: metadata_store.MetadataStore) -> _Result:
       except ValueError:
         evals[STARTED_AT] = run_id
     evals.pop(_IS_IR_KEY)
-    result_key = run_id + '.' + evals[BENCHMARK_KEY]
+    result_key = run_id + '.' + evals[br.BenchmarkResult.BENCHMARK_NAME_KEY]
     properties[result_key] = evals
 
   property_names = property_names.difference(
@@ -347,15 +350,16 @@ def _make_dataframe(metrics_list: List[Dict[str, Any]],
   if not df.empty:
     # Reorder columns.
     # Strip benchmark run repetition for aggregation.
-    df[BENCHMARK_FULL_KEY] = df[BENCHMARK_KEY]
-    df[BENCHMARK_KEY] = df[BENCHMARK_KEY].apply(
-        lambda x: re.sub(r'\.run_\d_of_\d$', '', x))
+    df[BENCHMARK_FULL_KEY] = df[br.BenchmarkResult.BENCHMARK_NAME_KEY]
+    df[br.BenchmarkResult.BENCHMARK_NAME_KEY] = df[
+        br.BenchmarkResult.BENCHMARK_NAME_KEY].apply(
+            lambda x: re.sub(r'\.run_\d_of_\d$', '', x))
 
     key_columns = list(_DATAFRAME_CONTEXTUAL_COLUMNS)
-    if RUN_KEY not in df:
-      key_columns.remove(RUN_KEY)
-    if NUM_RUNS_KEY not in df:
-      key_columns.remove(NUM_RUNS_KEY)
+    if br.BenchmarkResult.BENCHMARK_RUN_KEY not in df:
+      key_columns.remove(br.BenchmarkResult.BENCHMARK_RUN_KEY)
+    if br.BenchmarkResult.RUNS_PER_BENCHMARK_KEY not in df:
+      key_columns.remove(br.BenchmarkResult.RUNS_PER_BENCHMARK_KEY)
     df = df[key_columns + columns]
 
     df = df.set_index([STARTED_AT])
@@ -370,12 +374,12 @@ def _aggregate_results(df: pd.DataFrame,
 
   df = df.copy()
   groupby_columns = groupby_columns.copy()
-  if RUN_KEY in df:
-    df = df.drop([RUN_KEY], axis=1)
-  groupby_columns.remove(RUN_KEY)
+  if br.BenchmarkResult.BENCHMARK_RUN_KEY in df:
+    df = df.drop([br.BenchmarkResult.BENCHMARK_RUN_KEY], axis=1)
+  groupby_columns.remove(br.BenchmarkResult.BENCHMARK_RUN_KEY)
   groupby_columns.remove(BENCHMARK_FULL_KEY)
-  if NUM_RUNS_KEY not in df:
-    groupby_columns.remove(NUM_RUNS_KEY)
+  if br.BenchmarkResult.RUNS_PER_BENCHMARK_KEY not in df:
+    groupby_columns.remove(br.BenchmarkResult.RUNS_PER_BENCHMARK_KEY)
 
   # Group by contextual columns and aggregate metrics.
   df = df.groupby(groupby_columns)
