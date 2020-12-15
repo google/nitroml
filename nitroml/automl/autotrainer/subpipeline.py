@@ -63,6 +63,7 @@ class AutoTrainer(subpipeline.Subpipeline):
                eval_steps: int,
                use_keras: bool = True,
                enable_tuning: bool = False,
+               max_sequence_length: Optional[int] = None,
                instance_name: Optional[str] = None):
     """Constructs an AutoTrainer subpipeline.
 
@@ -80,6 +81,9 @@ class AutoTrainer(subpipeline.Subpipeline):
       use_keras: When `True`, uses Keras Models, otherwise uses Estimators.
       enable_tuning: When `True`, performs hyperparameter tuning using the
         built-in `tfx.Tuner` using a tuned search-space.
+      max_sequence_length: For seqential prediction tasks. When > 0, the
+        trainer will produce a model that will produce sequential prediction of
+        this desired length.
       instance_name: Optional unique instance name. Necessary iff multiple Tuner
         components are declared in the same pipeline.
 
@@ -124,6 +128,8 @@ class AutoTrainer(subpipeline.Subpipeline):
             'problem_statement':
                 text_format.MessageToString(
                     message=problem_statement, as_utf8=True),
+            'sequence_length':
+                max_sequence_length,
         },
         instance_name=self.id)
 

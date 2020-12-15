@@ -21,6 +21,7 @@ The consumed artifacts include:
 """
 
 import functools
+from typing import Optional
 
 from absl import logging
 import kerastuner
@@ -42,10 +43,10 @@ def _get_hyperparameters() -> kerastuner.HyperParameters:
   """Returns hyperparameters for building Keras model."""
 
   hp = kerastuner.HyperParameters()
-  hp.Choice('learning_rate', [1e-1, 1e-2, 1e-3, 1e-4], default=1e-1)
+  hp.Choice('learning_rate', [1e-1, 1e-2, 1e-3, 1e-4], default=1e-3)
   hp.Choice('optimizer', ['Adam', 'SGD', 'RMSprop', 'Adagrad'], default='Adam')
   hp.Int('num_layers', min_value=1, max_value=5, step=1, default=1)
-  hp.Int('num_nodes', min_value=32, max_value=512, step=32, default=512)
+  hp.Int('num_nodes', min_value=32, max_value=512, step=32, default=64)
   return hp
 
 
@@ -160,7 +161,10 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
           fn_args.custom_config['problem_statement'],
           ps_pb2.ProblemStatement()),
       transform_graph_dir=fn_args.transform_output)
-  model = _build_keras_model(hparams, keras_autodata_adapter)
+  model = _build_keras_model(
+      hparams,
+      keras_autodata_adapter,
+      sequence_length=fn_args.custom_config.get('sequence_length', None))
 
   train_spec = tf.estimator.TrainSpec(
       input_fn=autodata_adapter.get_input_fn(
@@ -212,14 +216,15 @@ def run_fn(fn_args: trainer_executor.TrainerFnArgs):
                  'this is not the chief worker.')
 
 
-def _build_keras_model(
-    hparams: kerastuner.HyperParameters,
-    autodata_adapter: kma.KerasModelAdapter) -> tf.keras.Model:
+def _build_keras_model(hparams: kerastuner.HyperParameters,
+                       autodata_adapter: kma.KerasModelAdapter,
+                       sequence_length: Optional[int] = None) -> tf.keras.Model:
   """Returns a Keras Model for the given data adapter.
 
   Args:
     hparams: Hyperparameters of the model.
     autodata_adapter: Data adaptor used to get the task information.
+    sequence_length: The length of the sequence to predict when not-None.
 
   Returns:
     A keras model for the given adapter and hyperparams.
@@ -233,14 +238,37 @@ def _build_keras_model(
 
   x = tf.keras.layers.DenseFeatures(feature_columns)(input_layers)
 
-  hparam_nodes = hparams.get('num_nodes')
-  for numnodes in [hparam_nodes] * hparams.get('num_layers'):
-    x = tf.keras.layers.Dense(numnodes)(x)
-  output = tf.keras.layers.Dense(
-      autodata_adapter.head_size,
-      activation=autodata_adapter.head_activation,
-      name='output')(
-          x)
+  num_nodes = hparams.get('num_nodes')
+  if sequence_length:
+    logging.info('Creating an LSTM model with prediction sequence length: %s.',
+                 sequence_length)
+
+    x = tf.expand_dims(x, axis=1)
+    x = tf.keras.layers.LSTM(
+        num_nodes, activation='relu', input_shape=(1, None))(
+            x)
+    # repeat vector
+    x = tf.keras.layers.RepeatVector(sequence_length)(x)
+    # decoder layer
+    x = tf.keras.layers.LSTM(
+        num_nodes, activation='relu', return_sequences=True)(
+            x)
+    output = tf.keras.layers.TimeDistributed(
+        tf.keras.layers.Dense(
+            autodata_adapter.head_size,
+            activation=autodata_adapter.head_activation),
+        name='output')(
+            x)
+  else:
+    logging.info('Creating an densely-connected DNN model.')
+
+    for numnodes in [num_nodes] * hparams.get('num_layers'):
+      x = tf.keras.layers.Dense(numnodes)(x)
+    output = tf.keras.layers.Dense(
+        autodata_adapter.head_size,
+        activation=autodata_adapter.head_activation,
+        name='output')(
+            x)
 
   model = tf.keras.Model(input_layers, output)
 
