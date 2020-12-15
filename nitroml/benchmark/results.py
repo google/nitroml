@@ -94,7 +94,7 @@ def _merge_results(results: List[_Result]) -> _Result:
       if key in properties:
         properties[key].update(props)
       else:
-        properties[key] = props
+        properties[key] = {**props}
     property_names += result.property_names
   return _Result(properties=properties, property_names=property_names)
 
@@ -250,7 +250,10 @@ def _get_benchmark_results(store: metadata_store.MetadataStore) -> _Result:
         evals[STARTED_AT] = run_id
     evals.pop(_IS_IR_KEY)
     result_key = run_id + '.' + evals[br.BenchmarkResult.BENCHMARK_NAME_KEY]
-    properties[result_key] = evals
+    if result_key in properties:
+      properties[result_key].update(evals)
+    else:
+      properties[result_key] = {**evals}
 
   property_names = property_names.difference(
       {_NAME, _PRODUCER_COMPONENT, _STATE, *_DEFAULT_COLUMNS, _IS_IR_KEY})

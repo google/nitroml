@@ -457,6 +457,38 @@ class GetBenchmarkResultsTest(absltest.TestCase):
         property_names=['accuracy', 'average_loss'])
     self.assertEqual(want_result, result)
 
+  def testGetBenchmarkResultsTwoArtifacts(self):
+    run_id = '0'
+    execution_id0 = self.test_mlmd.put_execution(run_id)
+    artifact_id0 = self.test_mlmd.put_artifact({
+        'accuracy': '0.25',
+        'average_loss': '2.40',
+        br.BenchmarkResult.BENCHMARK_NAME_KEY: 'Test'
+    })
+    self.test_mlmd.put_event(artifact_id0, execution_id0)
+    execution_id1 = self.test_mlmd.put_execution(run_id)
+    artifact_id1 = self.test_mlmd.put_artifact({
+        'my_custom_metric': '99',
+        br.BenchmarkResult.BENCHMARK_NAME_KEY: 'Test'
+    })
+    self.test_mlmd.put_event(artifact_id1, execution_id1)
+
+    result = results._get_benchmark_results(self.test_mlmd.store)
+
+    want_result = results._Result(
+        properties={
+            '0.Test': {
+                'accuracy': 0.25,
+                'average_loss': 2.40,
+                'my_custom_metric': 99,
+                results.RUN_ID_KEY: '0',
+                br.BenchmarkResult.BENCHMARK_NAME_KEY: 'Test',
+                results.STARTED_AT: datetime.datetime.fromtimestamp(0)
+            }
+        },
+        property_names=['accuracy', 'average_loss', 'my_custom_metric'])
+    self.assertEqual(want_result, result)
+
 
 class GetStatisticsGenDirectoryTest(absltest.TestCase):
 
