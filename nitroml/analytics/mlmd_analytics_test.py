@@ -121,6 +121,11 @@ COMPONENT_NAME = 'test_component_name'
 INPUT_ARTIFACT_NAME = 'test_input_artifact'
 OUTPUT_ARTIFACT_NAME = 'test_output_artifact'
 
+RUN_ID_2 = 'test_run_id_2'
+COMPONENT_NAME_2 = 'test_component_name_2'
+INPUT_ARTIFACT_NAME_2 = 'test_input_artifact_2'
+OUTPUT_ARTIFACT_NAME_2 = 'test_output_artifact_2'
+
 
 def get_ir_based_analytics():
   tm = test_mlmd.TestMLMD(context_type='pipeline')
@@ -140,6 +145,19 @@ def get_ir_based_analytics():
   tm.put_event(input_artifact_id, execution_id, metadata_store_pb2.Event.INPUT)
   tm.put_event(output_artifact_id, execution_id,
                metadata_store_pb2.Event.OUTPUT)
+
+  # Attributed artifacts with unassociated executions. This is an anomoly found
+  # in MLMD stores created by IR-Based orchestrators.
+  execution_id_2 = tm.put_execution(RUN_ID_2, COMPONENT_NAME_2)
+  input_artifact_id_2 = tm.put_artifact({'name': INPUT_ARTIFACT_NAME_2})
+  output_artifact_id_2 = tm.put_artifact({'name': OUTPUT_ARTIFACT_NAME_2})
+  tm.put_attribution(component_context_id, input_artifact_id_2)
+  tm.put_attribution(component_context_id, output_artifact_id_2)
+  tm.put_event(input_artifact_id_2, execution_id_2,
+               metadata_store_pb2.Event.INPUT)
+  tm.put_event(output_artifact_id_2, execution_id_2,
+               metadata_store_pb2.Event.OUTPUT)
+
   return mlmd_analytics.Analytics(store=tm.store)
 
 
@@ -176,16 +194,16 @@ class AnalyticsTest(parameterized.TestCase):
     analytics = self._get_analytics(ir_analytics_flag)
     self.assertEqual(ir_analytics_flag, analytics._ir_based_dag_runner)
 
-  @parameterized.named_parameters(('ir_analytics', True),
-                                  ('nonir_analytics', False))
+  @parameterized.named_parameters(('IrAnalytics', True),
+                                  ('NonIrAnalytics', False))
   def testListRuns(self, ir_analytics_flag):
     analytics = self._get_analytics(ir_analytics_flag)
     want = {'pipeline_name': PIPELINE_NAME, 'run_id': RUN_ID}
     got = analytics.list_runs()[RUN_ID]
     self.assertContainsSubset(want, got)
 
-  @parameterized.named_parameters(('ir_analytics', True),
-                                  ('nonir_analytics', False))
+  @parameterized.named_parameters(('IrAnalytics', True),
+                                  ('NonIrAnalytics', False))
   def testWalkThroughAnalyticsObject(self, ir_analytics_flag):
     analytics = self._get_analytics(ir_analytics_flag)
 
@@ -203,8 +221,8 @@ class AnalyticsTest(parameterized.TestCase):
     # Check Component Properties
     self.assertEqual(RUN_ID, component_run.run_id)
     self.assertEqual(COMPONENT_NAME, component_run.component_name)
-    self.assertIn(INPUT_ARTIFACT_NAME, component_run.inputs)
-    self.assertIn(OUTPUT_ARTIFACT_NAME, component_run.outputs)
+    self.assertCountEqual({INPUT_ARTIFACT_NAME}, component_run.inputs.keys())
+    self.assertCountEqual({OUTPUT_ARTIFACT_NAME}, component_run.outputs.keys())
     want = {'component_id': COMPONENT_NAME, 'run_id': RUN_ID}
     got = component_run.exec_properties
     self.assertCountEqual(want, got)

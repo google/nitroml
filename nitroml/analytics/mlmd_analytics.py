@@ -128,40 +128,24 @@ class ComponentRun:
     """The name of this component."""
     return self._context.name
 
-  def _get_event_type(
-      self,
-      artifact: metadata_store_pb2.Artifact) -> metadata_store_pb2.Event.Type:
-    """Gets numeric rep of the event type associated with context and execution.
-
-    Args:
-      artifact: An artifact proto.
-
-    Returns:
-      Respective event type of the artifact in this execution.
-    """
-    [event] = [
-        event for event in self._store.get_events_by_artifact_ids([artifact.id])
-        if event.execution_id == self._execution.id
-    ]
-    return event.type
-
   def _get_artifacts(
       self, event_type: Set['metadata_store_pb2.Event.Type']
   ) -> Dict[str, materialized_artifact.MaterializedArtifact]:
     """Returns artifacts associated with this component.
 
     Args:
-      event_type: A set of ints that correspond with Event.Type enumerator.
+      event_type: A set of Event Types to filter for.
 
     Returns:
       A dict of name, MaterializedArtifact pairs.
     """
 
-    artifacts = [
-        artifact
-        for artifact in self._store.get_artifacts_by_context(self._context.id)
-        if self._get_event_type(artifact) in event_type
+    artifact_ids = [
+        event.artifact_id for event in self._store.get_events_by_execution_ids(
+            [self._execution.id]) if event.type in event_type
     ]
+    artifacts = self._store.get_artifacts_by_id(artifact_ids)
+
     artifact_dict = {}
     artifact_types = self._store.get_artifact_types_by_id(
         [artifact.type_id for artifact in artifacts])
