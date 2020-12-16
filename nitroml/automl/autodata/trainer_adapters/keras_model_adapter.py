@@ -77,38 +77,53 @@ class KerasModelAdapter:
     return self._estimator_adapter.head.logits_dimension
 
   @property
-  def head_activation(self) -> str:
+  def head_activation(self) -> Optional[str]:
     """Returns the activation for the final layer."""
 
-    # TODO(github.com/google/nitroml/issues/29): Support Regression tasks.
-    if self.head_size > 2:
+    # TODO(nikhilmehta): Change the task object to allow label_key to be a list.
+    task_type = self._problem_statement.tasks[0].type
+    if task_type.HasField('multi_class_classification'):
       return 'softmax'
-    return 'sigmoid'
+    if task_type.HasField('binary_classification'):
+      return 'sigmoid'
+    if task_type.HasField('one_dimensional_regression'):
+      return None
+    raise ValueError('Invalid task type: {}'.format(task_type))
 
   @property
   def loss(self) -> str:
     """Returns the keras loss_fn for this task."""
 
-    # TODO(github.com/google/nitroml/issues/29): Support Regression tasks.
-    if self.head_size > 2:
-      return self.SPARSE_CATEGORICAL_CE
-    return self.BINARY_CE
+    task_type = self._problem_statement.tasks[0].type
+    if task_type.HasField('multi_class_classification'):
+      return 'sparse_categorical_crossentropy'
+    if task_type.HasField('binary_classification'):
+      return 'binary_crossentropy'
+    if task_type.HasField('one_dimensional_regression'):
+      return 'mse'
+    raise ValueError('Invalid task type: {}'.format(task_type))
 
   @property
   def metrics(self) -> List[tf.keras.metrics.Metric]:
     """Returns the keras metrics for evaluation."""
 
-    # TODO(github.com/google/nitroml/issues/29): Support Regression tasks.
-    if self.head_size == 1:
+    task_type = self._problem_statement.tasks[0].type
+    if task_type.HasField('multi_class_classification'):
+      return [
+          tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy'),
+          tf.keras.metrics.SparseCategoricalCrossentropy(name='average_loss')
+      ]
+    if task_type.HasField('binary_classification'):
       return [
           tf.keras.metrics.BinaryAccuracy(name='accuracy'),
           tf.keras.metrics.BinaryCrossentropy(name='average_loss'),
           tf.keras.metrics.AUC()
       ]
-    return [
-        tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy'),
-        tf.keras.metrics.SparseCategoricalCrossentropy(name='average_loss')
-    ]
+    if task_type.HasField('one_dimensional_regression'):
+      return [
+          tf.keras.metrics.MeanSquaredError(name='mse'),
+      ]
+    raise ValueError('Invalid task type: {}'.format(task_type))
 
   @property
   def tuner_objective(self) -> kerastuner.Objective:

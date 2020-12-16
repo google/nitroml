@@ -87,6 +87,7 @@ def preprocessing_fn(inputs: Dict[str, Tensor],
     task_type = problem_statement.tasks[0].type
     if task_type.HasField('one_dimensional_regression') and (
         key == task_type.one_dimensional_regression.label):
+      outputs[key] = inputs[key]
       # Skip normalizing regression tasks.
       continue
 

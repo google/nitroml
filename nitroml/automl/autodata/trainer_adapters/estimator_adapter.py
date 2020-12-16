@@ -50,10 +50,6 @@ class EstimatorAdapter:
     # Parse schema.
     self._dataset_schema = self._tf_transform_output.transformed_metadata.schema
 
-    self._num_classes = (
-        self._tf_transform_output.num_buckets_for_transformed_feature(
-            self.raw_label_key))
-
   @property
   def raw_label_key(self) -> str:
     """The raw label key as defined in the ProblemStatement."""
@@ -78,12 +74,17 @@ class EstimatorAdapter:
   def head(self) -> tf.estimator.Head:
     """Returns the Estimator Head for this task."""
 
-    # TODO(github.com/google/nitroml/issues/29): Regression tasks
-    # (self._num_classes==0)
-    if self._num_classes > 2:
-      return tf.estimator.MultiClassHead(self._num_classes)
-    else:
+    task_type = self._problem_statement.tasks[0].type
+    if task_type.HasField('one_dimensional_regression'):
+      return tf.estimator.RegressionHead()
+    num_classes = (
+        self._tf_transform_output.num_buckets_for_transformed_feature(
+            self.raw_label_key))
+    if task_type.HasField('multi_class_classification'):
+      return tf.estimator.MultiClassHead(num_classes)
+    if task_type.HasField('binary_classification'):
       return tf.estimator.BinaryClassHead()
+    raise ValueError('Invalid task type: {}'.format(task_type))
 
   def _get_numeric_feature_columns(self,
                                    include_integer_columns: bool = False
