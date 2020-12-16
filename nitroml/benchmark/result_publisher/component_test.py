@@ -42,6 +42,21 @@ class ComponentTest(absltest.TestCase):
           run=1,
           num_runs=2)
 
+  def testContextProperties(self):
+    publisher = BenchmarkResultPublisher(
+        'test',
+        channel_utils.as_channel([standard_artifacts.ModelEvaluation()]),
+        run=1,
+        num_runs=2,
+        additional_context={
+            'test_int': 1,
+            'test_str': 'str',
+            'test_float': 0.1
+        })
+    want = '{"test_float": 0.1, "test_int": 1, "test_str": "str"}'
+    got = publisher.exec_properties['additional_context']
+    self.assertEqual(want, got)
+
 
 if __name__ == '__main__':
   absltest.main()

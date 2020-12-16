@@ -19,6 +19,7 @@ from typing import Optional
 
 from nitroml.benchmark import result
 from nitroml.benchmark.result_publisher import executor
+from nitroml.benchmark.result_publisher import serialize
 from tfx.dsl.components.base import base_component
 from tfx.dsl.components.base import executor_spec
 from tfx.types import channel_utils
@@ -35,6 +36,7 @@ class BenchmarkResultPublisherSpec(ComponentSpec):
       'benchmark_name': ExecutionParameter(type=str),
       'run': ExecutionParameter(type=int),
       'num_runs': ExecutionParameter(type=int),
+      'additional_context': ExecutionParameter(type=str),
   }
   INPUTS = {
       'evaluation': ChannelParameter(type=standard_artifacts.ModelEvaluation),
@@ -56,7 +58,8 @@ class BenchmarkResultPublisher(base_component.BaseComponent):
                evaluation: Channel,
                run: int,
                num_runs: int,
-               instance_name: Optional[str] = None):
+               instance_name: Optional[str] = None,
+               additional_context: Optional[serialize.ContextDict] = None):
     """Construct a BenchmarkResultPublisher.
 
     Args:
@@ -66,6 +69,11 @@ class BenchmarkResultPublisher(base_component.BaseComponent):
       num_runs: The integer total number of benchmark run repetitions.
       instance_name: Optional unique instance name. Necessary iff multiple
         BenchmarkResultPublisher components are declared in the same pipeline.
+      additional_context: Additional key-value pairs to be written to
+        BenchmarkResultPublisher artifact, used for adding additional context
+        to benchmark result, such as dataset names, hyper param values etc.
+        Keys must be type str and Values must be primitive types int, str, bool,
+        or float.
     """
 
     if not benchmark_name:
@@ -79,12 +87,18 @@ class BenchmarkResultPublisher(base_component.BaseComponent):
 
     benchmark_result = channel_utils.as_channel([result.BenchmarkResult()])
 
+    if additional_context:
+      serialized_additional_context = serialize.encode(additional_context)
+    else:
+      serialized_additional_context = serialize.encode({})
+
     spec = BenchmarkResultPublisherSpec(
         benchmark_name=benchmark_name,
         run=run,
         num_runs=num_runs,
         evaluation=evaluation,
-        benchmark_result=benchmark_result)
+        benchmark_result=benchmark_result,
+        additional_context=serialized_additional_context)
 
     super(BenchmarkResultPublisher, self).__init__(
         spec=spec, instance_name=instance_name)

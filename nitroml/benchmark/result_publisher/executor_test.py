@@ -41,7 +41,8 @@ class ExecutorTest(absltest.TestCase):
     return {'benchmark_result': [BenchmarkResult()]}
 
   def _make_executor_properties(self, name: Text) -> Dict[Text, Any]:
-    return {'benchmark_name': name, 'run': 1, 'num_runs': 3}
+    return {'benchmark_name': name, 'run': 1, 'num_runs': 3,
+            'additional_context': '{"test_int": 1}'}
 
   def _get_eval_metrics(
       self, output_dict: Dict[Text, List[Artifact]]) -> Dict[str, str]:
@@ -70,7 +71,8 @@ class ExecutorTest(absltest.TestCase):
             'post_export_metrics/example_count': '94.0',
             'run': 1,
             'num_runs': 3,
-            'benchmark': 'test'
+            'benchmark': 'test',
+            'test_int': '1',
         }, self._get_eval_metrics(output_dict))
 
   def testDoWithInvalidEvaluatorURIThrows(self):

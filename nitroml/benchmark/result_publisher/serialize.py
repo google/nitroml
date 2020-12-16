@@ -3,19 +3,21 @@
 import json
 from typing import Dict, Union
 
+ContextDict = Dict[str, Union[int, float, str, bool]]
+
 
 def _type_check(properties):
   for key, value in properties.items():
     if not isinstance(key, str):
       raise TypeError('Key (%s}) is of type (%s), str required' %
                       (str(key), type(key)))
-    if not isinstance(value, (int, float, str)):
+    if not isinstance(value, (int, float, str, bool)):
       raise TypeError(
           'Value (%s}) is of type (%s), int, float, or str required' %
           (str(value), type(value)))
 
 
-def decode(properties: str) -> Dict[str, Union[int, float, str]]:
+def decode(properties: str) -> ContextDict:
   """Converts a serialized property dict into a python dict.
 
   Args:
@@ -26,7 +28,7 @@ def decode(properties: str) -> Dict[str, Union[int, float, str]]:
   return json.loads(properties)
 
 
-def encode(properties: Dict[str, Union[int, float, str]]) -> str:
+def encode(properties: ContextDict) -> str:
   """Convert a property dict to a serializeabled string.
 
   Args:

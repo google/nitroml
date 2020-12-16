@@ -18,6 +18,7 @@
 from typing import Any, Dict, List, Text
 
 from nitroml.benchmark import result as br
+from nitroml.benchmark.result_publisher import serialize
 import tensorflow.compat.v2 as tf
 import tensorflow_model_analysis as tfma
 
@@ -66,6 +67,15 @@ class BenchmarkResultPublisherExecutor(base_executor.BaseExecutor):
     # Publish evaluation metrics
     evals = self._load_evaluation(uri)
     for name, val in evals.items():
+      # TODO(b/151723291): Use correct type instead of string.
+      benchmark_result.set_string_custom_property(name, str(val))
+
+    context_properties = serialize.decode(exec_properties['additional_context'])
+    # TODO(b/175802446): Add additional properties storing
+    # `additional_context` and `metric` keys so user can distinguish between
+    # custom properties.
+
+    for name, val in context_properties.items():
       # TODO(b/151723291): Use correct type instead of string.
       benchmark_result.set_string_custom_property(name, str(val))
 
