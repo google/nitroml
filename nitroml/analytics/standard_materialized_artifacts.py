@@ -33,7 +33,7 @@ class StatisticsGenArtifact(materialized_artifact.MaterializedArtifact):
   def show(self):
     self._validate_payload()
     standard_visualizations.ExampleStatisticsVisualization().display(
-        self.artifact)
+        self._artifact)
 
 
 class SchemaGenArtifact(materialized_artifact.MaterializedArtifact):
@@ -42,7 +42,7 @@ class SchemaGenArtifact(materialized_artifact.MaterializedArtifact):
   ARTIFACT_TYPE = standard_artifacts.Schema
 
   def show(self):
-    standard_visualizations.SchemaVisualization().display(self.artifact)
+    standard_visualizations.SchemaVisualization().display(self._artifact)
 
 
 class ExampleArtifact(materialized_artifact.MaterializedArtifact):
@@ -82,7 +82,7 @@ class ExampleArtifact(materialized_artifact.MaterializedArtifact):
 
     if max_rows and max_rows < 0:
       raise ValueError('`max_rows` must not be negative. Got: %d' % max_rows)
-    filepaths = gfile.glob(os.path.join(self.artifact.uri, split, '*'))
+    filepaths = gfile.glob(os.path.join(self.uri, split, '*'))
     ds = tf.data.TFRecordDataset(filepaths, compression_type='GZIP').take(
         max_rows)
     return self._load_table(ds)
@@ -90,7 +90,7 @@ class ExampleArtifact(materialized_artifact.MaterializedArtifact):
   def show(self):
     from IPython.core.display import display  # pylint: disable=g-import-not-at-top
     from IPython.core.display import HTML  # pylint: disable=g-import-not-at-top
-    for split in artifact_utils.decode_split_names(self.artifact.split_names):
+    for split in artifact_utils.decode_split_names(self._artifact.split_names):
       display(HTML('<div><b>%r split:</b></div><br/>' % split))
       display(self.to_dataframe(split))
 
@@ -103,7 +103,7 @@ class ExampleAnomaliesArtifact(materialized_artifact.MaterializedArtifact):
   def show(self):
     self._validate_payload()
     standard_visualizations.ExampleAnomaliesVisualization().display(
-        self.artifact)
+        self._artifact)
 
 
 class ModelEvaluationArtifact(materialized_artifact.MaterializedArtifact):
@@ -113,7 +113,7 @@ class ModelEvaluationArtifact(materialized_artifact.MaterializedArtifact):
   def show(self):
     self._validate_payload()
     standard_visualizations.ModelEvaluationVisualization().display(
-        self.artifact)
+        self._artifact)
 
 
 _STANDARD_ARTIFACTS = frozenset(

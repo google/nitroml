@@ -27,10 +27,10 @@ class MaterializedArtifact(abc.ABC):
   """TFX artifact used for artifact analysis and visualization."""
 
   def __init__(self, artifact: types.Artifact):
-    self.artifact = artifact
+    self._artifact = artifact
 
   def __str__(self):
-    return f'{self.artifact.artifact_type.name} Artifact'
+    return 'Type: %s\nURI: %s' % (self.type_name, self.uri)
 
   def __repr__(self):
     return f'<{self.__str__()}>'
@@ -39,9 +39,31 @@ class MaterializedArtifact(abc.ABC):
   ARTIFACT_TYPE = abc_utils.abstract_property()
 
   @property
+  def uri(self) -> str:
+    """Artifact URI."""
+    return self._artifact.uri
+
+  @property
+  def type_name(self) -> str:
+    """Artifact type name."""
+    return self._artifact.type_name
+
+  @property
   def producer_component(self) -> str:
     """The producer component of this artifact."""
-    return self.artifact.producer_component
+    return self._artifact.producer_component
+
+  @property
+  def properties(self) -> Dict[str, str]:
+    """Returns dictionary of custom and default properties of the artifact."""
+    properties = {}
+    for key, value in self._artifact.mlmd_artifact.properties.items():
+      properties[key] = value.string_value
+
+    for key, value in self._artifact.mlmd_artifact.custom_properties.items():
+      properties[key] = value.string_value
+
+    return properties
 
   def _validate_payload(self):
     """Raises error if the artifact uri is not readable.
@@ -52,24 +74,13 @@ class MaterializedArtifact(abc.ABC):
       because some error occurred trying to query the file's state).
     """
 
-    if not gfile.exists(self.artifact.uri):
-      raise IOError(f'Artifact URI {self.artifact.uri} not readable.')
+    if not gfile.exists(self.uri):
+      raise IOError(f'Artifact URI {self.uri} not readable.')
 
   @abc.abstractmethod
   def show(self) -> None:
     """Displays respective visualization for artifact type."""
     raise NotImplementedError()
-
-  def properties(self) -> Dict[str, str]:
-    """Returns dictionary of custom and default properties of the artifact."""
-    properties = {}
-    for key, value in self.artifact.mlmd_artifact.properties.items():
-      properties[key] = value.string_value
-
-    for key, value in self.artifact.mlmd_artifact.custom_properties.items():
-      properties[key] = value.string_value
-
-    return properties
 
 
 class GenericMaterializedArtifact(MaterializedArtifact):
@@ -80,7 +91,7 @@ class GenericMaterializedArtifact(MaterializedArtifact):
   def show(self) -> None:
     """Displays respective visualization for artifact type."""
     raise NotImplementedError("Artifact type '%s' not registered." %
-                              self.artifact.type_name)
+                              self.type_name)
 
 
 class ArtifactRegistry:

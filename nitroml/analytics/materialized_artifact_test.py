@@ -40,11 +40,11 @@ class MaterializedArtifactTest(absltest.TestCase):
   def testRepr(self):
     artifact_type = metadata_store_pb2.ArtifactType()
     artifact_type.name = 'Examples'
-    self.assertEqual(
-        '<Examples Artifact>',
-        repr(
-            materialized_artifact.GenericMaterializedArtifact(
-                types.Artifact(mlmd_artifact_type=artifact_type))))
+    tfx_artifact = types.Artifact(mlmd_artifact_type=artifact_type)
+    tfx_artifact.uri = 'test/uri'
+    want = '<Type: Examples\nURI: test/uri>'
+    got = repr(materialized_artifact.GenericMaterializedArtifact(tfx_artifact))
+    self.assertEqual(want, got)
 
 
 if __name__ == '__main__':
