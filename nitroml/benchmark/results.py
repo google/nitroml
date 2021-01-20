@@ -39,9 +39,6 @@ ARTIFACT_ID_KEY = 'artifact_id'
 _TRAINER = 'google3.learning.elated_zebra.my_orchestrator.components.trainer.component.EstimatorTrainer'
 _TRAINER_PREFIX = 'EstimatorTrainer'
 _EVALUATOR = 'tfx.components.evaluator.component.Evaluator'
-_KAGGLE_RESULT = 'NitroML.KaggleSubmissionResult'
-_KAGGLE_PUBLISHER = 'nitroml.google.autokaggle.components.publisher.component.KagglePublisher'
-_KAGGLE_PUBLISHER_PREFIX = 'KagglePublisher'
 _STATS = 'ExampleStatistics'
 
 # Name constants
@@ -260,52 +257,6 @@ def _get_benchmark_results(store: metadata_store.MetadataStore) -> _Result:
   return _Result(properties=properties, property_names=sorted(property_names))
 
 
-def _get_kaggle_results(store: metadata_store.MetadataStore) -> _Result:
-  """Returns the kaggle score detail from the KagglePublisher component.
-
-  Args:
-    store: MetaDataStore object to connect to MLMD instance.
-
-  Returns:
-    A _Result objects with properties containing kaggle results.
-  """
-  results = {}
-  property_names = set()
-  kaggle_artifacts = store.get_artifacts_by_type(_KAGGLE_RESULT)
-  for artifact in kaggle_artifacts:
-    submit_info = {_IS_IR_KEY: False}
-    for key, val in artifact.custom_properties.items():
-      if key not in _DEFAULT_CUSTOM_PROPERTIES:
-        name = _KAGGLE + '_' + key
-        submit_info[name] = _parse_value(val)
-      # Change for the IR world.
-      if key == 'name':
-        new_id = _parse_value(val).split(':')
-        if len(new_id) > 2:
-          submit_info[RUN_ID_KEY] = new_id[1]
-          submit_info[_IS_IR_KEY] = True
-    property_names = property_names.union(submit_info.keys())
-    results[artifact.id] = submit_info
-
-  artifact_to_run_info = _get_artifact_run_info_map(store, list(results.keys()))
-
-  properties = {}
-  for artifact_id, submit_info in results.items():
-    run_info = artifact_to_run_info[artifact_id]
-    if submit_info[_IS_IR_KEY]:
-      run_id = results[artifact_id][RUN_ID_KEY]
-    else:
-      run_id = run_info.run_id
-    result_key = run_id + run_info.component_name.replace(
-        _KAGGLE_PUBLISHER_PREFIX, '')
-    submit_info.pop(_IS_IR_KEY)
-    properties[result_key] = submit_info
-
-  property_names = property_names.difference(
-      {_NAME, _PRODUCER_COMPONENT, _STATE, *_DEFAULT_COLUMNS, _IS_IR_KEY})
-  return _Result(properties=properties, property_names=sorted(property_names))
-
-
 def get_model_dir_map(store: metadata_store.MetadataStore) -> Dict[str, str]:
   """Obtains a map of run_id to model_dir from the store."""
 
@@ -423,10 +374,9 @@ def overview(
   """
   hparams_result = _get_hparams(store)
   metrics_result = _get_benchmark_results(store)
-  kaggle__result = _get_kaggle_results(store)
 
   # Merge results
-  result = _merge_results([hparams_result, metrics_result, kaggle__result])
+  result = _merge_results([hparams_result, metrics_result])
 
   # Filter metrics that have empty hparams and evaluation results.
   results_list = [

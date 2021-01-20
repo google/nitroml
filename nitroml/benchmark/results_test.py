@@ -194,46 +194,6 @@ class OverviewTest(parameterized.TestCase):
               'recall mean',
               'recall std',
           ],
-      },
-      {
-          'testcase_name':
-              'no aggregation 05-21-20',
-          'mlmd_store_path':
-              _MLMD_05_21_20_PATH,
-          'metric_aggregators':
-              None,
-          'want_columns': [
-              'run_id',
-              'benchmark_fullname',
-              'benchmark',
-              'run',
-              'num_runs',
-              'accuracy',
-              'accuracy_baseline',
-              'auc',
-              'auc_precision_recall',
-              'average_loss',
-              'label/mean',
-              'pipeline_name',
-              'post_export_metrics/example_count',
-              'precision',
-              'prediction/mean',
-              'recall',
-              'kaggle_date',
-              'kaggle_description',
-              'kaggle_errorDescription',
-              'kaggle_fileName',
-              'kaggle_privateScore',
-              'kaggle_publicScore',
-              'kaggle_ref',
-              'kaggle_status',
-              'kaggle_submittedBy',
-              'kaggle_submittedByRef',
-              'kaggle_teamName',
-              'kaggle_totalBytes',
-              'kaggle_type',
-              'kaggle_url',
-          ],
       })
   def test_overview(self, mlmd_store_path, metric_aggregators, want_columns):
     config = metadata_store_pb2.ConnectionConfig()
