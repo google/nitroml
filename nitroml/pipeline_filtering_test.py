@@ -19,12 +19,16 @@ from absl.testing import absltest
 from absl.testing import parameterized
 from nitroml import pipeline_filtering
 
+from tfx.dsl.compiler import constants as dsl_constants
 from tfx.proto.orchestration import executable_spec_pb2
 from tfx.proto.orchestration import pipeline_pb2 as p_pb2
 from tfx.utils import test_case_utils
 from google3.google.protobuf import any_pb2
 from google3.learning.tfx.tflex.proto.deployment_config.pluggable_orchestrator import deployment_config_pb2
 from ml_metadata.proto import metadata_store_pb2 as mlmd_pb2
+
+
+_PIPELINE_RUN_CONTEXT_KEY = dsl_constants.PIPELINE_RUN_CONTEXT_TYPE_NAME
 
 
 def to_context_spec(type_name: str, name: str) -> p_pb2.ContextSpec:
@@ -705,6 +709,123 @@ class PipelineFilteringTest(parameterized.TestCase, test_case_utils.TfxTest):
                 name=p_pb2.Value(
                     field_value=mlmd_pb2.Value(
                         string_value='pipeline_run_000'))))
+    expected_output_pipeline = p_pb2.Pipeline(
+        pipeline_info=p_pb2.PipelineInfo(id='my_pipeline'),
+        execution_mode=p_pb2.Pipeline.ExecutionMode.SYNC,
+        nodes=[node_a_fixed, node_c_fixed])
+    self.assertProtoEquals(expected_output_pipeline, filtered_pipeline)
+
+  def testSkipNodes_preexisting_pipeline_run(self):
+    """Skip a node in the middle.
+
+    Also contains input_channels with pipeline_run context_query. This simulates
+    filtering pipeline_run_001, and setting old_pipeline_run_id to
+    pipeline_run_000.
+
+    input_pipeline: node_a -> node_b -> node_c
+    from_node: all nodes
+    to_node: all nodes
+    skip_node: node_b
+    old_pipeline_run_id: pipeline_run_000
+    expected_output_pipeline: node_a (unconnected) node_c
+    """
+    node_a = p_pb2.Pipeline.PipelineOrNode(
+        pipeline_node=p_pb2.PipelineNode(
+            node_info=p_pb2.NodeInfo(
+                type=mlmd_pb2.ExecutionType(name='A'), id='a'),
+            contexts=p_pb2.NodeContexts(contexts=[
+                to_context_spec('pipeline', 'my_pipeline'),
+                to_context_spec('component', 'a')
+            ]),
+            outputs=p_pb2.NodeOutputs(outputs={'out': to_output_spec('AB')}),
+            downstream_nodes=['b']))
+    node_b = p_pb2.Pipeline.PipelineOrNode(
+        pipeline_node=p_pb2.PipelineNode(
+            node_info=p_pb2.NodeInfo(
+                type=mlmd_pb2.ExecutionType(name='B'), id='b'),
+            contexts=p_pb2.NodeContexts(contexts=[
+                to_context_spec('pipeline', 'my_pipeline'),
+                to_context_spec('component', 'b')
+            ]),
+            inputs=p_pb2.NodeInputs(
+                inputs={
+                    'in':
+                        p_pb2.InputSpec(
+                            channels=[
+                                to_input_channel(
+                                    producer_node_id='a',
+                                    producer_output_key='out',
+                                    artifact_type='AB',
+                                    context_names={
+                                        'pipeline':
+                                            'my_pipeline',
+                                        _PIPELINE_RUN_CONTEXT_KEY:
+                                            'pipeline_run_001',
+                                        'component':
+                                            'a'
+                                    })
+                            ],
+                            min_count=1)
+                }),
+            outputs=p_pb2.NodeOutputs(outputs={'out': to_output_spec('BC')}),
+            upstream_nodes=['a'],
+            downstream_nodes=['c']))
+    node_c = p_pb2.Pipeline.PipelineOrNode(
+        pipeline_node=p_pb2.PipelineNode(
+            node_info=p_pb2.NodeInfo(
+                type=mlmd_pb2.ExecutionType(name='C'), id='c'),
+            contexts=p_pb2.NodeContexts(contexts=[
+                to_context_spec('pipeline', 'my_pipeline'),
+                to_context_spec('component', 'c')
+            ]),
+            inputs=p_pb2.NodeInputs(
+                inputs={
+                    'in':
+                        p_pb2.InputSpec(
+                            channels=[
+                                to_input_channel(
+                                    producer_node_id='b',
+                                    producer_output_key='out',
+                                    artifact_type='BC',
+                                    context_names={
+                                        'pipeline':
+                                            'my_pipeline',
+                                        _PIPELINE_RUN_CONTEXT_KEY:
+                                            'pipeline_run_001',
+                                        'component':
+                                            'b'
+                                    })
+                            ],
+                            min_count=1)
+                }),
+            upstream_nodes=['b']))
+    input_pipeline = p_pb2.Pipeline(
+        pipeline_info=p_pb2.PipelineInfo(id='my_pipeline'),
+        execution_mode=p_pb2.Pipeline.ExecutionMode.SYNC,
+        nodes=[node_a, node_b, node_c])
+
+    filtered_pipeline = pipeline_filtering.filter_pipeline(
+        input_pipeline,
+        skip_nodes=lambda node_id: (node_id == 'b'),
+        old_pipeline_run_id='pipeline_run_000')
+
+    node_a_fixed = p_pb2.Pipeline.PipelineOrNode()
+    node_a_fixed.CopyFrom(node_a)
+    del node_a_fixed.pipeline_node.downstream_nodes[:]
+    node_c_fixed = p_pb2.Pipeline.PipelineOrNode()
+    node_c_fixed.CopyFrom(node_c)
+    del node_c_fixed.pipeline_node.upstream_nodes[:]
+    del node_c_fixed.pipeline_node.inputs.inputs['in'].channels[:]
+    node_c_fixed.pipeline_node.inputs.inputs['in'].channels.append(
+        to_input_channel(
+            producer_node_id='b',
+            producer_output_key='out',
+            artifact_type='BC',
+            context_names={
+                'pipeline': 'my_pipeline',
+                _PIPELINE_RUN_CONTEXT_KEY: 'pipeline_run_000',
+                'component': 'b'
+            }))
     expected_output_pipeline = p_pb2.Pipeline(
         pipeline_info=p_pb2.PipelineInfo(id='my_pipeline'),
         execution_mode=p_pb2.Pipeline.ExecutionMode.SYNC,

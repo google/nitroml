@@ -182,7 +182,11 @@ def _replace_pipeline_run_id_in_channel(channel: p_pb2.InputSpec.Channel,
                                         pipeline_run_id: str):
   """Update in place."""
   for context_query in channel.context_queries:
-    assert context_query.type.name != dsl_constants.PIPELINE_RUN_CONTEXT_TYPE_NAME
+    if context_query.type.name == dsl_constants.PIPELINE_RUN_CONTEXT_TYPE_NAME:
+      context_query.name.field_value.CopyFrom(
+          mlmd_pb2.Value(string_value=pipeline_run_id))
+      return
+
   channel.context_queries.append(
       p_pb2.InputSpec.Channel.ContextQuery(
           type=mlmd_pb2.ContextType(
