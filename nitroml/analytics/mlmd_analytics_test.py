@@ -123,11 +123,11 @@ class AnalyticsTest(parameterized.TestCase):
 
   @parameterized.named_parameters(('IrAnalytics', True),
                                   ('NonIrAnalytics', False))
-  def testListRuns(self, ir_analytics_flag):
+  def testGetRuns(self, ir_analytics_flag):
     analytics = self._get_analytics(ir_analytics_flag)
-    want = {'pipeline_name': PIPELINE_NAME, 'run_id': RUN_ID}
-    got = analytics.list_runs()[RUN_ID]
-    self.assertContainsSubset(want, got)
+    pipeline = analytics.get_latest_pipeline_run()
+    self.assertEqual(PIPELINE_NAME, pipeline.name)
+    self.assertEqual(RUN_ID, pipeline.run_id)
 
   @parameterized.named_parameters(('IrAnalytics', True),
                                   ('NonIrAnalytics', False))
@@ -136,8 +136,8 @@ class AnalyticsTest(parameterized.TestCase):
 
     # Get Run
     with self.assertRaises(ValueError):
-      analytics.get_run('bad_run_id')
-    pipeline_run = analytics.get_run(RUN_ID)
+      analytics.get_pipeline_run('bad_run_id')
+    pipeline_run = analytics.get_pipeline_run(RUN_ID)
 
     # Check Pipeline Properties
     self.assertEqual(PIPELINE_NAME, pipeline_run.name)

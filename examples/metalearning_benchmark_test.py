@@ -92,11 +92,8 @@ class MetaLearningTest(e2etest.BenchmarkTestCase):
     # Load Analytics
     analytics = mlmd_analytics.Analytics(store=store)
     # Check test_pipeline run analysis
-    runs = analytics.list_runs()
-    [run_id] = runs.keys()
-    [run_info] = runs.values()
-    self.assertEqual('test_pipeline', run_info['pipeline_name'])
-    run = analytics.get_run(run_id)
+    run = analytics.get_latest_pipeline_run()
+    self.assertEqual('test_pipeline', run.name)
 
     want_components = {
         f'CsvExampleGen.OpenML.mockdata_1.{instance_name}',

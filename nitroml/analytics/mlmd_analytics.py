@@ -15,7 +15,7 @@
 # Lint as: python3
 """A collection of objects to analyze and visualize Machine Learning Metadata."""
 
-from typing import Any, Dict, ItemsView, KeysView, Optional, Set, Type, Union, ValuesView
+from typing import Any, Dict, ItemsView, KeysView, List, Optional, Set, Type, Union, ValuesView
 
 from nitroml.analytics import materialized_artifact
 from nitroml.analytics import standard_materialized_artifacts
@@ -231,6 +231,12 @@ class PipelineRun:
       context_type_name = _NONIR_COMPONENT_NAME
     self._component_run_type = self._store.get_context_type(context_type_name)
 
+  def __str__(self):
+    return 'Pipeline Name: %s\nRun Id: %s' % (self.name, self.run_id)
+
+  def __repr__(self):
+    return f'<{self.__str__()}>'
+
   def _repr_html_(self):
     return pd.DataFrame(
         self.components.keys(), columns=['Components']).to_html(index=False)
@@ -271,6 +277,18 @@ class Analytics:
     Note: While store parameter is optional, either 'config' or 'store' must be
     provided to successfully initialize an 'Analytics' instance.
 
+    An Analytics object acts as an accessor to your pipeline runs. You can
+    access them as follows:
+
+    analytics = Analytics(mlmd_config)
+    analytics.list_pipeline_runs() # [ Pipeline_0, Pipeline_1, ..., Pipeline_N ]
+                                   # Ordered by pipeline creation time.
+
+    analytics.get_latest_pipeline_run() # Returns Pipeline_0, where P0 is your
+                                        # most recent pipeline by create time.
+
+    analytics.get_pipeline_run(RUN_ID) # Returns pipeline with given run id.
+
     Args:
       config: Configuration to connect to the database or the metadata store
         server.
@@ -299,7 +317,7 @@ class Analytics:
     else:
       return ctx.properties['pipeline_name'].string_value
 
-  def _get_runs(self) -> Dict[str, Dict[str, Any]]:
+  def _get_pipeline_runs(self) -> Dict[str, Dict[str, Any]]:
     """Returns a dictionary of runs ids mapped to run and context information."""
 
     if self._ir_based_dag_runner:
@@ -321,20 +339,16 @@ class Analytics:
       }
     return runs
 
-  def list_runs(self) -> Dict[str, Dict[str, Any]]:
-    """Returns a dictionary of run ids mapped to relevant run information."""
-    runs = {}
-    for key, val in self._get_runs().items():
-      runs[key] = {
-          'pipeline_name': val['pipeline_name'],
-          'run_id': val['run_id'],
-          'create_time': val['create_time'],
-          'last_update_time': val['last_update_time']
-      }
-    return runs
+  def list_pipeline_runs(self) -> List[PipelineRun]:
+    """Returns list of pipeline runs in the MLMD store, in order of create time."""
+    runs = list(self._get_pipeline_runs().values())
+    runs.sort(key=lambda x: x['create_time'], reverse=True)
+    return [PipelineRun(run['pipeline_name'], run['run_id'], run['context_id'],
+                        self._store, self._ir_based_dag_runner)
+            for run in runs]
 
-  def get_run(self, run_id: str) -> PipelineRun:
-    """Returns a Run object with the given run_id.
+  def get_pipeline_run(self, run_id: str) -> PipelineRun:
+    """Returns a pipeline run object with the given run_id.
 
     Args:
       run_id: The unique id of the pipeline to query.
@@ -342,9 +356,20 @@ class Analytics:
     Raises:
       KeyError: If run_id does not exist in the metadata.
     """
-    runs = self._get_runs()
+    runs = self._get_pipeline_runs()
     if run_id not in runs:
       raise ValueError('Run ID "%s" not found in metadata store.' % run_id)
     return PipelineRun(runs[run_id]['pipeline_name'], run_id,
                        runs[run_id]['context_id'], self._store,
                        self._ir_based_dag_runner)
+
+  def get_latest_pipeline_run(self) -> PipelineRun:
+    """Returns the latest pipeline run in the MLMD store.
+
+    Raises:
+      ValueError: If there are no pipeline runs in the MLMD store.
+    """
+    runs = self.list_pipeline_runs()
+    if not runs:
+      raise ValueError('No pipeline runs found.')
+    return runs[0]
