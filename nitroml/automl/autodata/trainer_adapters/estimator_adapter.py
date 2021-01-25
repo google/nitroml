@@ -211,7 +211,8 @@ class EstimatorAdapter:
       reader_num_threads: Optional[int] = None,
       parser_num_threads: Optional[int] = None,
       sloppy_ordering: bool = False,
-      drop_final_batch: bool = False) -> Callable[[], tf.data.Dataset]:
+      drop_final_batch: bool = False,
+      max_num_batches: Optional[int] = None) -> Callable[[], tf.data.Dataset]:
     """Returns an input_fn that returns a `tf.data.Dataset` from Examples.
 
     Args:
@@ -242,6 +243,8 @@ class EstimatorAdapter:
       drop_final_batch: If True, and the batch size does not evenly divide the
         input dataset size, the final smaller batch will be dropped. Defaults to
         False.
+      max_num_batches: The maximum number of batches to include in the dataset.
+        Generally used to subsample a large dataset when `num_epoch=1`.
 
     Returns:
       Returns an input_fn that returns a `tf.data.Dataset`.
@@ -273,6 +276,8 @@ class EstimatorAdapter:
           parser_num_threads=parser_num_threads,
           sloppy_ordering=sloppy_ordering,
           drop_final_batch=drop_final_batch)
+      if max_num_batches:
+        dataset = dataset.take(max_num_batches)
       return dataset.map(_pop_labels)
 
     return _input_fn
