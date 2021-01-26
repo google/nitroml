@@ -16,6 +16,7 @@
 
 import os
 
+from typing import List
 from nitroml.analytics import materialized_artifact
 import pandas as pd
 import tensorflow as tf
@@ -49,6 +50,11 @@ class ExampleArtifact(materialized_artifact.MaterializedArtifact):
   """Visualization for standard_artifacts.Examples."""
 
   ARTIFACT_TYPE = standard_artifacts.Examples
+
+  @property
+  def split_names(self) -> List[str]:
+    """A list of split names for the example data."""
+    return artifact_utils.decode_split_names(self._artifact.split_names)
 
   def _load_row(self, ex):
     row = {}
@@ -90,7 +96,7 @@ class ExampleArtifact(materialized_artifact.MaterializedArtifact):
   def show(self):
     from IPython.core.display import display  # pylint: disable=g-import-not-at-top
     from IPython.core.display import HTML  # pylint: disable=g-import-not-at-top
-    for split in artifact_utils.decode_split_names(self._artifact.split_names):
+    for split in self.split_names:
       display(HTML('<div><b>%r split:</b></div><br/>' % split))
       display(self.to_dataframe(split))
 
