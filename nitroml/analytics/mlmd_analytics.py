@@ -124,9 +124,19 @@ class ComponentRun:
     self._context = context
 
   @property
-  def component_name(self):
+  def component_name(self) -> str:
     """The name of this component."""
     return self._context.name
+
+  @property
+  def id(self) -> int:
+    """The id of this components context."""
+    return self._context.id
+
+  @property
+  def create_time(self) -> int:
+    """The creation time of this component."""
+    return self._context.create_time_since_epoch
 
   def _get_artifacts(
       self, event_type: Set['metadata_store_pb2.Event.Type']
@@ -168,9 +178,27 @@ class ComponentRun:
   @property
   def outputs(self) -> PropertyDictWrapper:
     """Dictionary of output artifacts in this component run."""
-    return PropertyDictWrapper(
-        self._get_artifacts(_OUTPUT_EVENT_TYPES)
-    )
+    return PropertyDictWrapper(self._get_artifacts(_OUTPUT_EVENT_TYPES))
+
+  def list_input_artifacts(
+      self) -> List[materialized_artifact.MaterializedArtifact]:
+    """Returns a list of artifacts taken as input by this component."""
+    return list(self.inputs.values())
+
+  def list_output_artifacts(
+      self) -> List[materialized_artifact.MaterializedArtifact]:
+    """Returns a list of artifacts created as output by this component."""
+    return list(self.outputs.values())
+
+  def get_artifact(
+      self, artifact_name: str) -> materialized_artifact.MaterializedArtifact:
+    """Returns the artifact associated with this component specified.
+
+    Args:
+      artifact_name: The artifact name
+    """
+    return self._get_artifacts(
+        _INPUT_EVENT_TYPES.union(_OUTPUT_EVENT_TYPES))[artifact_name]  # pytype: disable=wrong-arg-types
 
   @property
   def exec_properties(self) -> Dict[str, Any]:
@@ -258,6 +286,23 @@ class PipelineRun:
                                                 self._store, component_run_ctx)
 
     return components
+
+  def list_component_runs(self) -> List[ComponentRun]:
+    """Returns a list of all components created by this pipeline run.
+
+    List is ordered by component create time, most recent component first.
+    """
+    components = list(self.components.values())
+    components.sort(key=lambda x: x.create_time, reverse=True)
+    return components
+
+  def get_component_run(self, component_name: str) -> ComponentRun:
+    """Returns the component with given component name.
+
+    Args:
+      component_name: The name of the component
+    """
+    return self.components[component_name]
 
   def show(self):
     """Displays a DAG visualization of this run and its components."""

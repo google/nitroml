@@ -30,7 +30,7 @@ class MaterializedArtifact(abc.ABC):
     self._artifact = artifact
 
   def __str__(self):
-    return 'Type: %s\nURI: %s' % (self.type_name, self.uri)
+    return 'Type: %s, URI: %s' % (self.type_name, self.uri)
 
   def __repr__(self):
     return f'<{self.__str__()}>'
@@ -42,6 +42,16 @@ class MaterializedArtifact(abc.ABC):
   def uri(self) -> str:
     """Artifact URI."""
     return self._artifact.uri
+
+  @property
+  def id(self) -> int:
+    """Artifact id."""
+    return self._artifact.id
+
+  @property
+  def name(self) -> str:
+    """Artifact name."""
+    return self._artifact.mlmd_artifact.name or self._artifact.name
 
   @property
   def type_name(self) -> str:

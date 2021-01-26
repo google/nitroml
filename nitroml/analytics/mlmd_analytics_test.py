@@ -128,6 +128,7 @@ class AnalyticsTest(parameterized.TestCase):
     pipeline = analytics.get_latest_pipeline_run()
     self.assertEqual(PIPELINE_NAME, pipeline.name)
     self.assertEqual(RUN_ID, pipeline.run_id)
+    self.assertEqual(pipeline.run_id, analytics.list_pipeline_runs()[0].run_id)
 
   @parameterized.named_parameters(('IrAnalytics', True),
                                   ('NonIrAnalytics', False))
@@ -143,13 +144,25 @@ class AnalyticsTest(parameterized.TestCase):
     self.assertEqual(PIPELINE_NAME, pipeline_run.name)
     self.assertEqual(RUN_ID, pipeline_run.run_id)
     self.assertCountEqual([COMPONENT_NAME], pipeline_run.components.keys())
-    component_run = pipeline_run.components[COMPONENT_NAME]
+    component_run = pipeline_run.get_component_run(COMPONENT_NAME)
+    self.assertEqual(component_run.id,
+                     pipeline_run.list_component_runs()[0].id)
 
     # Check Component Properties
     self.assertEqual(RUN_ID, component_run.run_id)
     self.assertEqual(COMPONENT_NAME, component_run.component_name)
-    self.assertCountEqual({INPUT_ARTIFACT_NAME}, component_run.inputs.keys())
-    self.assertCountEqual({OUTPUT_ARTIFACT_NAME}, component_run.outputs.keys())
+
+    input_artifact = component_run.get_artifact(INPUT_ARTIFACT_NAME)
+    output_artifact = component_run.get_artifact(OUTPUT_ARTIFACT_NAME)
+
+    self.assertEqual(INPUT_ARTIFACT_NAME, input_artifact.name)
+    self.assertEqual(OUTPUT_ARTIFACT_NAME, output_artifact.name)
+
+    self.assertEqual(input_artifact.id,
+                     component_run.list_input_artifacts()[0].id)
+    self.assertEqual(output_artifact.id,
+                     component_run.list_output_artifacts()[0].id)
+
     want = {'component_id': COMPONENT_NAME, 'run_id': RUN_ID}
     got = component_run.exec_properties
     self.assertCountEqual(want, got)
