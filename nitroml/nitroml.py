@@ -47,26 +47,18 @@ from nitroml.subpipeline import SubpipelineOutputs
 import tensorflow as tf
 import tensorflow_model_analysis as tfma
 from tfx import types
-from tfx.dsl.compiler import compiler
 from tfx.dsl.components.base.base_component import BaseComponent
-from tfx.orchestration import tfx_runner as tfx_runner_lib
-from tfx.orchestration.google import beam_dag_runner
+from tfx.orchestration.beam import beam_dag_runner
 from tfx.orchestration.pipeline import Pipeline
+from tfx.orchestration.portable import tfx_runner as tfx_runner_lib
 
 from ml_metadata.proto import metadata_store_pb2
-# pylint: disable=g-import-not-at-top
-try:
-  from tfx.orchestration.kubeflow import kubeflow_dag_runner  # type: ignore
-except ModuleNotFoundError:
-  pass
-# pylint: enable=g-import-not-at-top
 
 T = TypeVar("T")
 
 # List, Tuple, and Dict must contain PipelineLike values, but recursive type
 # annotations are not yet supported in Pytype.
 PipelineLike = Union[BaseComponent, Subpipeline, List, Tuple, Dict]
-
 
 FLAGS = flags.FLAGS
 
@@ -482,23 +474,6 @@ def _load_benchmarks() -> List[Benchmark]:
   return [subclass() for subclass in subclasses]  # pylint: disable=no-value-for-parameter
 
 
-def get_default_kubeflow_dag_runner():
-  """Returns the default KubeflowDagRunner with its default metadata config."""
-
-  try:
-    metadata_config = kubeflow_dag_runner.get_default_kubeflow_metadata_config()
-    tfx_image = os.environ.get("KUBEFLOW_TFX_IMAGE", None)
-    logging.info('Using "%s" as  the docker image.', tfx_image)
-    runner_config = kubeflow_dag_runner.KubeflowDagRunnerConfig(
-        kubeflow_metadata_config=metadata_config, tfx_image=tfx_image)
-
-    return kubeflow_dag_runner.KubeflowDagRunner(config=runner_config)
-  except NameError as e:
-    raise e
-
-
-
-
 def run(benchmarks: List[Benchmark],
         tfx_runner: Optional[tfx_runner_lib.TfxRunner] = None,
         pipeline_name: Optional[str] = None,
@@ -507,7 +482,6 @@ def run(benchmarks: List[Benchmark],
             metadata_store_pb2.ConnectionConfig] = None,
         enable_cache: Optional[bool] = False,
         beam_pipeline_args: Optional[List[str]] = None,
-        compile_pipeline: bool = False,
         **kwargs) -> BenchmarkPipeline:
   """Runs the given benchmarks as part of a single pipeline DAG.
 
@@ -530,9 +504,6 @@ def run(benchmarks: List[Benchmark],
     enable_cache: Whether or not cache is enabled for this run.
     beam_pipeline_args: Beam pipeline args for beam jobs within executor.
       Executor will use beam DirectRunner as Default.
-    compile_pipeline: When `True`, compiles the tfx.Pipeline containing the
-      benchmarks into its IR proto format before calling `tfx_runner#run` on it.
-      Required for certain types of `tfx_runner`.
     **kwargs: Additional kwargs forwarded as kwargs to benchmarks.
 
   Returns:
@@ -541,6 +512,11 @@ def run(benchmarks: List[Benchmark],
   Raises:
     ValueError: If the given tfx_runner is not supported.
   """
+
+  if "compile_pipeline" in kwargs:
+    kwargs.pop("compile_pipeline")
+    logging.warning("The `compile_pipeline` argument DEPRECATED and ignored. "
+                    "Pipelines are now automatically compiled.")
 
   runs_per_benchmark = FLAGS.runs_per_benchmark
   if runs_per_benchmark is None:
@@ -590,11 +566,7 @@ def run(benchmarks: List[Benchmark],
   for benchmark_name in benchmark_pipeline.benchmark_names:
     logging.info("\t%s", benchmark_name)
     logging.info("\t\tRUNNING")
-  pipeline_to_run = benchmark_pipeline
-  if compile_pipeline:
-    dsl_compiler = compiler.Compiler()
-    pipeline_to_run = dsl_compiler.compile(pipeline_to_run)
-  tfx_runner.run(pipeline_to_run)
+  tfx_runner.run(benchmark_pipeline)
   return benchmark_pipeline
 
 

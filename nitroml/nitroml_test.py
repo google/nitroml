@@ -16,15 +16,13 @@
 """Tests for nitroml.py."""
 
 import abc
-import base64
-import json
-import sys
 
 import types
 from typing import List
 
 from absl import flags
 from absl.testing import absltest
+from absl.testing import flagsaver
 from absl.testing import parameterized
 from nitroml import nitroml
 from nitroml.benchmark.task import BenchmarkTask
@@ -33,7 +31,7 @@ from nitroml.subpipeline import SubpipelineOutputs
 
 from tfx import types as tfx_types
 from tfx.dsl.components.base.base_component import BaseComponent
-from tfx.orchestration.google import beam_dag_runner
+from tfx.orchestration.beam import beam_dag_runner
 from tfx.orchestration.pipeline import Pipeline
 from tfx.types import channel_utils
 from tfx.types import standard_artifacts
@@ -48,6 +46,7 @@ class FakeExampleGen(BaseComponent):
 
   SPEC_CLASS = 'ExampleGenClass'
   EXECUTOR_SPEC = 'ExampleGenExecutorSpec'
+  executor_spec = None
 
   def __init__(self, instance_name: str = ''):
     self.examples = channel_utils.as_channel([standard_artifacts.Examples()])
@@ -67,6 +66,7 @@ class FakeTrainer(BaseComponent):
 
   SPEC_CLASS = 'TrainerSpecClass'
   EXECUTOR_SPEC = 'TrainerExecutorSpec'
+  executor_spec = None
 
   def __init__(self, instance_name: str = ''):
     self.model = channel_utils.as_channel([standard_artifacts.Model()])
@@ -337,13 +337,6 @@ class Benchmarks:
 
 class NitroMLTest(parameterized.TestCase, absltest.TestCase):
 
-  def setUp(self):
-    super(NitroMLTest, self).setUp()
-    flags.FLAGS(sys.argv)
-    # Reset flags.
-    FLAGS.runs_per_benchmark = 1
-    FLAGS.match = ''
-
   @parameterized.named_parameters(
       {
           'testcase_name':
@@ -384,6 +377,7 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
               'BenchmarkResultPublisher.Benchmarks.BenchmarkSubpipeline.benchmark.run_3_of_3',
           ]
       })
+  @flagsaver.flagsaver
   def test_runs_per_benchmark(self, runs_per_benchmark_flag, benchmarks,
                               want_benchmarks, want_components):
     FLAGS.runs_per_benchmark = runs_per_benchmark_flag
@@ -401,6 +395,7 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'runs_per_benchmark_flag': -1,
           'benchmarks': [Benchmarks.BenchmarkSubpipeline()],
       })
+  @flagsaver.flagsaver
   def test_run_per_benchmark_errors(self, runs_per_benchmark_flag, benchmarks):
     FLAGS.runs_per_benchmark = runs_per_benchmark_flag
     with self.assertRaises(ValueError):
@@ -648,6 +643,7 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
               '.benchmark.chicago_taxi',
           ]
       })
+  @flagsaver.flagsaver
   def test_benchmark_match(self, match, benchmark, want_benchmarks,
                            want_components):
     FLAGS.match = match
@@ -660,6 +656,7 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
       'match': '.*invalid.*',
       'benchmark': Benchmarks.MultipleSubBenchmarks(),
   })
+  @flagsaver.flagsaver
   def test_benchmark_match_error(self, match, benchmark):
     FLAGS.match = match
     with self.assertRaises(ValueError):

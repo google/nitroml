@@ -62,8 +62,7 @@ class OverviewTest(parameterized.TestCase):
               'prediction/mean',
               'recall',
           ],
-      },
-      {
+      }, {
           'testcase_name':
               'mean 03-31-20',
           'mlmd_store_path':
@@ -83,8 +82,7 @@ class OverviewTest(parameterized.TestCase):
               'prediction/mean mean',
               'recall mean',
           ],
-      },
-      {
+      }, {
           'testcase_name':
               'mean and stdev 03-31-20',
           'mlmd_store_path':
@@ -114,8 +112,7 @@ class OverviewTest(parameterized.TestCase):
               'recall mean',
               'recall std',
           ],
-      },
-      {
+      }, {
           'testcase_name':
               'no aggregation 04-01-20',
           'mlmd_store_path':
@@ -140,8 +137,7 @@ class OverviewTest(parameterized.TestCase):
               'prediction/mean',
               'recall',
           ],
-      },
-      {
+      }, {
           'testcase_name':
               'mean 04-01-20',
           'mlmd_store_path':
@@ -162,8 +158,7 @@ class OverviewTest(parameterized.TestCase):
               'prediction/mean mean',
               'recall mean',
           ],
-      },
-      {
+      }, {
           'testcase_name':
               'mean and stdev 04-01-20',
           'mlmd_store_path':
@@ -223,167 +218,6 @@ class ToPyTypeTest(absltest.TestCase):
   def testStringVal(self):
     val = results._to_pytype('Awesome')
     self.assertEqual(val, 'Awesome')
-
-
-class ParseHparamsTest(parameterized.TestCase):
-
-  @parameterized.named_parameters(
-      {
-          'testcase_name': 'empty_list',
-          'hp_prop': '[]',
-          'want': dict()
-      }, {
-          'testcase_name':
-              'number_val',
-          'hp_prop':
-              "['batch_size=256', 'learning_rate=0.05', 'decay_rate=0.95']",
-          'want': {
-              'batch_size': 256,
-              'learning_rate': 0.05,
-              'decay_rate': 0.95
-          }
-      }, {
-          'testcase_name':
-              'bool_val',
-          'hp_prop':
-              "['has_batch_size=true', 'has_learning_rate=False', 'has_decay_rate=false']",
-          'want': {
-              'has_batch_size': True,
-              'has_learning_rate': False,
-              'has_decay_rate': False
-          }
-      }, {
-          'testcase_name':
-              'mix_vals',
-          'hp_prop':
-              "['has_batch_size=true','batch_size=256', 'learning_rate=0.05', 'is_awesome=yes']",
-          'want': {
-              'has_batch_size': True,
-              'batch_size': 256,
-              'learning_rate': 0.05,
-              'is_awesome': 'yes'
-          }
-      })
-  def testParseHparams(self, hp_prop, want):
-    hparams = results._parse_hparams(hp_prop)
-    self.assertEqual(hparams, want)
-
-
-class MergeResultTest(absltest.TestCase):
-
-  def testEmptyMergeResults(self):
-    result1 = results._Result(properties={}, property_names=[])
-    result2 = results._Result(properties={}, property_names=[])
-
-    merge_result = results._merge_results([result1, result2])
-
-    self.assertEqual(
-        results._Result(properties={}, property_names=[]), merge_result)
-
-  def testOneEmptyMergeResults(self):
-    result1 = results._Result(
-        properties={'key': {
-            'nkey': 'val'
-        }}, property_names=['test'])
-    result2 = results._Result(properties={}, property_names=[])
-
-    merge_result = results._merge_results([result1, result2])
-
-    self.assertEqual(
-        results._Result(
-            properties={'key': {
-                'nkey': 'val'
-            }}, property_names=['test']), merge_result)
-
-  def testMergeResults(self):
-    result1 = results._Result(
-        properties={
-            'key1': {
-                'hparam': 'val'
-            },
-            'key2': {
-                'hparam': 'val'
-            }
-        },
-        property_names=['hparam_names'])
-    result2 = results._Result(
-        {
-            'key1': {
-                'metrics': 'val'
-            },
-            'key3': {
-                'metrics': 'val'
-            }
-        },
-        property_names=['metric_names'])
-
-    merge_result = results._merge_results([result1, result2])
-
-    want_result = results._Result(
-        properties={
-            'key1': {
-                'hparam': 'val',
-                'metrics': 'val'
-            },
-            'key2': {
-                'hparam': 'val'
-            },
-            'key3': {
-                'metrics': 'val'
-            }
-        },
-        property_names=['hparam_names', 'metric_names'])
-    self.assertEqual(want_result, merge_result)
-
-
-class GetHparamsTest(absltest.TestCase):
-
-  def __init__(self, *args, **kwargs):
-    super(GetHparamsTest, self).__init__(*args, **kwargs)
-    self.test_mlmd = test_mlmd.TestMLMD(exec_type_name=results._TRAINER)
-
-  def setUp(self):
-    super(GetHparamsTest, self).setUp()
-    self._put_execution_type()
-
-  def _put_execution_type(self) -> int:
-    exec_type = metadata_store_pb2.ExecutionType()
-    exec_type.name = results._TRAINER
-    exec_type.properties[results.RUN_ID_KEY] = metadata_store_pb2.STRING
-    exec_type.properties[results._HPARAMS] = metadata_store_pb2.STRING
-    exec_type.properties[results._COMPONENT_ID] = metadata_store_pb2.STRING
-    return self.test_mlmd.store.put_execution_type(
-        exec_type, can_add_fields=True)
-
-  def _put_execution(self, run_id: str, trainer_name: str, hparam: str):
-    execution = metadata_store_pb2.Execution()
-    execution.properties[results._HPARAMS].string_value = hparam
-    execution.properties[results.RUN_ID_KEY].string_value = run_id
-    execution.properties[results._COMPONENT_ID].string_value = trainer_name
-    execution.type_id = self.test_mlmd.exec_type_id
-    self.test_mlmd.store.put_executions([execution])
-
-  def testGetHparams(self):
-    hparam = "['batch_size=256', 'learning_rate=0.05', 'decay_rate=0.95']"
-    run_id = '0'
-    trainer_name = results._TRAINER_PREFIX + '.Test'
-    self._put_execution(run_id, trainer_name, hparam)
-
-    result = results._get_hparams(self.test_mlmd.store)
-
-    want_result = results._Result(
-        properties={
-            '0.Test': {
-                'batch_size': 256,
-                'learning_rate': 0.05,
-                'decay_rate': 0.95,
-                results.RUN_ID_KEY: '0',
-                br.BenchmarkResult.BENCHMARK_NAME_KEY: 'Test',
-                results.STARTED_AT: datetime.datetime.fromtimestamp(0)
-            }
-        },
-        property_names=['batch_size', 'decay_rate', 'learning_rate'])
-    self.assertEqual(want_result, result)
 
 
 class GetBenchmarkResultsTest(absltest.TestCase):

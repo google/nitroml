@@ -35,11 +35,12 @@ from absl.testing import parameterized
 
 import nitroml
 import tensorflow as tf
+from tfx.dsl.compiler import constants
 from tfx.dsl.components.base import base_component
 from tfx.dsl.components.base import base_driver
 from tfx.orchestration import metadata
 from tfx.orchestration import pipeline
-from tfx.orchestration.google import beam_dag_runner
+from tfx.orchestration.beam import beam_dag_runner
 
 from ml_metadata.proto import metadata_store_pb2
 
@@ -105,14 +106,26 @@ class TestCase(parameterized.TestCase, absltest.TestCase):
     metadata_config = metadata.sqlite_metadata_connection_config(
         self.metadata_path)
 
-    component_states = {}
     with metadata.Metadata(metadata_config) as m:
+      node_context_type = m.store.get_context_type(
+          constants.NODE_CONTEXT_TYPE_NAME)
+
+      component_states = {}
       for execution in m.store.get_executions():
-        component_id = execution.properties["component_id"].string_value
-        state = execution.properties["state"].string_value
-        component_states[component_id] = state
+        node_name = None
+        for context in m.store.get_contexts_by_execution(execution.id):
+          if context.type_id == node_context_type.id:
+            node_name = context.name
+            break
+
+        assert node_name is not None
+
+        # NOTE: The node name is '<pipeline_name>.<component_name>'.
+        exec_component_name = node_name.replace(f"{self.pipeline_name}.", "")
+        component_states[exec_component_name] = execution.last_known_state
+
     if component_name in component_states:
-      self.assertEqual("complete", component_states[component_name])
+      self.assertEqual(3, component_states[component_name])  # COMPLETE = 3
       return
     all_components = sorted(component_states.keys())
     raise ValueError(

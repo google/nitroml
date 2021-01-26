@@ -15,16 +15,13 @@
 # Lint as: python3
 """NitroML benchmark pipeline result overview."""
 
-import ast
 import datetime
 import json
-import os
 import re
 from typing import Dict, Any, List, NamedTuple, Optional
 
 from nitroml.benchmark import result as br
 import pandas as pd
-import tensorflow.compat.v2 as tf
 
 from ml_metadata import metadata_store
 from ml_metadata.proto import metadata_store_pb2
@@ -36,13 +33,9 @@ BENCHMARK_FULL_KEY = 'benchmark_fullname'
 ARTIFACT_ID_KEY = 'artifact_id'
 
 # Component constants
-_TRAINER = 'google3.learning.elated_zebra.my_orchestrator.components.trainer.component.EstimatorTrainer'
-_TRAINER_PREFIX = 'EstimatorTrainer'
-_EVALUATOR = 'tfx.components.evaluator.component.Evaluator'
 _STATS = 'ExampleStatistics'
 
 # Name constants
-_HPARAMS = 'hparams'
 _NAME = 'name'
 _PRODUCER_COMPONENT = 'producer_component'
 _STATE = 'state'
@@ -50,7 +43,6 @@ _PIPELINE_NAME = 'pipeline_name'
 _PIPELINE_ROOT = 'pipeline_root'
 _RUN_ID = 'run_id'
 _COMPONENT_ID = 'component_id'
-_KAGGLE = 'kaggle'
 
 # IR-Based TFXDagRunner constants
 _IS_IR_KEY = 'is_ir'
@@ -112,61 +104,6 @@ def _parse_value(value: metadata_store_pb2.Value) -> Any:
     return value.double_value
   else:
     return _to_pytype(value.string_value)
-
-
-def _parse_hparams(hp_prop: str) -> Dict[str, Any]:
-  """Parses the hparam properties string into hparams dictionary.
-
-  Args:
-    hp_prop: hparams properties retrieved from the Executor MLMD component. It
-      is a serialized representation of the hparams, e.g. "['batch_size=256']"
-
-  Returns:
-    A dictionary containing hparams name and value.
-  """
-  # Deserialize the hparams. Execution properties are currently serialized in
-  # TFX using __str__. See for details:
-  # http://google3/third_party/py/tfx/orchestration/metadata.py?q=function:_update_execution_proto
-  # TODO(b/151084437): Move deserialization code to TFX.
-  hp_strings = ast.literal_eval(hp_prop)
-  hparams = {}
-  for hp in hp_strings:
-    name, val = hp.split('=')
-    hparams[name] = _to_pytype(val)
-  return hparams
-
-
-def _get_hparams(store: metadata_store.MetadataStore) -> _Result:
-  """Returns the hparams of the EstimatorTrainer component.
-
-  Args:
-    store: MetaDataStore object to connect to MLMD instance.
-
-  Returns:
-    A _Result objects with properties containing hparams.
-  """
-  results = {}
-  hparam_names = set()
-
-  trainer_execs = store.get_executions_by_type(_TRAINER)
-  for ex in trainer_execs:
-    run_id = ex.properties[RUN_ID_KEY].string_value
-    hparams = _parse_hparams(ex.properties[_HPARAMS].string_value)
-    hparam_names.update(hparams.keys())
-    hparams[RUN_ID_KEY] = run_id
-    trainer_id = ex.properties[_COMPONENT_ID].string_value.replace(
-        _TRAINER_PREFIX, '')
-    result_key = run_id + trainer_id
-    hparams[br.BenchmarkResult.BENCHMARK_NAME_KEY] = trainer_id[
-        1:]  # Removing '.' prefix
-    # BeamDagRunner uses iso format timestamp. See for details:
-    # http://google3/third_party/py/tfx/orchestration/beam/beam_dag_runner.py
-    try:
-      hparams[STARTED_AT] = datetime.datetime.fromtimestamp(int(run_id))
-    except ValueError:
-      hparams[STARTED_AT] = run_id
-    results[result_key] = hparams
-  return _Result(properties=results, property_names=sorted(hparam_names))
 
 
 def _get_artifact_run_info_map(store: metadata_store.MetadataStore,
@@ -257,37 +194,6 @@ def _get_benchmark_results(store: metadata_store.MetadataStore) -> _Result:
   return _Result(properties=properties, property_names=sorted(property_names))
 
 
-def get_model_dir_map(store: metadata_store.MetadataStore) -> Dict[str, str]:
-  """Obtains a map of run_id to model_dir from the store."""
-
-  evaluator_execs = store.get_executions_by_type(_EVALUATOR)
-
-  def _go_up_2_levels(eval_model_dirs):
-    model_dir_set = set()
-    for eval_model_dir in eval_model_dirs:
-      model_dir_set.add(os.sep.join(eval_model_dir.split(os.sep)[:-2]))
-    return list(model_dir_set)
-
-  def _eval_execs_to_model_dir_map(eval_execs):
-    model_dir_map = {}
-    for eval_exec in eval_execs:
-      run_id = eval_exec.properties[_RUN_ID].string_value
-      pipeline_root = eval_exec.properties[_PIPELINE_ROOT].string_value
-      eval_component_id = eval_exec.properties[_COMPONENT_ID].string_value
-      eval_config_path = os.path.join(pipeline_root,
-                                      eval_component_id, 'evaluation',
-                                      str(eval_exec.id), 'eval_config.json')
-
-      with tf.io.gfile.GFile(eval_config_path, 'r') as f:
-        eval_config = json.load(f)
-
-      model_dir_map[run_id] = _go_up_2_levels(
-          eval_config['modelLocations'].values())
-    return model_dir_map
-
-  return _eval_execs_to_model_dir_map(evaluator_execs)
-
-
 def get_statisticsgen_dir_list(
     store: metadata_store.MetadataStore) -> List[str]:
   """Obtains a list of statisticsgen_dir from the store."""
@@ -372,11 +278,7 @@ def overview(
     A pandas DataFrame with the loaded hparams and evaluations or an empty one
     if no evaluations and hparams could be found.
   """
-  hparams_result = _get_hparams(store)
-  metrics_result = _get_benchmark_results(store)
-
-  # Merge results
-  result = _merge_results([hparams_result, metrics_result])
+  result = _get_benchmark_results(store)
 
   # Filter metrics that have empty hparams and evaluation results.
   results_list = [
@@ -389,6 +291,5 @@ def overview(
     return _aggregate_results(
         df,
         metric_aggregators=metric_aggregators,
-        groupby_columns=list(_DATAFRAME_CONTEXTUAL_COLUMNS) +
-        hparams_result.property_names)
+        groupby_columns=list(_DATAFRAME_CONTEXTUAL_COLUMNS))
   return df
