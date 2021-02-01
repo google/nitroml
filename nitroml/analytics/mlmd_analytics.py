@@ -131,6 +131,12 @@ class ComponentRun:
     self._context = context
     self._ir_based_dag_runner = ir_based_dag_runner
 
+  def __str__(self):
+    return 'Component Name: %s' % self.component_name
+
+  def __repr__(self) -> str:
+    return f'<{self.__str__()}>'
+
   @property
   def id(self) -> int:
     """The id of this components context."""
@@ -277,7 +283,7 @@ class PipelineRun:
     self._component_run_type = self._store.get_context_type(context_type_name)
 
   def __str__(self):
-    return 'Pipeline Name: %s\nRun Id: %s' % (self.name, self.run_id)
+    return 'Pipeline Name: %s, Run Id: %s' % (self.name, self.run_id)
 
   def __repr__(self):
     return f'<{self.__str__()}>'

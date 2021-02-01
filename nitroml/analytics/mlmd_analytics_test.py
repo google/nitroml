@@ -161,6 +161,8 @@ class AnalyticsTest(parameterized.TestCase):
     with self.assertRaises(ValueError):
       analytics.get_pipeline_run('bad_run_id')
     pipeline_run = analytics.get_pipeline_run(RUN_ID)
+    self.assertEqual(str(pipeline_run),
+                     'Pipeline Name: %s, Run Id: %s' % (PIPELINE_NAME, RUN_ID))
 
     # Check Pipeline Properties
     self.assertEqual(PIPELINE_NAME, pipeline_run.name)
@@ -169,6 +171,7 @@ class AnalyticsTest(parameterized.TestCase):
     component_run = pipeline_run.get_component_run(COMPONENT_NAME)
     self.assertEqual(component_run.id,
                      pipeline_run.list_component_runs()[0].id)
+    self.assertEqual(str(component_run), 'Component Name: %s' % COMPONENT_NAME)
 
     # Check Component Properties
     self.assertEqual(RUN_ID, component_run.run_id)
