@@ -14,7 +14,7 @@
 # =============================================================================
 # Lint as: python3
 """A collection of objects to analyze and visualize Machine Learning Metadata."""
-
+import collections
 from typing import Any, Dict, ItemsView, KeysView, List, Optional, Set, Type, Union, ValuesView
 
 from nitroml.analytics import materialized_artifact
@@ -104,29 +104,32 @@ class ComponentRun:
 
   Attributes:
     run_id: The id of the pipeline run that created this component.
+    component_name: The name of this component.
   """
 
-  def __init__(self, run_id: str, execution: metadata_store_pb2.Execution,
+  def __init__(self, run_id: str, component_name: str,
+               execution: metadata_store_pb2.Execution,
                store: metadata_store.MetadataStore,
-               context: metadata_store_pb2.Context):
+               context: metadata_store_pb2.Context,
+               ir_based_dag_runner: bool = False):
     """Initializes instance of ComponentRun in a given pipeline run.
 
 
     Args:
       run_id: The id of the pipeline run that created this component.
+      component_name: The name of this component.
       execution: Execution proto containing component execution properties.
       store: A store for the artifact metadata.
       context: Context proto to query artifacts.
+      ir_based_dag_runner: Flag defining whether metadata store was populated by
+        an IR based dag runner.
     """
     self.run_id = run_id
+    self.component_name = component_name
     self._execution = execution
     self._store = store
     self._context = context
-
-  @property
-  def component_name(self) -> str:
-    """The name of this component."""
-    return self._context.name
+    self._ir_based_dag_runner = ir_based_dag_runner
 
   @property
   def id(self) -> int:
@@ -137,6 +140,15 @@ class ComponentRun:
   def create_time(self) -> int:
     """The creation time of this component."""
     return self._context.create_time_since_epoch
+
+  def _get_artifact_name(self, artifact_name: str):
+    """Returns parsed artifact name for IR-based artifacts."""
+    # Current artifact naming convention is:
+    # "pipeline_name:run_id:component_name:artifact_name:0"
+    split_names = artifact_name.split(':')
+    if not self._ir_based_dag_runner or len(split_names) != 5:
+      return artifact_name
+    return split_names[3]
 
   def _get_artifacts(
       self, event_type: Set['metadata_store_pb2.Event.Type']
@@ -162,9 +174,14 @@ class ComponentRun:
     for artifact, artifact_type in zip(artifacts, artifact_types):
       tfx_artifact = types.Artifact(artifact_type)
       tfx_artifact.set_mlmd_artifact(artifact)
+
+      # TODO(b/178641439): Add IR channel names for less brittle name extraction
+      # of artifacts.
+      name = self._get_artifact_name(tfx_artifact.name)
+
       materialized_artifact_class = materialized_artifact.get_registry(
       ).get_artifact_class(tfx_artifact.type_name)
-      artifact_dict[tfx_artifact.name] = materialized_artifact_class(
+      artifact_dict[name] = materialized_artifact_class(
           tfx_artifact)  # pytype: disable=not-instantiable
     return artifact_dict
 
@@ -279,11 +296,14 @@ class PipelineRun:
           if ctx.type_id == self._component_run_type.id
       ]
       if self._ir_based_dag_runner:
-        component_name = component_run_ctx.name
+        # Expected naming convention is "pipeline_name.component_name"
+        component_name = component_run_ctx.name.replace(self.name + '.', '', 1)
       else:
         component_name = execution.properties['component_id'].string_value
-      components[component_name] = ComponentRun(self.run_id, execution,
-                                                self._store, component_run_ctx)
+      components[component_name] = ComponentRun(self.run_id, component_name,
+                                                execution, self._store,
+                                                component_run_ctx,
+                                                self._ir_based_dag_runner)
 
     return components
 
@@ -362,8 +382,11 @@ class Analytics:
     else:
       return ctx.properties['pipeline_name'].string_value
 
-  def _get_pipeline_runs(self) -> Dict[str, Dict[str, Any]]:
-    """Returns a dictionary of runs ids mapped to run and context information."""
+  def _get_pipeline_runs(self) -> collections.OrderedDict:
+    """Returns a dictionary of runs ids mapped to run and context information.
+
+    Dictionary is returned in order of pipeline creation time.
+    """
 
     if self._ir_based_dag_runner:
       ctx_name = _IR_RUN_CONTEXT_NAME
@@ -371,7 +394,8 @@ class Analytics:
       ctx_name = _NONIR_RUN_CONTEXT_NAME
 
     ctxs = self._store.get_contexts_by_type(ctx_name)
-    runs = {}
+    ctxs.sort(key=lambda x: x.create_time_since_epoch, reverse=True)
+    runs = collections.OrderedDict()
     for ctx in ctxs:
       run_id = ctx.name
       pipeline_name = self._get_pipeline_name(ctx)
@@ -384,10 +408,13 @@ class Analytics:
       }
     return runs
 
+  def list_run_ids(self) -> List[str]:
+    """Returns list of run ids."""
+    return list(self._get_pipeline_runs().keys())
+
   def list_pipeline_runs(self) -> List[PipelineRun]:
     """Returns list of pipeline runs in the MLMD store, in order of create time."""
-    runs = list(self._get_pipeline_runs().values())
-    runs.sort(key=lambda x: x['create_time'], reverse=True)
+    runs = self._get_pipeline_runs().values()
     return [PipelineRun(run['pipeline_name'], run['run_id'], run['context_id'],
                         self._store, self._ir_based_dag_runner)
             for run in runs]

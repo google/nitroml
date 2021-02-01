@@ -151,9 +151,10 @@ class TestMLMD:
     self.store.put_events([event])
 
   def put_context(self,
-                  name: str,
+                  name: str = None,
                   context_id: int = None,
-                  properties: Dict[str, str] = None) -> int:
+                  properties: Dict[str, str] = None,
+                  context: metadata_store_pb2.Context = None) -> int:
     """Inserts or updates contexts in the fake database.
 
     If an context_id is specified for an context, it is an update.
@@ -167,21 +168,27 @@ class TestMLMD:
       name: The name of the context to be inserted or updated.
       context_id: The unique id of the context to be inserted or updated.
       properties: Dict of properties to add to the context.
+      context: A context proto to be inserted. If defined, name, context_id,
+      and properties are ignored.
 
     Returns:
       The unique id of the context to be inserted or updated.
     """
-    context = metadata_store_pb2.Context()
-    context.name = name
-    if context_id:  # Updating a context with given id
-      context.id = context_id
-    else:  # Inserting a new context
+    if context:
       context.type = self.context_type
       context.type_id = self.context_type_id
+    else:
+      context = metadata_store_pb2.Context()
+      context.name = name
+      if context_id:  # Updating a context with given id
+        context.id = context_id
+      else:  # Inserting a new context
+        context.type = self.context_type
+        context.type_id = self.context_type_id
 
-    if properties:
-      for name, val in properties.items():
-        context.properties[name].string_value = val
+      if properties:
+        for name, val in properties.items():
+          context.properties[name].string_value = val
 
     return self.store.put_contexts([context])[0]
 

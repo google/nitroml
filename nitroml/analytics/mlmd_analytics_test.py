@@ -43,6 +43,7 @@ class PropertyDictTest(absltest.TestCase):
 
 
 PIPELINE_NAME = 'test_pipeline'
+
 RUN_ID = 'test_run_id'
 COMPONENT_NAME = 'test_component_name'
 INPUT_ARTIFACT_NAME = 'test_input_artifact'
@@ -53,18 +54,32 @@ COMPONENT_NAME_2 = 'test_component_name_2'
 INPUT_ARTIFACT_NAME_2 = 'test_input_artifact_2'
 OUTPUT_ARTIFACT_NAME_2 = 'test_output_artifact_2'
 
+RUN_ID_3 = 'test_run_id_3'
+
 
 def get_ir_based_analytics():
   tm = test_mlmd.TestMLMD(context_type='pipeline')
   pipeline_ctx_id = tm.put_context(PIPELINE_NAME)
   tm.update_context_type(mlmd_analytics._IR_RUN_CONTEXT_NAME)
-  run_context_id = tm.put_context(RUN_ID)
+  run_context = metadata_store_pb2.Context(
+      name=RUN_ID, create_time_since_epoch=5)
+  run_context_2 = metadata_store_pb2.Context(
+      name=RUN_ID_3, create_time_since_epoch=0)
+  run_context_id = tm.put_context(context=run_context)
+  run_context_id_2 = tm.put_context(context=run_context_2)
   tm.update_context_type(mlmd_analytics._IR_COMPONENT_NAME)
-  component_context_id = tm.put_context(COMPONENT_NAME)
-  execution_id = tm.put_execution(RUN_ID, COMPONENT_NAME)
+  component_context_id = tm.put_context(PIPELINE_NAME + '.' + COMPONENT_NAME)
+  execution_id = tm.put_execution(RUN_ID, PIPELINE_NAME + '.' + COMPONENT_NAME)
+  execution_id_2 = tm.put_execution(RUN_ID_3,
+                                    PIPELINE_NAME + '.' + COMPONENT_NAME)
+
   tm.put_association(pipeline_ctx_id, execution_id)
   tm.put_association(run_context_id, execution_id)
   tm.put_association(component_context_id, execution_id)
+
+  tm.put_association(pipeline_ctx_id, execution_id_2)
+  tm.put_association(run_context_id_2, execution_id_2)
+
   input_artifact_id = tm.put_artifact({'name': INPUT_ARTIFACT_NAME})
   output_artifact_id = tm.put_artifact({'name': OUTPUT_ARTIFACT_NAME})
   tm.put_attribution(component_context_id, input_artifact_id)
@@ -75,14 +90,14 @@ def get_ir_based_analytics():
 
   # Attributed artifacts with unassociated executions. This is an anomoly found
   # in MLMD stores created by IR-Based orchestrators.
-  execution_id_2 = tm.put_execution(RUN_ID_2, COMPONENT_NAME_2)
+  execution_id_3 = tm.put_execution(RUN_ID_2, COMPONENT_NAME_2)
   input_artifact_id_2 = tm.put_artifact({'name': INPUT_ARTIFACT_NAME_2})
   output_artifact_id_2 = tm.put_artifact({'name': OUTPUT_ARTIFACT_NAME_2})
   tm.put_attribution(component_context_id, input_artifact_id_2)
   tm.put_attribution(component_context_id, output_artifact_id_2)
-  tm.put_event(input_artifact_id_2, execution_id_2,
+  tm.put_event(input_artifact_id_2, execution_id_3,
                metadata_store_pb2.Event.INPUT)
-  tm.put_event(output_artifact_id_2, execution_id_2,
+  tm.put_event(output_artifact_id_2, execution_id_3,
                metadata_store_pb2.Event.OUTPUT)
 
   return mlmd_analytics.Analytics(store=tm.store)
@@ -90,8 +105,12 @@ def get_ir_based_analytics():
 
 def get_nonir_based_analytics():
   tm = test_mlmd.TestMLMD(context_type=mlmd_analytics._NONIR_RUN_CONTEXT_NAME)
-  run_context_id = tm.put_context(
-      RUN_ID, properties={'pipeline_name': PIPELINE_NAME})
+  run_context = metadata_store_pb2.Context(name=RUN_ID)
+  run_context.properties['pipeline_name'].string_value = PIPELINE_NAME
+  run_context_id = tm.put_context(context=run_context)
+  run_context_2 = metadata_store_pb2.Context(name=RUN_ID_3)
+  run_context_2.properties['pipeline_name'].string_value = PIPELINE_NAME
+  tm.put_context(context=run_context_2)
   tm.update_context_type(mlmd_analytics._NONIR_COMPONENT_NAME)
   component_context_id = tm.put_context(COMPONENT_NAME)
   execution_id = tm.put_execution(RUN_ID, COMPONENT_NAME)
@@ -125,10 +144,13 @@ class AnalyticsTest(parameterized.TestCase):
                                   ('NonIrAnalytics', False))
   def testGetRuns(self, ir_analytics_flag):
     analytics = self._get_analytics(ir_analytics_flag)
+    self.assertEqual([RUN_ID, RUN_ID_3], analytics.list_run_ids())
+
     pipeline = analytics.get_latest_pipeline_run()
     self.assertEqual(PIPELINE_NAME, pipeline.name)
     self.assertEqual(RUN_ID, pipeline.run_id)
-    self.assertEqual(pipeline.run_id, analytics.list_pipeline_runs()[0].run_id)
+    run_ids = [p.run_id for p in analytics.list_pipeline_runs()]
+    self.assertEqual([RUN_ID, RUN_ID_3], run_ids)
 
   @parameterized.named_parameters(('IrAnalytics', True),
                                   ('NonIrAnalytics', False))
