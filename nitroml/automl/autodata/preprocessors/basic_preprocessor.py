@@ -92,15 +92,36 @@ def preprocessing_fn(inputs: Dict[str, Tensor],
       continue
 
     # Preserve this feature as a dense float, setting nan's to the mean.
-    outputs[key] = tft.scale_to_z_score(_fill_in_missing(inputs[key]))
+    outputs[_sanitize_feature_name(key)] = tft.scale_to_z_score(
+        _fill_in_missing(inputs[key]))
 
   for key in [k for k, v in inputs.items() if v.dtype != tf.float32]:
     # Build a vocabulary for this feature.
     # TODO(weill): Risk here to blow up computation needlessly.
-    outputs[key] = tft.compute_and_apply_vocabulary(
+    output = tft.compute_and_apply_vocabulary(
         _fill_in_missing(inputs[key]), top_k=None, num_oov_buckets=1)
 
+    # Don't sanitize the label key name.
+    task_type = problem_statement.tasks[0].type
+    if task_type.HasField('multi_class_classification') and (
+        key == task_type.multi_class_classification.label):
+      outputs[key] = output
+      continue
+    if task_type.HasField('binary_classification') and (
+        key == task_type.binary_classification.label):
+      outputs[key] = output
+      continue
+
+    # Do sanitize feature key names.
+    outputs[_sanitize_feature_name(key)] = output
+
   return outputs
+
+
+def _sanitize_feature_name(feature_name: str) -> str:
+  """Returns a sanitized feature name."""
+
+  return feature_name.replace('"', '')
 
 
 def _fill_in_missing(x: Tensor) -> Tensor:
