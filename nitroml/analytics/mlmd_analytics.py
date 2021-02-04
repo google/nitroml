@@ -28,10 +28,8 @@ from ml_metadata.proto import metadata_store_pb2
 
 standard_materialized_artifacts.register_standard_artifacts()
 
-# Type names for IR and Non-IR based MLMD instances respectively.
-_NONIR_RUN_CONTEXT_NAME = 'run'
+# Type names for IR based MLMD instances.
 _IR_RUN_CONTEXT_NAME = 'pipeline_run'
-_NONIR_COMPONENT_NAME = 'component_run'
 _IR_COMPONENT_NAME = 'node'
 
 _INPUT_EVENT_TYPES = frozenset({metadata_store_pb2.Event.DECLARED_INPUT,
@@ -110,8 +108,7 @@ class ComponentRun:
   def __init__(self, run_id: str, component_name: str,
                execution: metadata_store_pb2.Execution,
                store: metadata_store.MetadataStore,
-               context: metadata_store_pb2.Context,
-               ir_based_dag_runner: bool = False):
+               context: metadata_store_pb2.Context):
     """Initializes instance of ComponentRun in a given pipeline run.
 
 
@@ -121,15 +118,12 @@ class ComponentRun:
       execution: Execution proto containing component execution properties.
       store: A store for the artifact metadata.
       context: Context proto to query artifacts.
-      ir_based_dag_runner: Flag defining whether metadata store was populated by
-        an IR based dag runner.
     """
     self.run_id = run_id
     self.component_name = component_name
     self._execution = execution
     self._store = store
     self._context = context
-    self._ir_based_dag_runner = ir_based_dag_runner
 
   def __str__(self):
     return 'Component Name: %s' % self.component_name
@@ -152,7 +146,7 @@ class ComponentRun:
     # Current artifact naming convention is:
     # "pipeline_name:run_id:component_name:artifact_name:0"
     split_names = artifact_name.split(':')
-    if not self._ir_based_dag_runner or len(split_names) != 5:
+    if len(split_names) != 5:
       return artifact_name
     return split_names[3]
 
@@ -258,8 +252,7 @@ class PipelineRun:
                name: str,
                run_id: str,
                context_id: int,
-               store: metadata_store.MetadataStore,
-               ir_based_dag_runner: bool = False):
+               store: metadata_store.MetadataStore):
     """Initializes an instance of PipelineRun with an existing run id.
 
     Args:
@@ -267,20 +260,12 @@ class PipelineRun:
       run_id: The unique id of the pipeline.
       context_id: The id of the respective context object to this run.
       store: A store for the artifact metadata.
-      ir_based_dag_runner: Flag defining whether metadata store was populated by
-        an IR based dag runner.
     """
     self.name = name
     self.run_id = run_id
     self._context_id = context_id
     self._store = store
-    self._ir_based_dag_runner = ir_based_dag_runner
-
-    if self._ir_based_dag_runner:
-      context_type_name = _IR_COMPONENT_NAME
-    else:
-      context_type_name = _NONIR_COMPONENT_NAME
-    self._component_run_type = self._store.get_context_type(context_type_name)
+    self._component_run_type = self._store.get_context_type(_IR_COMPONENT_NAME)
 
   def __str__(self):
     return 'Pipeline Name: %s, Run Id: %s' % (self.name, self.run_id)
@@ -301,15 +286,12 @@ class PipelineRun:
           ctx for ctx in self._store.get_contexts_by_execution(execution.id)
           if ctx.type_id == self._component_run_type.id
       ]
-      if self._ir_based_dag_runner:
-        # Expected naming convention is "pipeline_name.component_name"
-        component_name = component_run_ctx.name.replace(self.name + '.', '', 1)
-      else:
-        component_name = execution.properties['component_id'].string_value
+      # Expected naming convention is "pipeline_name.component_name"
+      component_name = component_run_ctx.name.replace(self.name + '.', '', 1)
+
       components[component_name] = ComponentRun(self.run_id, component_name,
                                                 execution, self._store,
-                                                component_run_ctx,
-                                                self._ir_based_dag_runner)
+                                                component_run_ctx)
 
     return components
 
@@ -368,38 +350,25 @@ class Analytics:
     if bool(store) == bool(config):
       raise ValueError('Expected exactly one of store or config')
     self._store = store if store else metadata_store.MetadataStore(config)
-    self._ir_based_dag_runner = _IR_COMPONENT_NAME in [
-        ctx_type.name for ctx_type in self._store.get_context_types()
-    ]
 
   def _get_pipeline_name(self, ctx):
     """Returns the name of the pipeline associated with ctx."""
-
-    if self._ir_based_dag_runner:
-      pipeline_type = self._store.get_context_type('pipeline')
-      # The selected execution is arbitrary as all have an association with
-      # 'pipeline' context
-      execution = self._store.get_executions_by_context(ctx.id)[0]
-      [pipeline_ctx] = [
-          ctx for ctx in self._store.get_contexts_by_execution(execution.id)
-          if ctx.type_id == pipeline_type.id
-      ]
-      return pipeline_ctx.name
-    else:
-      return ctx.properties['pipeline_name'].string_value
+    pipeline_type = self._store.get_context_type('pipeline')
+    # The selected execution is arbitrary as all have an association with
+    # 'pipeline' context
+    execution = self._store.get_executions_by_context(ctx.id)[0]
+    [pipeline_ctx] = [
+        ctx for ctx in self._store.get_contexts_by_execution(execution.id)
+        if ctx.type_id == pipeline_type.id
+    ]
+    return pipeline_ctx.name
 
   def _get_pipeline_runs(self) -> collections.OrderedDict:
     """Returns a dictionary of runs ids mapped to run and context information.
 
     Dictionary is returned in order of pipeline creation time.
     """
-
-    if self._ir_based_dag_runner:
-      ctx_name = _IR_RUN_CONTEXT_NAME
-    else:
-      ctx_name = _NONIR_RUN_CONTEXT_NAME
-
-    ctxs = self._store.get_contexts_by_type(ctx_name)
+    ctxs = self._store.get_contexts_by_type(_IR_RUN_CONTEXT_NAME)
     ctxs.sort(key=lambda x: x.create_time_since_epoch, reverse=True)
     runs = collections.OrderedDict()
     for ctx in ctxs:
@@ -422,7 +391,7 @@ class Analytics:
     """Returns list of pipeline runs in the MLMD store, in order of create time."""
     runs = self._get_pipeline_runs().values()
     return [PipelineRun(run['pipeline_name'], run['run_id'], run['context_id'],
-                        self._store, self._ir_based_dag_runner)
+                        self._store)
             for run in runs]
 
   def get_pipeline_run(self, run_id: str) -> PipelineRun:
@@ -438,8 +407,7 @@ class Analytics:
     if run_id not in runs:
       raise ValueError('Run ID "%s" not found in metadata store.' % run_id)
     return PipelineRun(runs[run_id]['pipeline_name'], run_id,
-                       runs[run_id]['context_id'], self._store,
-                       self._ir_based_dag_runner)
+                       runs[run_id]['context_id'], self._store)
 
   def get_latest_pipeline_run(self) -> PipelineRun:
     """Returns the latest pipeline run in the MLMD store.
