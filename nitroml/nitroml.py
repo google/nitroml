@@ -45,8 +45,6 @@ from nitroml.benchmark.task import BenchmarkTask
 from nitroml.subpipeline import Subpipeline
 from nitroml.subpipeline import SubpipelineOutputs
 import tensorflow as tf
-import tensorflow_model_analysis as tfma
-from tfx import types
 from tfx.dsl.components.base.base_component import BaseComponent
 from tfx.orchestration.beam import beam_dag_runner
 from tfx.orchestration.pipeline import Pipeline
@@ -267,11 +265,7 @@ class Benchmark(abc.ABC):
 
     return self._components
 
-  def evaluate(self,
-               task: BenchmarkTask,
-               model: types.Channel,
-               eval_config: Optional[tfma.EvalConfig] = None,
-               **kwargs) -> None:
+  def evaluate(self, task: BenchmarkTask, **kwargs) -> None:
     """Adds a benchmark subgraph to the benchmark suite's workflow DAG.
 
     Appends BenchmarkTask evaluation components to the given model in order to
@@ -285,10 +279,6 @@ class Benchmark(abc.ABC):
 
     Args:
       task: A `BenchmarkTask` subclass instance that specifies the evaluations.
-      model: A `standard_artifacts.Model` Channel, usually produced by a Trainer
-        component. Input to the benchmark Evaluator.
-      eval_config: A TFMA `EvalConfig` for customizing the TFMA evaluation.
-        Required when `model` was produced from `tf.keras.Model#save`.
       **kwargs: Additional kwargs to pass to `Task#make_evaluation`.
     """
 
@@ -305,11 +295,9 @@ class Benchmark(abc.ABC):
 
     self.add(
         task.make_evaluation(
-            model=model,
             benchmark_name=self._benchmark.id(),
             benchmark_run=self._result.benchmark_run,
             runs_per_benchmark=self._result.runs_per_benchmark,
-            eval_config=eval_config,
             **kwargs))
 
     self._result.benchmark_subpipelines.append(
