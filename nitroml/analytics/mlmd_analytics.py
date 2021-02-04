@@ -101,11 +101,10 @@ class ComponentRun:
   """An object representation of MLMD Component.
 
   Attributes:
-    run_id: The id of the pipeline run that created this component.
     component_name: The name of this component.
   """
 
-  def __init__(self, run_id: str, component_name: str,
+  def __init__(self, component_name: str,
                execution: metadata_store_pb2.Execution,
                store: metadata_store.MetadataStore,
                context: metadata_store_pb2.Context):
@@ -113,13 +112,11 @@ class ComponentRun:
 
 
     Args:
-      run_id: The id of the pipeline run that created this component.
       component_name: The name of this component.
       execution: Execution proto containing component execution properties.
       store: A store for the artifact metadata.
       context: Context proto to query artifacts.
     """
-    self.run_id = run_id
     self.component_name = component_name
     self._execution = execution
     self._store = store
@@ -289,9 +286,8 @@ class PipelineRun:
       # Expected naming convention is "pipeline_name.component_name"
       component_name = component_run_ctx.name.replace(self.name + '.', '', 1)
 
-      components[component_name] = ComponentRun(self.run_id, component_name,
-                                                execution, self._store,
-                                                component_run_ctx)
+      components[component_name] = ComponentRun(component_name, execution,
+                                                self._store, component_run_ctx)
 
     return components
 
@@ -419,3 +415,47 @@ class Analytics:
     if not runs:
       raise ValueError('No pipeline runs found.')
     return runs[0]
+
+  def get_component_run(self, context_id: int) -> ComponentRun:
+    """Returns a component based on the context id provided.
+
+    Args:
+      context_id: The context referring to this component run.
+
+    Raises:
+      ValueError: For invalid context ids.
+    """
+    ctx_list = self._store.get_contexts_by_id([context_id])
+    if len(ctx_list) != 1:
+      raise ValueError('Context id %d not found.' % context_id)
+
+    [component_run_ctx] = ctx_list
+    component_run_type = self._store.get_context_type(_IR_COMPONENT_NAME)
+    if component_run_ctx.type_id != component_run_type.id:
+      raise ValueError(
+          'Invalid context id provided, expected "node" type context.')
+    [execution] = self._store.get_executions_by_context(component_run_ctx.id)
+    pipeline_name = self._get_pipeline_name(component_run_ctx)
+    component_name = component_run_ctx.name.replace(pipeline_name + '.', '', 1)
+    return ComponentRun(component_name, execution, self._store,
+                        component_run_ctx)
+
+  def get_artifact(
+      self, artifact_id: int) -> materialized_artifact.MaterializedArtifact:
+    """Returns a materialized artifact based on the id provided.
+
+    Args:
+      artifact_id: The id of the artifact to return.
+    """
+    artifact_list = self._store.get_artifacts_by_id([artifact_id])
+    if len(artifact_list) != 1:
+      raise ValueError('Artifact id %d not found.' % artifact_id)
+
+    [artifact] = artifact_list
+    [artifact_type] = self._store.get_artifact_types_by_id([artifact.type_id])
+    tfx_artifact = types.Artifact(artifact_type)
+    tfx_artifact.set_mlmd_artifact(artifact)
+
+    materialized_artifact_class = materialized_artifact.get_registry(
+    ).get_artifact_class(tfx_artifact.type_name)
+    return materialized_artifact_class(tfx_artifact)  # pytype: disable=not-instantiable

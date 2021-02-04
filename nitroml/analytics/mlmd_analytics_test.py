@@ -70,7 +70,8 @@ class AnalyticsTest(absltest.TestCase):
     run_context_id = tm.put_context(context=run_context)
     run_context_id_2 = tm.put_context(context=run_context_2)
     tm.update_context_type(mlmd_analytics._IR_COMPONENT_NAME)
-    component_context_id = tm.put_context(PIPELINE_NAME + '.' + COMPONENT_NAME)
+    self.component_context_id = tm.put_context(PIPELINE_NAME + '.' +
+                                               COMPONENT_NAME)
     execution_id = tm.put_execution(RUN_ID,
                                     PIPELINE_NAME + '.' + COMPONENT_NAME)
     execution_id_2 = tm.put_execution(RUN_ID_3,
@@ -78,18 +79,18 @@ class AnalyticsTest(absltest.TestCase):
 
     tm.put_association(pipeline_ctx_id, execution_id)
     tm.put_association(run_context_id, execution_id)
-    tm.put_association(component_context_id, execution_id)
+    tm.put_association(self.component_context_id, execution_id)
 
     tm.put_association(pipeline_ctx_id, execution_id_2)
     tm.put_association(run_context_id_2, execution_id_2)
 
-    input_artifact_id = tm.put_artifact({'name': INPUT_ARTIFACT_NAME})
-    output_artifact_id = tm.put_artifact({'name': OUTPUT_ARTIFACT_NAME})
-    tm.put_attribution(component_context_id, input_artifact_id)
-    tm.put_attribution(component_context_id, output_artifact_id)
-    tm.put_event(input_artifact_id, execution_id,
+    self.input_artifact_id = tm.put_artifact({'name': INPUT_ARTIFACT_NAME})
+    self.output_artifact_id = tm.put_artifact({'name': OUTPUT_ARTIFACT_NAME})
+    tm.put_attribution(self.component_context_id, self.input_artifact_id)
+    tm.put_attribution(self.component_context_id, self.output_artifact_id)
+    tm.put_event(self.input_artifact_id, execution_id,
                  metadata_store_pb2.Event.INPUT)
-    tm.put_event(output_artifact_id, execution_id,
+    tm.put_event(self.output_artifact_id, execution_id,
                  metadata_store_pb2.Event.OUTPUT)
 
     # Attributed artifacts with unassociated executions. This is an anomoly
@@ -97,8 +98,8 @@ class AnalyticsTest(absltest.TestCase):
     execution_id_3 = tm.put_execution(RUN_ID_2, COMPONENT_NAME_2)
     input_artifact_id_2 = tm.put_artifact({'name': INPUT_ARTIFACT_NAME_2})
     output_artifact_id_2 = tm.put_artifact({'name': OUTPUT_ARTIFACT_NAME_2})
-    tm.put_attribution(component_context_id, input_artifact_id_2)
-    tm.put_attribution(component_context_id, output_artifact_id_2)
+    tm.put_attribution(self.component_context_id, input_artifact_id_2)
+    tm.put_attribution(self.component_context_id, output_artifact_id_2)
     tm.put_event(input_artifact_id_2, execution_id_3,
                  metadata_store_pb2.Event.INPUT)
     tm.put_event(output_artifact_id_2, execution_id_3,
@@ -106,7 +107,11 @@ class AnalyticsTest(absltest.TestCase):
 
     self.analytics = mlmd_analytics.Analytics(store=tm.store)
 
-  def testGetRuns(self):
+  def testGetPipelineRuns(self):
+    # Test invalid input.
+    with self.assertRaises(ValueError):
+      self.analytics.get_pipeline_run('100')
+
     self.assertEqual([RUN_ID, RUN_ID_3], self.analytics.list_run_ids())
 
     pipeline = self.analytics.get_latest_pipeline_run()
@@ -114,6 +119,35 @@ class AnalyticsTest(absltest.TestCase):
     self.assertEqual(RUN_ID, pipeline.run_id)
     run_ids = [p.run_id for p in self.analytics.list_pipeline_runs()]
     self.assertEqual([RUN_ID, RUN_ID_3], run_ids)
+
+  def testGetComponentRun(self):
+    # Test invalid input.
+    with self.assertRaises(ValueError):
+      self.analytics.get_component_run(100)
+
+    component_run = self.analytics.get_component_run(self.component_context_id)
+    # Check Component Properties
+    self.assertEqual(COMPONENT_NAME, component_run.component_name)
+
+    input_artifact = component_run.get_artifact(INPUT_ARTIFACT_NAME)
+    output_artifact = component_run.get_artifact(OUTPUT_ARTIFACT_NAME)
+
+    self.assertEqual(INPUT_ARTIFACT_NAME, input_artifact.name)
+    self.assertEqual(OUTPUT_ARTIFACT_NAME, output_artifact.name)
+
+    want = {'component_id': COMPONENT_NAME, 'run_id': RUN_ID}
+    got = component_run.exec_properties
+    self.assertCountEqual(want, got)
+
+  def testGetArtifact(self):
+    # Test invalid input.
+    with self.assertRaises(ValueError):
+      self.analytics.get_artifact(100)
+
+    input_artifact = self.analytics.get_artifact(self.input_artifact_id)
+    output_artifact = self.analytics.get_artifact(self.output_artifact_id)
+    self.assertEqual(INPUT_ARTIFACT_NAME, input_artifact.name)
+    self.assertEqual(OUTPUT_ARTIFACT_NAME, output_artifact.name)
 
   def testWalkThroughAnalyticsObject(self):
     # Get Run
@@ -133,7 +167,6 @@ class AnalyticsTest(absltest.TestCase):
     self.assertEqual(str(component_run), 'Component Name: %s' % COMPONENT_NAME)
 
     # Check Component Properties
-    self.assertEqual(RUN_ID, component_run.run_id)
     self.assertEqual(COMPONENT_NAME, component_run.component_name)
 
     input_artifact = component_run.get_artifact(INPUT_ARTIFACT_NAME)
