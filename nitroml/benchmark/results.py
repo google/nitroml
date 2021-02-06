@@ -14,7 +14,6 @@
 # =============================================================================
 # Lint as: python3
 """NitroML benchmark pipeline result overview."""
-
 import datetime
 import json
 import re
@@ -25,6 +24,7 @@ import pandas as pd
 
 from ml_metadata import metadata_store
 from ml_metadata.proto import metadata_store_pb2
+
 
 # Column name constants
 RUN_ID_KEY = 'run_id'
@@ -152,7 +152,7 @@ def _get_benchmark_results(store: metadata_store.MetadataStore) -> _Result:
   publisher_artifacts = store.get_artifacts_by_type(
       br.BenchmarkResult.TYPE_NAME)
   for artifact in publisher_artifacts:
-    evals = {_IS_IR_KEY: False}
+    evals = {}
     for key, val in artifact.custom_properties.items():
       evals[key] = _parse_value(val)
       # Change for the IR world.
@@ -160,7 +160,6 @@ def _get_benchmark_results(store: metadata_store.MetadataStore) -> _Result:
         new_id = _parse_value(val).split(':')
         if len(new_id) > 2:
           evals[RUN_ID_KEY] = new_id[1]
-          evals[_IS_IR_KEY] = True
     property_names = property_names.union(evals.keys())
     metrics[artifact.id] = evals
 
@@ -169,20 +168,10 @@ def _get_benchmark_results(store: metadata_store.MetadataStore) -> _Result:
   properties = {}
   for artifact_id, evals in metrics.items():
     run_info = artifact_to_run_info[artifact_id]
-    if evals[_IS_IR_KEY]:
-      started_at = run_info.started_at // 1000
-      evals[STARTED_AT] = datetime.datetime.fromtimestamp(started_at)
-      run_id = metrics[artifact_id][RUN_ID_KEY]
-    else:
-      run_id = run_info.run_id
-      evals[RUN_ID_KEY] = run_id
-      # Old BeamDagRunner uses iso format timestamp. See for details:
-      # http://google3/third_party/py/tfx/orchestration/beam/beam_dag_runner.py
-      try:
-        evals[STARTED_AT] = datetime.datetime.fromtimestamp(int(run_id))
-      except ValueError:
-        evals[STARTED_AT] = run_id
-    evals.pop(_IS_IR_KEY)
+    started_at = run_info.started_at // 1000
+    evals[STARTED_AT] = datetime.datetime.fromtimestamp(started_at)
+    run_id = metrics[artifact_id][RUN_ID_KEY]
+
     result_key = run_id + '.' + evals[br.BenchmarkResult.BENCHMARK_NAME_KEY]
     if result_key in properties:
       properties[result_key].update(evals)

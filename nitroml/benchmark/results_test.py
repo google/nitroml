@@ -14,8 +14,6 @@
 # =============================================================================
 # Lint as: python3
 """Tests for nitroml.results."""
-
-import datetime
 import os
 
 from absl.testing import absltest
@@ -27,12 +25,8 @@ from nitroml.testing import test_mlmd
 from ml_metadata import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 
-_MLMD_03_31_20_PATH = os.path.join(
-    os.path.dirname(__file__), 'testdata/mlmd/mlmd_03_31_20.sqlite')
-_MLMD_04_01_20_PATH = os.path.join(
-    os.path.dirname(__file__), 'testdata/mlmd/mlmd_04_01_20.sqlite')
-_MLMD_05_21_20_PATH = os.path.join(
-    os.path.dirname(__file__), 'testdata/mlmd/mlmd_05_21_20.sqlite')
+_MLMD_02_05_21_PATH = os.path.join(
+    os.path.dirname(__file__), 'testdata/mlmd/mlmd_02_05_21.sqlite')
 
 
 class OverviewTest(parameterized.TestCase):
@@ -41,153 +35,36 @@ class OverviewTest(parameterized.TestCase):
   @parameterized.named_parameters(
       {
           'testcase_name':
-              'no aggregation 03-31-20',
+              'no aggregation 02-05-21',
           'mlmd_store_path':
-              _MLMD_03_31_20_PATH,
+              _MLMD_02_05_21_PATH,
           'metric_aggregators':
               None,
           'want_columns': [
-              'run_id',
-              'benchmark_fullname',
-              'benchmark',
-              'accuracy',
-              'accuracy_baseline',
-              'auc',
-              'auc_precision_recall',
-              'average_loss',
-              'label/mean',
-              'pipeline_name',
-              'post_export_metrics/example_count',
-              'precision',
-              'prediction/mean',
-              'recall',
+              'run_id', 'benchmark_fullname', 'benchmark', 'run', 'num_runs',
+              'accuracy', 'average_loss', 'post_export_metrics/example_count'
           ],
       }, {
           'testcase_name':
-              'mean 03-31-20',
+              'mean 02-05-21',
           'mlmd_store_path':
-              _MLMD_03_31_20_PATH,
+              _MLMD_02_05_21_PATH,
           'metric_aggregators': ['mean'],
           'want_columns': [
-              'run_id',
-              'benchmark',
-              'accuracy mean',
-              'accuracy_baseline mean',
-              'auc mean',
-              'auc_precision_recall mean',
-              'average_loss mean',
-              'label/mean mean',
-              'post_export_metrics/example_count mean',
-              'precision mean',
-              'prediction/mean mean',
-              'recall mean',
+              'run_id', 'benchmark', 'num_runs', 'accuracy mean',
+              'average_loss mean', 'post_export_metrics/example_count mean'
           ],
       }, {
           'testcase_name':
-              'mean and stdev 03-31-20',
+              'mean and stdev 02-05-21',
           'mlmd_store_path':
-              _MLMD_03_31_20_PATH,
+              _MLMD_02_05_21_PATH,
           'metric_aggregators': ['mean', 'std'],
           'want_columns': [
-              'run_id',
-              'benchmark',
-              'accuracy mean',
-              'accuracy std',
-              'accuracy_baseline mean',
-              'accuracy_baseline std',
-              'auc mean',
-              'auc std',
-              'auc_precision_recall mean',
-              'auc_precision_recall std',
-              'average_loss mean',
-              'average_loss std',
-              'label/mean mean',
-              'label/mean std',
+              'run_id', 'benchmark', 'num_runs', 'accuracy mean',
+              'accuracy std', 'average_loss mean', 'average_loss std',
               'post_export_metrics/example_count mean',
-              'post_export_metrics/example_count std',
-              'precision mean',
-              'precision std',
-              'prediction/mean mean',
-              'prediction/mean std',
-              'recall mean',
-              'recall std',
-          ],
-      }, {
-          'testcase_name':
-              'no aggregation 04-01-20',
-          'mlmd_store_path':
-              _MLMD_04_01_20_PATH,
-          'metric_aggregators':
-              None,
-          'want_columns': [
-              'run_id',
-              'benchmark_fullname',
-              'benchmark',
-              'run',
-              'num_runs',
-              'accuracy',
-              'accuracy_baseline',
-              'auc',
-              'auc_precision_recall',
-              'average_loss',
-              'label/mean',
-              'pipeline_name',
-              'post_export_metrics/example_count',
-              'precision',
-              'prediction/mean',
-              'recall',
-          ],
-      }, {
-          'testcase_name':
-              'mean 04-01-20',
-          'mlmd_store_path':
-              _MLMD_04_01_20_PATH,
-          'metric_aggregators': ['mean'],
-          'want_columns': [
-              'run_id',
-              'benchmark',
-              'num_runs',
-              'accuracy mean',
-              'accuracy_baseline mean',
-              'auc mean',
-              'auc_precision_recall mean',
-              'average_loss mean',
-              'label/mean mean',
-              'post_export_metrics/example_count mean',
-              'precision mean',
-              'prediction/mean mean',
-              'recall mean',
-          ],
-      }, {
-          'testcase_name':
-              'mean and stdev 04-01-20',
-          'mlmd_store_path':
-              _MLMD_04_01_20_PATH,
-          'metric_aggregators': ['mean', 'std'],
-          'want_columns': [
-              'run_id',
-              'benchmark',
-              'num_runs',
-              'accuracy mean',
-              'accuracy std',
-              'accuracy_baseline mean',
-              'accuracy_baseline std',
-              'auc mean',
-              'auc std',
-              'auc_precision_recall mean',
-              'auc_precision_recall std',
-              'average_loss mean',
-              'average_loss std',
-              'label/mean mean',
-              'label/mean std',
-              'post_export_metrics/example_count mean',
-              'post_export_metrics/example_count std',
-              'precision mean',
-              'precision std',
-              'prediction/mean mean',
-              'prediction/mean std',
-              'recall mean',
-              'recall std',
+              'post_export_metrics/example_count std'
           ],
       })
   def test_overview(self, mlmd_store_path, metric_aggregators, want_columns):
@@ -227,61 +104,53 @@ class GetBenchmarkResultsTest(absltest.TestCase):
     self.test_mlmd = test_mlmd.TestMLMD()
 
   def testGetBenchmarkResults(self):
-    run_id = '0'
+    run_id = 'run_id'
     artifact_id = self.test_mlmd.put_artifact({
         'accuracy': '0.25',
         'average_loss': '2.40',
+        'name': 'pipeline:run_id:component:artifact:0',
         br.BenchmarkResult.BENCHMARK_NAME_KEY: 'Test'
     })
     execution_id = self.test_mlmd.put_execution(run_id)
     self.test_mlmd.put_event(artifact_id, execution_id)
 
     result = results._get_benchmark_results(self.test_mlmd.store)
-
-    want_result = results._Result(
-        properties={
-            '0.Test': {
-                'accuracy': 0.25,
-                'average_loss': 2.40,
-                results.RUN_ID_KEY: '0',
-                br.BenchmarkResult.BENCHMARK_NAME_KEY: 'Test',
-                results.STARTED_AT: datetime.datetime.fromtimestamp(0)
-            }
-        },
-        property_names=['accuracy', 'average_loss'])
-    self.assertEqual(want_result, result)
+    properties = result.properties['run_id.Test']
+    property_names = result.property_names
+    self.assertEqual(0.25, properties['accuracy'])
+    self.assertEqual(2.4, properties['average_loss'])
+    self.assertEqual('Test', properties[br.BenchmarkResult.BENCHMARK_NAME_KEY])
+    self.assertEqual('run_id', properties[results.RUN_ID_KEY])
+    self.assertEqual(['accuracy', 'average_loss'], property_names)
 
   def testGetBenchmarkResultsTwoArtifacts(self):
-    run_id = '0'
+    run_id = 'run_id'
     execution_id0 = self.test_mlmd.put_execution(run_id)
     artifact_id0 = self.test_mlmd.put_artifact({
         'accuracy': '0.25',
         'average_loss': '2.40',
+        'name': 'pipeline:run_id:component:artifact:0',
         br.BenchmarkResult.BENCHMARK_NAME_KEY: 'Test'
     })
     self.test_mlmd.put_event(artifact_id0, execution_id0)
     execution_id1 = self.test_mlmd.put_execution(run_id)
     artifact_id1 = self.test_mlmd.put_artifact({
         'my_custom_metric': '99',
+        'name': 'pipeline:run_id:component:artifact:1',
         br.BenchmarkResult.BENCHMARK_NAME_KEY: 'Test'
     })
     self.test_mlmd.put_event(artifact_id1, execution_id1)
 
     result = results._get_benchmark_results(self.test_mlmd.store)
-
-    want_result = results._Result(
-        properties={
-            '0.Test': {
-                'accuracy': 0.25,
-                'average_loss': 2.40,
-                'my_custom_metric': 99,
-                results.RUN_ID_KEY: '0',
-                br.BenchmarkResult.BENCHMARK_NAME_KEY: 'Test',
-                results.STARTED_AT: datetime.datetime.fromtimestamp(0)
-            }
-        },
-        property_names=['accuracy', 'average_loss', 'my_custom_metric'])
-    self.assertEqual(want_result, result)
+    properties = result.properties['run_id.Test']
+    property_names = result.property_names
+    self.assertEqual(0.25, properties['accuracy'])
+    self.assertEqual(2.4, properties['average_loss'])
+    self.assertEqual(99, properties['my_custom_metric'])
+    self.assertEqual('Test', properties[br.BenchmarkResult.BENCHMARK_NAME_KEY])
+    self.assertEqual('run_id', properties[results.RUN_ID_KEY])
+    self.assertEqual(['accuracy', 'average_loss', 'my_custom_metric'],
+                     property_names)
 
 
 class GetStatisticsGenDirectoryTest(absltest.TestCase):
