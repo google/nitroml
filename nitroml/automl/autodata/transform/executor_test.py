@@ -28,6 +28,7 @@ from tfx import types
 from tfx.components.transform import executor as tfx_executor
 from tfx.types import artifact_utils
 from tfx.types import standard_artifacts
+from tfx.types import standard_component_specs
 
 
 class _TempPath(types.Artifact):
@@ -47,8 +48,8 @@ class ExecutorTest(absltest.TestCase):
     schema_artifact = standard_artifacts.Schema()
     schema_artifact.uri = os.path.join(self._input_data_dir, 'schema_gen')
     self._input_dict = {
-        tfx_executor.EXAMPLES_KEY: [examples],
-        tfx_executor.SCHEMA_KEY: [schema_artifact],
+        standard_component_specs.EXAMPLES_KEY: [examples],
+        standard_component_specs.SCHEMA_KEY: [schema_artifact],
     }
 
     # Create output_dict.
@@ -66,8 +67,12 @@ class ExecutorTest(absltest.TestCase):
     temp_path_output = _TempPath()
     temp_path_output.uri = tempfile.mkdtemp()
     self._output_dict = {
-        tfx_executor.TRANSFORM_GRAPH_KEY: [self._transformed_output],
-        tfx_executor.TRANSFORMED_EXAMPLES_KEY: [self._transformed_examples],
+        standard_component_specs.TRANSFORM_GRAPH_KEY: [
+            self._transformed_output
+        ],
+        standard_component_specs.TRANSFORMED_EXAMPLES_KEY: [
+            self._transformed_examples
+        ],
         tfx_executor.TEMP_PATH_KEY: [temp_path_output],
     }
 
