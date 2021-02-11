@@ -109,7 +109,7 @@ class AnalyticsTest(absltest.TestCase):
 
   def testGetPipelineRuns(self):
     # Test invalid input.
-    with self.assertRaises(ValueError):
+    with self.assertRaises(LookupError):
       self.analytics.get_pipeline_run('100')
 
     self.assertEqual([RUN_ID, RUN_ID_3], self.analytics.list_run_ids())
@@ -117,12 +117,20 @@ class AnalyticsTest(absltest.TestCase):
     pipeline = self.analytics.get_latest_pipeline_run()
     self.assertEqual(PIPELINE_NAME, pipeline.name)
     self.assertEqual(RUN_ID, pipeline.run_id)
+
+    pipeline = self.analytics.get_latest_pipeline_run(COMPONENT_NAME)
+    self.assertEqual(PIPELINE_NAME, pipeline.name)
+    self.assertEqual(RUN_ID, pipeline.run_id)
+
+    with self.assertRaises(LookupError):
+      _ = self.analytics.get_latest_pipeline_run('nonexistent_component_name')
+
     run_ids = [p.run_id for p in self.analytics.list_pipeline_runs()]
     self.assertEqual([RUN_ID, RUN_ID_3], run_ids)
 
   def testGetComponentRun(self):
-    # Test invalid input.
-    with self.assertRaises(ValueError):
+    # Test with non-existent component id.
+    with self.assertRaises(LookupError):
       self.analytics.get_component_run(100)
 
     component_run = self.analytics.get_component_run(self.component_context_id)
@@ -140,8 +148,8 @@ class AnalyticsTest(absltest.TestCase):
     self.assertCountEqual(want, got)
 
   def testGetArtifact(self):
-    # Test invalid input.
-    with self.assertRaises(ValueError):
+    # Test with non-existent artifact id.
+    with self.assertRaises(LookupError):
       self.analytics.get_artifact(100)
 
     input_artifact = self.analytics.get_artifact(self.input_artifact_id)
@@ -150,8 +158,8 @@ class AnalyticsTest(absltest.TestCase):
     self.assertEqual(OUTPUT_ARTIFACT_NAME, output_artifact.name)
 
   def testWalkThroughAnalyticsObject(self):
-    # Get Run
-    with self.assertRaises(ValueError):
+    # Test with non-existent run id.
+    with self.assertRaises(LookupError):
       self.analytics.get_pipeline_run('bad_run_id')
     pipeline_run = self.analytics.get_pipeline_run(RUN_ID)
     self.assertEqual(str(pipeline_run),

@@ -138,6 +138,11 @@ class ComponentRun:
     """The creation time of this component."""
     return self._context.create_time_since_epoch
 
+  @property
+  def last_update_time(self) -> int:
+    """The last update time of this component."""
+    return self._context.last_update_time_since_epoch
+
   def _get_artifact_name(self, artifact_name: str):
     """Returns parsed artifact name for IR-based artifacts."""
     # Current artifact naming convention is:
@@ -279,10 +284,14 @@ class PipelineRun:
     """A dictionary of (Component Name, ComponentRun) key-value pairs."""
     components = {}
     for execution in self._store.get_executions_by_context(self._context_id):
-      [component_run_ctx] = [
+      component_run_ctx_list = [
           ctx for ctx in self._store.get_contexts_by_execution(execution.id)
           if ctx.type_id == self._component_run_type.id
       ]
+      if component_run_ctx_list:
+        component_run_ctx = component_run_ctx_list[0]
+      else:
+        continue
       # Expected naming convention is "pipeline_name.component_name"
       component_name = component_run_ctx.name.replace(self.name + '.', '', 1)
 
@@ -397,24 +406,51 @@ class Analytics:
       run_id: The unique id of the pipeline to query.
 
     Raises:
-      KeyError: If run_id does not exist in the metadata.
+      LookupError: If run_id does not exist in the metadata.
     """
     runs = self._get_pipeline_runs()
     if run_id not in runs:
-      raise ValueError('Run ID "%s" not found in metadata store.' % run_id)
+      raise LookupError('Run ID "%s" not found in metadata store.' % run_id)
     return PipelineRun(runs[run_id]['pipeline_name'], run_id,
                        runs[run_id]['context_id'], self._store)
 
-  def get_latest_pipeline_run(self) -> PipelineRun:
-    """Returns the latest pipeline run in the MLMD store.
+  def get_latest_pipeline_run(
+      self, component_id: Optional[str] = None) -> PipelineRun:
+    """Get the latest pipeline run in the MLMD store.
+
+    Args:
+      component_id: Optional. If provided, returns the pipeline run that most
+        recently updated that component. If None, returns the pipeline run that
+        was most recently created.
+
+    Returns:
+      A PipelineRun.
 
     Raises:
-      ValueError: If there are no pipeline runs in the MLMD store.
+      LookupError: If component_id is provided, and there are no pipeline runs
+        that ran that component.
+      LookupError: If component_id is not provided, and there are no pipeline
+        runs in the MLMD store.
     """
     runs = self.list_pipeline_runs()
     if not runs:
-      raise ValueError('No pipeline runs found.')
-    return runs[0]
+      raise LookupError('No pipeline runs found.')
+    if not component_id:
+      return runs[0]
+
+    latest_component_update_time = 0
+    latest_pipeline_run = None
+    for pipeline_run in self.list_pipeline_runs():
+      if component_id not in pipeline_run.components:
+        continue
+      component_run = pipeline_run.components[component_id]
+      if component_run.last_update_time > latest_component_update_time:
+        latest_component_update_time = component_run.last_update_time
+        latest_pipeline_run = pipeline_run
+
+    if not latest_pipeline_run:
+      raise LookupError(f'Could not find pipeline_run that ran {component_id}')
+    return latest_pipeline_run
 
   def get_component_run(self, context_id: int) -> ComponentRun:
     """Returns a component based on the context id provided.
@@ -423,11 +459,12 @@ class Analytics:
       context_id: The context referring to this component run.
 
     Raises:
-      ValueError: For invalid context ids.
+      LookupError: If the ComponentRun can't be found.
+      ValueError: If the ComponentRun retrieved is not a 'node' type context.
     """
     ctx_list = self._store.get_contexts_by_id([context_id])
     if len(ctx_list) != 1:
-      raise ValueError('Context id %d not found.' % context_id)
+      raise LookupError('Context id %d not found.' % context_id)
 
     [component_run_ctx] = ctx_list
     component_run_type = self._store.get_context_type(_IR_COMPONENT_NAME)
@@ -446,10 +483,13 @@ class Analytics:
 
     Args:
       artifact_id: The id of the artifact to return.
+
+    Raises:
+      LookupError: If the Artifact id can't be found.
     """
     artifact_list = self._store.get_artifacts_by_id([artifact_id])
     if len(artifact_list) != 1:
-      raise ValueError('Artifact id %d not found.' % artifact_id)
+      raise LookupError('Artifact id %d not found.' % artifact_id)
 
     [artifact] = artifact_list
     [artifact_type] = self._store.get_artifact_types_by_id([artifact.type_id])

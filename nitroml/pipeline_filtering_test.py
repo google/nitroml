@@ -13,6 +13,7 @@
 # limitations under the License.
 """Tests for nitroml.pipeline_filtering."""
 
+import collections
 from typing import Any, Mapping, Sequence
 
 from absl.testing import absltest
@@ -130,9 +131,10 @@ class PipelineFilteringTest(parameterized.TestCase, test_case_utils.TfxTest):
     with self.assertRaises(ValueError):
       _ = pipeline_filtering.filter_pipeline(
           input_pipeline,
+          pipeline_run_id_fn=lambda _: 'pipeline_run_000',
           from_nodes=lambda _: True,
           to_nodes=lambda _: True,
-          old_pipeline_run_id='pipeline_run_000')
+      )
 
   def testNoFilter(self):
     """Basic case where there are no filters applied.
@@ -212,9 +214,10 @@ class PipelineFilteringTest(parameterized.TestCase, test_case_utils.TfxTest):
 
     filtered_pipeline = pipeline_filtering.filter_pipeline(
         input_pipeline,
+        pipeline_run_id_fn=lambda _: 'pipeline_run_000',
         from_nodes=lambda _: True,
         to_nodes=lambda _: True,
-        old_pipeline_run_id='pipeline_run_000')
+    )
 
     self.assertProtoEquals(input_pipeline, filtered_pipeline)
 
@@ -295,9 +298,10 @@ class PipelineFilteringTest(parameterized.TestCase, test_case_utils.TfxTest):
 
     filtered_pipeline = pipeline_filtering.filter_pipeline(
         input_pipeline,
+        pipeline_run_id_fn=lambda _: 'pipeline_run_000',
         from_nodes=lambda node_id: (node_id == 'a'),
         to_nodes=lambda node_id: (node_id == 'c'),
-        old_pipeline_run_id='pipeline_run_000')
+    )
 
     self.assertProtoEquals(input_pipeline, filtered_pipeline)
 
@@ -377,9 +381,10 @@ class PipelineFilteringTest(parameterized.TestCase, test_case_utils.TfxTest):
 
     filtered_pipeline = pipeline_filtering.filter_pipeline(
         input_pipeline,
+        pipeline_run_id_fn=lambda _: 'pipeline_run_000',
         from_nodes=lambda node_id: (node_id == 'a'),
         to_nodes=lambda node_id: (node_id == 'b'),
-        old_pipeline_run_id='pipeline_run_000')
+    )
 
     node_b_no_downstream = p_pb2.Pipeline.PipelineOrNode()
     node_b_no_downstream.CopyFrom(node_b)
@@ -468,9 +473,10 @@ class PipelineFilteringTest(parameterized.TestCase, test_case_utils.TfxTest):
 
     filtered_pipeline = pipeline_filtering.filter_pipeline(
         input_pipeline,
+        pipeline_run_id_fn=lambda _: 'pipeline_run_000',
         from_nodes=lambda node_id: (node_id == 'b'),
         to_nodes=lambda node_id: (node_id == 'c'),
-        old_pipeline_run_id='pipeline_run_000')
+    )
 
     node_b_fixed = p_pb2.Pipeline.PipelineOrNode()
     node_b_fixed.CopyFrom(node_b)
@@ -584,9 +590,10 @@ class PipelineFilteringTest(parameterized.TestCase, test_case_utils.TfxTest):
 
     filtered_pipeline = pipeline_filtering.filter_pipeline(
         input_pipeline,
+        pipeline_run_id_fn=lambda _: 'pipeline_run_000',
         from_nodes=lambda node_id: (node_id == 'b'),
         to_nodes=lambda node_id: (node_id == 'c'),
-        old_pipeline_run_id='pipeline_run_000')
+    )
 
     node_b_fixed = p_pb2.Pipeline.PipelineOrNode()
     node_b_fixed.CopyFrom(node_b)
@@ -693,8 +700,9 @@ class PipelineFilteringTest(parameterized.TestCase, test_case_utils.TfxTest):
 
     filtered_pipeline = pipeline_filtering.filter_pipeline(
         input_pipeline,
+        pipeline_run_id_fn=lambda _: 'pipeline_run_000',
         skip_nodes=lambda node_id: (node_id == 'b'),
-        old_pipeline_run_id='pipeline_run_000')
+    )
 
     node_a_fixed = p_pb2.Pipeline.PipelineOrNode()
     node_a_fixed.CopyFrom(node_a)
@@ -806,8 +814,9 @@ class PipelineFilteringTest(parameterized.TestCase, test_case_utils.TfxTest):
 
     filtered_pipeline = pipeline_filtering.filter_pipeline(
         input_pipeline,
+        pipeline_run_id_fn=lambda _: 'pipeline_run_000',
         skip_nodes=lambda node_id: (node_id == 'b'),
-        old_pipeline_run_id='pipeline_run_000')
+    )
 
     node_a_fixed = p_pb2.Pipeline.PipelineOrNode()
     node_a_fixed.CopyFrom(node_a)
@@ -830,6 +839,141 @@ class PipelineFilteringTest(parameterized.TestCase, test_case_utils.TfxTest):
         pipeline_info=p_pb2.PipelineInfo(id='my_pipeline'),
         execution_mode=p_pb2.Pipeline.ExecutionMode.SYNC,
         nodes=[node_a_fixed, node_c_fixed])
+    self.assertProtoEquals(expected_output_pipeline, filtered_pipeline)
+
+  def testMultiplePipelineRunIds(self):
+    """Resolve with two different pipeline_run_ids in two input channels.
+
+    input_pipeline:
+       node_a1 -> node_b1
+       node_a2 -> node_b2
+    from_node: node_a2, node_b2
+    to_node: all nodes
+    pipeline_run_id_fn:
+      a1>a2 |-> pipeline_run_000
+      b1>b2 |-> pipeline_run_001
+    expected_output_pipeline:
+      (pipeline_run_000)>node_a2
+      (pipeline_run_001)>node_b2
+    """
+    node_a1 = p_pb2.Pipeline.PipelineOrNode(
+        pipeline_node=p_pb2.PipelineNode(
+            node_info=p_pb2.NodeInfo(
+                type=mlmd_pb2.ExecutionType(name='A1'), id='a1'),
+            contexts=p_pb2.NodeContexts(contexts=[
+                to_context_spec('pipeline', 'my_pipeline'),
+                to_context_spec('component', 'a1')
+            ]),
+            outputs=p_pb2.NodeOutputs(outputs={'out': to_output_spec('AB1')}),
+            downstream_nodes=['b1']))
+    node_b1 = p_pb2.Pipeline.PipelineOrNode(
+        pipeline_node=p_pb2.PipelineNode(
+            node_info=p_pb2.NodeInfo(
+                type=mlmd_pb2.ExecutionType(name='B1'), id='b1'),
+            contexts=p_pb2.NodeContexts(contexts=[
+                to_context_spec('pipeline', 'my_pipeline'),
+                to_context_spec('component', 'b1')
+            ]),
+            inputs=p_pb2.NodeInputs(
+                inputs={
+                    'in':
+                        p_pb2.InputSpec(
+                            channels=[
+                                to_input_channel(
+                                    producer_node_id='a1',
+                                    producer_output_key='out',
+                                    artifact_type='AB1',
+                                    context_names={
+                                        'pipeline': 'my_pipeline',
+                                        'component': 'a1'
+                                    })
+                            ],
+                            min_count=1)
+                }),
+            upstream_nodes=['a1']))
+    node_a2 = p_pb2.Pipeline.PipelineOrNode(
+        pipeline_node=p_pb2.PipelineNode(
+            node_info=p_pb2.NodeInfo(
+                type=mlmd_pb2.ExecutionType(name='A2'), id='a2'),
+            contexts=p_pb2.NodeContexts(contexts=[
+                to_context_spec('pipeline', 'my_pipeline'),
+                to_context_spec('component', 'a2')
+            ]),
+            outputs=p_pb2.NodeOutputs(outputs={'out': to_output_spec('AB2')}),
+            downstream_nodes=['b2']))
+    node_b2 = p_pb2.Pipeline.PipelineOrNode(
+        pipeline_node=p_pb2.PipelineNode(
+            node_info=p_pb2.NodeInfo(
+                type=mlmd_pb2.ExecutionType(name='B2'), id='b2'),
+            contexts=p_pb2.NodeContexts(contexts=[
+                to_context_spec('pipeline', 'my_pipeline'),
+                to_context_spec('component', 'b2')
+            ]),
+            inputs=p_pb2.NodeInputs(
+                inputs={
+                    'in':
+                        p_pb2.InputSpec(
+                            channels=[
+                                to_input_channel(
+                                    producer_node_id='a2',
+                                    producer_output_key='out',
+                                    artifact_type='AB2',
+                                    context_names={
+                                        'pipeline': 'my_pipeline',
+                                        'component': 'a2'
+                                    })
+                            ],
+                            min_count=1)
+                }),
+            upstream_nodes=['a2']))
+    input_pipeline = p_pb2.Pipeline(
+        pipeline_info=p_pb2.PipelineInfo(id='my_pipeline'),
+        execution_mode=p_pb2.Pipeline.ExecutionMode.SYNC,
+        nodes=[node_a1, node_b1, node_a2, node_b2])
+
+    def _pipeline_run_id_fn(channel: p_pb2.InputSpec.Channel) -> str:
+      if channel.producer_node_query.id == 'a1':
+        return 'pipeline_run_000'
+      return 'pipeline_run_001'
+
+    filtered_pipeline = pipeline_filtering.filter_pipeline(
+        input_pipeline,
+        pipeline_run_id_fn=_pipeline_run_id_fn,
+        from_nodes=lambda node_id: (node_id[0] == 'b'),
+    )
+
+    node_b1_fixed = p_pb2.Pipeline.PipelineOrNode()
+    node_b1_fixed.CopyFrom(node_b1)
+    del node_b1_fixed.pipeline_node.upstream_nodes[:]
+    del node_b1_fixed.pipeline_node.inputs.inputs['in'].channels[:]
+    node_b1_fixed.pipeline_node.inputs.inputs['in'].channels.append(
+        to_input_channel(
+            producer_node_id='a1',
+            producer_output_key='out',
+            artifact_type='AB1',
+            context_names=collections.OrderedDict([
+                ('pipeline', 'my_pipeline'),
+                ('component', 'a1'),
+                (_PIPELINE_RUN_CONTEXT_KEY, 'pipeline_run_000'),
+            ])))
+    node_b2_fixed = p_pb2.Pipeline.PipelineOrNode()
+    node_b2_fixed.CopyFrom(node_b2)
+    del node_b2_fixed.pipeline_node.upstream_nodes[:]
+    del node_b2_fixed.pipeline_node.inputs.inputs['in'].channels[:]
+    node_b2_fixed.pipeline_node.inputs.inputs['in'].channels.append(
+        to_input_channel(
+            producer_node_id='a2',
+            producer_output_key='out',
+            artifact_type='AB2',
+            context_names=collections.OrderedDict([
+                ('pipeline', 'my_pipeline'),
+                ('component', 'a2'),
+                (_PIPELINE_RUN_CONTEXT_KEY, 'pipeline_run_001'),
+            ])))
+    expected_output_pipeline = p_pb2.Pipeline(
+        pipeline_info=p_pb2.PipelineInfo(id='my_pipeline'),
+        execution_mode=p_pb2.Pipeline.ExecutionMode.SYNC,
+        nodes=[node_b1_fixed, node_b2_fixed])
     self.assertProtoEquals(expected_output_pipeline, filtered_pipeline)
 
   @parameterized.named_parameters(
@@ -972,9 +1116,10 @@ class PipelineFilteringTest(parameterized.TestCase, test_case_utils.TfxTest):
 
     filtered_pipeline = pipeline_filtering.filter_pipeline(
         input_pipeline,
+        pipeline_run_id_fn=lambda _: 'pipeline_run_000',
         from_nodes=lambda node_id: (node_id == 'a'),
         to_nodes=lambda node_id: (node_id == 'b'),
-        old_pipeline_run_id='pipeline_run_000')
+    )
 
     self.assertProtoEquals(expected_deployment_cfg,
                            filtered_pipeline.deployment_config)

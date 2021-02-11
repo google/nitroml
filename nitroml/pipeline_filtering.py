@@ -23,16 +23,18 @@ from typing import Any, Callable, Collection, Mapping, MutableMapping, Optional,
 
 from tfx.dsl.compiler import constants as dsl_constants
 from tfx.proto.orchestration import pipeline_pb2 as p_pb2
+
 from google3.google.protobuf import any_pb2
 from ml_metadata.proto import metadata_store_pb2 as mlmd_pb2
 
 
 def filter_pipeline(
     input_pipeline: p_pb2.Pipeline,
-    old_pipeline_run_id: str,
+    pipeline_run_id_fn: Callable[[p_pb2.InputSpec.Channel], str],
     from_nodes: Optional[Callable[[str], bool]] = None,
     to_nodes: Optional[Callable[[str], bool]] = None,
-    skip_nodes: Optional[Callable[[str], bool]] = None) -> p_pb2.Pipeline:
+    skip_nodes: Optional[Callable[[str], bool]] = None,
+) -> p_pb2.Pipeline:
   """Filters the Pipeline IR proto, thus enabling partial runs.
 
   The set of nodes included in the filtered pipeline is the set of nodes between
@@ -43,9 +45,11 @@ def filter_pipeline(
 
   Args:
     input_pipeline: A valid compiled Pipeline IR proto to be filtered.
-    old_pipeline_run_id: A pipeline_run_id to be used for resolving inputs in
-      cases where the output of a deleted node is needed by another node that is
-      not deleted.
+    pipeline_run_id_fn: A Callable used for resolving inputs in cases where
+      the output of a deleted node is needed by another node that is
+      not deleted. The Callable should take a pipeline_pb2.InputSpec.Channel
+      message that is to be resolved, and return the pipeline_run_id used to
+      resolve it.
     from_nodes: A predicate function that selects nodes by their ids. The set of
       nodes whose node_ids return True determine where the "sweep" starts from
       (see detailed description).
@@ -84,7 +88,7 @@ def filter_pipeline(
   skip_node_ids = [node_id for node_id in node_map if skip_nodes(node_id)]
   node_map = _filter_node_map(node_map, from_node_ids, to_node_ids,
                               skip_node_ids)
-  node_map = _fix_nodes(node_map, old_pipeline_run_id)
+  node_map = _fix_nodes(node_map, pipeline_run_id_fn)
   fixed_deployment_config = _fix_deployment_config(input_pipeline, node_map)
   return _make_filtered_pipeline(input_pipeline, node_map,
                                  fixed_deployment_config)
@@ -195,21 +199,24 @@ def _replace_pipeline_run_id_in_channel(channel: p_pb2.InputSpec.Channel,
               field_value=mlmd_pb2.Value(string_value=pipeline_run_id))))
 
 
-def _handle_missing_inputs(node: p_pb2.PipelineNode,
-                           node_ids_to_keep: Collection[str],
-                           pipeline_run_id: str) -> p_pb2.PipelineNode:
+def _handle_missing_inputs(
+    node: p_pb2.PipelineNode,
+    node_ids_to_keep: Collection[str],
+    pipeline_run_id_fn: Callable[[p_pb2.InputSpec.Channel], str],
+) -> p_pb2.PipelineNode:
   """Private helper function to handle missing inputs.
 
   Args:
     node: The Pipeline node to check for missing inputs.
     node_ids_to_keep: The node_ids that are not filtered out.
-    pipeline_run_id: If this node has upstream nodes that are filtered out, this
-      pipeline_run_id would be provided as the value of the 'pipeline_run'
-      ContextQuery for those input channels.
+    pipeline_run_id_fn: If this node has upstream nodes that are filtered out,
+      this function would be used to obtain the pipeline_run_id for that input
+      channel, which would then be provided as the 'pipeline_run_id' in the
+      'pipeline_run' ContextQuery.
 
   Returns:
     A copy of the Pipeline node where all inputs that reference filtered-out
-    nodes have 'pipeline_run_id' as their 'pipeline_run' ContextQuery.
+    nodes would have their 'pipeline_run' ContextQuery updated.
   """
   upstream_nodes_to_replace = set()
   upstream_nodes_to_keep = []
@@ -227,6 +234,7 @@ def _handle_missing_inputs(node: p_pb2.PipelineNode,
   for input_spec in result.inputs.inputs.values():
     for channel in input_spec.channels:
       if channel.producer_node_query.id in upstream_nodes_to_replace:
+        pipeline_run_id = pipeline_run_id_fn(channel)
         _replace_pipeline_run_id_in_channel(channel, pipeline_run_id)
   result.upstream_nodes[:] = upstream_nodes_to_keep
   return result
@@ -234,13 +242,13 @@ def _handle_missing_inputs(node: p_pb2.PipelineNode,
 
 def _fix_nodes(
     node_map: 'collections.OrderedDict[str, p_pb2.PipelineNode]',
-    old_pipeline_run_id: str
+    pipeline_run_id_fn: Callable[[p_pb2.InputSpec.Channel], str],
 ) -> 'collections.OrderedDict[str, p_pb2.PipelineNode]':
   """Remove dangling references and handle missing inputs."""
   new_node_map = collections.OrderedDict()
   for node_id in node_map:
     new_node = _remove_dangling_downstream_nodes(node_map[node_id], node_map)
-    new_node = _handle_missing_inputs(new_node, node_map, old_pipeline_run_id)
+    new_node = _handle_missing_inputs(new_node, node_map, pipeline_run_id_fn)
     new_node_map[node_id] = new_node
   return new_node_map
 
