@@ -83,6 +83,16 @@ class TFDSTask(nitroml.BenchmarkTask):
     return self._example_gen.outputs.examples
 
   @property
+  def test_examples(self) -> types.Channel:
+    """Returns test labeled examples."""
+
+    return self._example_gen.outputs.examples
+
+  @property
+  def test_example_splits(self) -> List[str]:
+    return ['eval']
+
+  @property
   def problem_statement(self) -> ps_pb2.ProblemStatement:
     """Returns the ProblemStatement associated with this Task."""
 

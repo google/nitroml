@@ -1,7 +1,7 @@
 "mock_feature_string","mock_feature_int","mock_feature_float","class"
-'a',10,0.1,'yes'
-'b',20,0.2,'no'
-'b',30,0.3,'yes'
-'a',40,0.4,'no'
-'c',50,0.5,'no'
-'c',60,0.6,'yes'
+'a',10,0.1,1
+'b',20,0.2,0
+'b',30,0.3,1
+'a',40,0.4,0
+'c',50,0.5,0
+'c',60,0.6,1

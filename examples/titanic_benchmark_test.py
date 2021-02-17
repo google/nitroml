@@ -43,11 +43,8 @@ class TitanicBenchmarkTest(e2etest.BenchmarkTestCase):
                         use_keras=use_keras,
                         enable_tuning=enable_tuning)
     if enable_tuning:
-      self.assertComponentExecutionCount(8)
       self.assertComponentSucceeded(
           "Tuner.AutoTrainer.TitanicBenchmark.benchmark")
-    else:
-      self.assertComponentExecutionCount(7)
     self.assertComponentSucceeded("ImportExampleGen.TitanicBenchmark.benchmark")
     self.assertComponentSucceeded(
         "SchemaGen.AutoData.TitanicBenchmark.benchmark")
@@ -57,9 +54,9 @@ class TitanicBenchmarkTest(e2etest.BenchmarkTestCase):
         "Transform.AutoData.TitanicBenchmark.benchmark")
     self.assertComponentSucceeded(
         "Trainer.AutoTrainer.TitanicBenchmark.benchmark")
-    self.assertComponentSucceeded("Evaluator.TitanicBenchmark.benchmark")
+    self.assertComponentSucceeded("Evaluator.model.TitanicBenchmark.benchmark")
     self.assertComponentSucceeded(
-        "BenchmarkResultPublisher.TitanicBenchmark.benchmark")
+        "BenchmarkResultPublisher.model.TitanicBenchmark.benchmark")
 
     # Load benchmark results.
     store = metadata_store.MetadataStore(self.metadata_config)
@@ -68,12 +65,18 @@ class TitanicBenchmarkTest(e2etest.BenchmarkTestCase):
     # Check benchmark results overview values.
     self.assertEqual(len(df.index), 1)
     self.assertContainsSubset([
+        "run_id",
+        "benchmark_fullname",
         "benchmark",
         "run",
         "num_runs",
         "accuracy",
-        "average_loss",
-        "post_export_metrics/example_count",
+        "auc_pr",
+        "auc_roc",
+        "example_count",
+        "precision",
+        "recall",
+        "weighted_example_count",
     ], df.columns.values.tolist())
     self.assertSameElements([1], df["run"].tolist())
     self.assertSameElements([1], df["num_runs"].tolist())

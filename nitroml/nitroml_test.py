@@ -149,6 +149,16 @@ class FakeBenchmarkTask(BenchmarkTask):
     return self._example_gen.outputs.examples
 
   @property
+  def test_examples(self) -> tfx_types.Channel:
+    """Returns test labeled examples."""
+
+    return self._example_gen.outputs.examples
+
+  @property
+  def test_example_splits(self) -> List[str]:
+    return ['test']
+
+  @property
   def problem_statement(self) -> ps_pb2.ProblemStatement:
     """Returns the ProblemStatement associated with this BenchmarkTask."""
 
@@ -348,8 +358,8 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.BenchmarkSubpipeline.benchmark',
               'FakeTrainer.Benchmarks.BenchmarkSubpipeline.benchmark',
-              'Evaluator.Benchmarks.BenchmarkSubpipeline.benchmark',
-              'BenchmarkResultPublisher.Benchmarks.BenchmarkSubpipeline.benchmark',
+              'Evaluator.model.Benchmarks.BenchmarkSubpipeline.benchmark',
+              'BenchmarkResultPublisher.model.Benchmarks.BenchmarkSubpipeline.benchmark',
           ]
       }, {
           'testcase_name':
@@ -365,16 +375,16 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.BenchmarkSubpipeline.benchmark.run_1_of_3',
               'FakeTrainer.Benchmarks.BenchmarkSubpipeline.benchmark.run_1_of_3',
-              'Evaluator.Benchmarks.BenchmarkSubpipeline.benchmark.run_1_of_3',
-              'BenchmarkResultPublisher.Benchmarks.BenchmarkSubpipeline.benchmark.run_1_of_3',
+              'Evaluator.model.Benchmarks.BenchmarkSubpipeline.benchmark.run_1_of_3',
+              'BenchmarkResultPublisher.model.Benchmarks.BenchmarkSubpipeline.benchmark.run_1_of_3',
               'FakeExampleGen.Benchmarks.BenchmarkSubpipeline.benchmark.run_2_of_3',
               'FakeTrainer.Benchmarks.BenchmarkSubpipeline.benchmark.run_2_of_3',
-              'Evaluator.Benchmarks.BenchmarkSubpipeline.benchmark.run_2_of_3',
-              'BenchmarkResultPublisher.Benchmarks.BenchmarkSubpipeline.benchmark.run_2_of_3',
+              'Evaluator.model.Benchmarks.BenchmarkSubpipeline.benchmark.run_2_of_3',
+              'BenchmarkResultPublisher.model.Benchmarks.BenchmarkSubpipeline.benchmark.run_2_of_3',
               'FakeExampleGen.Benchmarks.BenchmarkSubpipeline.benchmark.run_3_of_3',
               'FakeTrainer.Benchmarks.BenchmarkSubpipeline.benchmark.run_3_of_3',
-              'Evaluator.Benchmarks.BenchmarkSubpipeline.benchmark.run_3_of_3',
-              'BenchmarkResultPublisher.Benchmarks.BenchmarkSubpipeline.benchmark.run_3_of_3',
+              'Evaluator.model.Benchmarks.BenchmarkSubpipeline.benchmark.run_3_of_3',
+              'BenchmarkResultPublisher.model.Benchmarks.BenchmarkSubpipeline.benchmark.run_3_of_3',
           ]
       })
   @flagsaver.flagsaver
@@ -438,8 +448,8 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.BenchmarkComponents.benchmark',
               'FakeTrainer.Benchmarks.BenchmarkComponents.benchmark',
-              'Evaluator.Benchmarks.BenchmarkComponents.benchmark',
-              'BenchmarkResultPublisher.Benchmarks.BenchmarkComponents.benchmark',
+              'Evaluator.model.Benchmarks.BenchmarkComponents.benchmark',
+              'BenchmarkResultPublisher.model.Benchmarks.BenchmarkComponents.benchmark',
           ],
       }, {
           'testcase_name':
@@ -450,8 +460,8 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.BenchmarkSubpipeline.benchmark',
               'FakeTrainer.Benchmarks.BenchmarkSubpipeline.benchmark',
-              'Evaluator.Benchmarks.BenchmarkSubpipeline.benchmark',
-              'BenchmarkResultPublisher.Benchmarks.BenchmarkSubpipeline.benchmark',
+              'Evaluator.model.Benchmarks.BenchmarkSubpipeline.benchmark',
+              'BenchmarkResultPublisher.model.Benchmarks.BenchmarkSubpipeline.benchmark',
           ],
       }, {
           'testcase_name':
@@ -462,8 +472,8 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.BenchmarkTuple.benchmark',
               'FakeTrainer.Benchmarks.BenchmarkTuple.benchmark',
-              'Evaluator.Benchmarks.BenchmarkTuple.benchmark',
-              'BenchmarkResultPublisher.Benchmarks.BenchmarkTuple.benchmark',
+              'Evaluator.model.Benchmarks.BenchmarkTuple.benchmark',
+              'BenchmarkResultPublisher.model.Benchmarks.BenchmarkTuple.benchmark',
           ],
       }, {
           'testcase_name':
@@ -474,8 +484,8 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.BenchmarkList.benchmark',
               'FakeTrainer.Benchmarks.BenchmarkList.benchmark',
-              'Evaluator.Benchmarks.BenchmarkList.benchmark',
-              'BenchmarkResultPublisher.Benchmarks.BenchmarkList.benchmark',
+              'Evaluator.model.Benchmarks.BenchmarkList.benchmark',
+              'BenchmarkResultPublisher.model.Benchmarks.BenchmarkList.benchmark',
           ],
       }, {
           'testcase_name':
@@ -486,8 +496,8 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.BenchmarkDict.benchmark',
               'FakeTrainer.Benchmarks.BenchmarkDict.benchmark',
-              'Evaluator.Benchmarks.BenchmarkDict.benchmark',
-              'BenchmarkResultPublisher.Benchmarks.BenchmarkDict.benchmark',
+              'Evaluator.model.Benchmarks.BenchmarkDict.benchmark',
+              'BenchmarkResultPublisher.model.Benchmarks.BenchmarkDict.benchmark',
           ],
       }, {
           'testcase_name':
@@ -498,8 +508,8 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.BenchmarkDeeplyNested.benchmark',
               'FakeTrainer.Benchmarks.BenchmarkDeeplyNested.benchmark',
-              'Evaluator.Benchmarks.BenchmarkDeeplyNested.benchmark',
-              'BenchmarkResultPublisher.Benchmarks.BenchmarkDeeplyNested'
+              'Evaluator.model.Benchmarks.BenchmarkDeeplyNested.benchmark',
+              'BenchmarkResultPublisher.model.Benchmarks.BenchmarkDeeplyNested'
               '.benchmark',
           ],
       }, {
@@ -511,8 +521,8 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.SubBenchmark.benchmark',
               'FakeTrainer.Benchmarks.SubBenchmark.benchmark',
-              'Evaluator.Benchmarks.SubBenchmark.benchmark.one',
-              'BenchmarkResultPublisher.Benchmarks.SubBenchmark.benchmark.one',
+              'Evaluator.model.Benchmarks.SubBenchmark.benchmark.one',
+              'BenchmarkResultPublisher.model.Benchmarks.SubBenchmark.benchmark.one',
           ]
       }, {
           'testcase_name':
@@ -526,11 +536,11 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.BenchmarkAndSubBenchmark.benchmark',
               'FakeTrainer.Benchmarks.BenchmarkAndSubBenchmark.benchmark',
-              'Evaluator.Benchmarks.BenchmarkAndSubBenchmark.benchmark',
-              'BenchmarkResultPublisher.Benchmarks.BenchmarkAndSubBenchmark'
+              'Evaluator.model.Benchmarks.BenchmarkAndSubBenchmark.benchmark',
+              'BenchmarkResultPublisher.model.Benchmarks.BenchmarkAndSubBenchmark'
               '.benchmark',
-              'Evaluator.Benchmarks.BenchmarkAndSubBenchmark.benchmark.one',
-              'BenchmarkResultPublisher.Benchmarks.BenchmarkAndSubBenchmark'
+              'Evaluator.model.Benchmarks.BenchmarkAndSubBenchmark.benchmark.one',
+              'BenchmarkResultPublisher.model.Benchmarks.BenchmarkAndSubBenchmark'
               '.benchmark.one',
           ]
       }, {
@@ -543,8 +553,8 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.NestedSubBenchmarks.benchmark.one.two',
               'FakeTrainer.Benchmarks.NestedSubBenchmarks.benchmark.one.two',
-              'Evaluator.Benchmarks.NestedSubBenchmarks.benchmark.one.two',
-              'BenchmarkResultPublisher.Benchmarks.NestedSubBenchmarks'
+              'Evaluator.model.Benchmarks.NestedSubBenchmarks.benchmark.one.two',
+              'BenchmarkResultPublisher.model.Benchmarks.NestedSubBenchmarks'
               '.benchmark.one.two',
           ]
       }, {
@@ -557,9 +567,9 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.SharedNestedSubBenchmarks.benchmark',
               'FakeTrainer.Benchmarks.SharedNestedSubBenchmarks.benchmark',
-              'Evaluator.Benchmarks.SharedNestedSubBenchmarks.benchmark.one'
+              'Evaluator.model.Benchmarks.SharedNestedSubBenchmarks.benchmark.one'
               '.two',
-              'BenchmarkResultPublisher.Benchmarks.SharedNestedSubBenchmarks'
+              'BenchmarkResultPublisher.model.Benchmarks.SharedNestedSubBenchmarks'
               '.benchmark.one.two',
           ]
       }, {
@@ -574,13 +584,13 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.MultipleSubBenchmarks.benchmark',
               'FakeTrainer.Benchmarks.MultipleSubBenchmarks.benchmark',
-              'Evaluator.Benchmarks.MultipleSubBenchmarks.benchmark'
+              'Evaluator.model.Benchmarks.MultipleSubBenchmarks.benchmark'
               '.chicago_taxi',
-              'BenchmarkResultPublisher.Benchmarks.MultipleSubBenchmarks'
+              'BenchmarkResultPublisher.model.Benchmarks.MultipleSubBenchmarks'
               '.benchmark.chicago_taxi',
-              'Evaluator.Benchmarks.MultipleSubBenchmarks.benchmark'
+              'Evaluator.model.Benchmarks.MultipleSubBenchmarks.benchmark'
               '.mnist',
-              'BenchmarkResultPublisher.Benchmarks.MultipleSubBenchmarks'
+              'BenchmarkResultPublisher.model.Benchmarks.MultipleSubBenchmarks'
               '.benchmark.mnist',
           ]
       })
@@ -620,9 +630,9 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.MultipleSubBenchmarks.benchmark',
               'FakeTrainer.Benchmarks.MultipleSubBenchmarks.benchmark',
-              'Evaluator.Benchmarks.MultipleSubBenchmarks.benchmark'
+              'Evaluator.model.Benchmarks.MultipleSubBenchmarks.benchmark'
               '.mnist',
-              'BenchmarkResultPublisher.Benchmarks.MultipleSubBenchmarks'
+              'BenchmarkResultPublisher.model.Benchmarks.MultipleSubBenchmarks'
               '.benchmark.mnist',
           ]
       }, {
@@ -637,9 +647,9 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
           'want_components': [
               'FakeExampleGen.Benchmarks.MultipleSubBenchmarks.benchmark',
               'FakeTrainer.Benchmarks.MultipleSubBenchmarks.benchmark',
-              'Evaluator.Benchmarks.MultipleSubBenchmarks.benchmark'
+              'Evaluator.model.Benchmarks.MultipleSubBenchmarks.benchmark'
               '.chicago_taxi',
-              'BenchmarkResultPublisher.Benchmarks.MultipleSubBenchmarks'
+              'BenchmarkResultPublisher.model.Benchmarks.MultipleSubBenchmarks'
               '.benchmark.chicago_taxi',
           ]
       })

@@ -79,9 +79,10 @@ class OpenMLCC18BenchmarkTest(e2etest.BenchmarkTestCase):
           ['Transform.AutoData', instance_name]))
       self.assertComponentSucceeded('.'.join(
           ['Trainer.AutoTrainer', instance_name]))
-      self.assertComponentSucceeded('.'.join(['Evaluator', instance_name]))
+      self.assertComponentSucceeded('.'.join(['Evaluator.model',
+                                              instance_name]))
       self.assertComponentSucceeded('.'.join(
-          ['BenchmarkResultPublisher', instance_name]))
+          ['BenchmarkResultPublisher.model', instance_name]))
 
     # Load benchmark results.
     store = metadata_store.MetadataStore(self.metadata_config)
@@ -90,12 +91,15 @@ class OpenMLCC18BenchmarkTest(e2etest.BenchmarkTestCase):
     # Check benchmark results overview values.
     self.assertEqual(len(df.index), len(dataset_id_list))
     self.assertContainsSubset([
+        'run_id',
+        'benchmark_fullname',
         'benchmark',
         'run',
         'num_runs',
         'accuracy',
         'average_loss',
-        'post_export_metrics/example_count',
+        'example_count',
+        'weighted_example_count',
     ], df.columns.values.tolist())
     self.assertSameElements([1], df['run'].tolist())
     self.assertSameElements([1], df['num_runs'].tolist())

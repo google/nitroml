@@ -69,8 +69,9 @@ class MetaLearningTest(e2etest.BenchmarkTestCase):
     self.assertComponentSucceeded(f'Transform.AutoData.{instance_name_2}')
     self.assertComponentSucceeded(f'AugmentedTuner.{instance_name_2}')
     self.assertComponentSucceeded(f'Trainer.{instance_name_2}')
-    self.assertComponentSucceeded(f'Evaluator.{instance_name_2}')
-    self.assertComponentSucceeded(f'BenchmarkResultPublisher.{instance_name_2}')
+    self.assertComponentSucceeded(f'Evaluator.model.{instance_name_2}')
+    self.assertComponentSucceeded(
+        f'BenchmarkResultPublisher.model.{instance_name_2}')
 
     # Load benchmark results.
     store = metadata_store.MetadataStore(self.metadata_config)
@@ -78,12 +79,15 @@ class MetaLearningTest(e2etest.BenchmarkTestCase):
     # Check benchmark results overview values.
     self.assertEqual(len(df.index), 1)
     self.assertContainsSubset([
+        'run_id',
+        'benchmark_fullname',
         'benchmark',
         'run',
         'num_runs',
         'accuracy',
         'average_loss',
-        'post_export_metrics/example_count',
+        'example_count',
+        'weighted_example_count',
     ], df.columns.values.tolist())
     self.assertSameElements([1], df['run'].tolist())
     self.assertSameElements([1], df['num_runs'].tolist())
@@ -112,8 +116,8 @@ class MetaLearningTest(e2etest.BenchmarkTestCase):
         f'Transform.AutoData.{instance_name_2}',
         f'AugmentedTuner.{instance_name_2}',
         f'Trainer.{instance_name_2}',
-        f'Evaluator.{instance_name_2}',
-        f'BenchmarkResultPublisher.{instance_name_2}',
+        f'Evaluator.model.{instance_name_2}',
+        f'BenchmarkResultPublisher.model.{instance_name_2}',
     }
 
     self.assertContainsSubset(want_components, run.components.keys())
