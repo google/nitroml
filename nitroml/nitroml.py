@@ -41,10 +41,12 @@ from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union
 from absl import app
 from absl import flags
 from absl import logging
+from nitroml import pipeline_filtering
 from nitroml.benchmark.task import BenchmarkTask
 from nitroml.subpipeline import Subpipeline
 from nitroml.subpipeline import SubpipelineOutputs
 import tensorflow as tf
+from tfx.dsl.compiler import compiler
 from tfx.dsl.components.base.base_component import BaseComponent
 from tfx.orchestration.beam import beam_dag_runner
 from tfx.orchestration.pipeline import Pipeline
@@ -190,15 +192,18 @@ def _make_pipeline_dirs(
         os.path.dirname(metadata_connection_config.sqlite.filename_uri))
 
 
-class BenchmarkResult:
+class BenchmarkSpec:
   """Holder for benchmark call information.
 
-  Benchmark results are automatically managed by the Benchmark class, and do
+  BenchmarkSpecs are automatically managed by the Benchmark class, and do
   not need to be explicitly manipulated by benchmark authors.
   """
 
   def __init__(self, benchmark_run: int, runs_per_benchmark: int):
     self.components_to_always_add = []
+    self.requested_partial_run = False
+    self.components_to_partial_run = []
+    self.exclusive_components_to_partial_run = []
     self.benchmark_subpipelines = []
     self.benchmark_run = benchmark_run
     self.runs_per_benchmark = runs_per_benchmark
@@ -212,6 +217,11 @@ class BenchmarkResult:
       components.extend(subpipeline.components)
     return list(set(components))
 
+  @property
+  def nodes_to_partial_run(self) -> List[str]:
+    nodes_to_run = self.exclusive_components_to_partial_run or self.components_to_partial_run
+    return [c.id for c in nodes_to_run]
+
 
 class Benchmark(abc.ABC):
   """A benchmark which can be composed of several benchmark methods.
@@ -224,7 +234,7 @@ class Benchmark(abc.ABC):
 
   def __init__(self):
     self._benchmark = self  # The sub-benchmark stack.
-    self._result = None
+    self._spec = None
     self._components = []
 
   @abc.abstractmethod
@@ -265,7 +275,12 @@ class Benchmark(abc.ABC):
 
     return self._components
 
-  def evaluate(self, task: BenchmarkTask, **kwargs) -> None:
+  def evaluate(self,
+               task: BenchmarkTask,
+               always: bool = False,
+               only: bool = False,
+               skip: bool = False,
+               **kwargs) -> None:
     """Adds a benchmark subgraph to the benchmark suite's workflow DAG.
 
     Appends BenchmarkTask evaluation components to the given model in order to
@@ -279,6 +294,9 @@ class Benchmark(abc.ABC):
 
     Args:
       task: A `BenchmarkTask` subclass instance that specifies the evaluations.
+      always: See `BenchmarkTask#add(..., always=...)`.
+      only: See `BenchmarkTask#add(..., only=...)`.
+      skip: See `BenchmarkTask#add(..., skip=...)`.
       **kwargs: Additional kwargs to pass to `Task#make_evaluation`.
     """
 
@@ -286,8 +304,8 @@ class Benchmark(abc.ABC):
     # TODO(b/168906137): Much of this complexity can be removed once we have
     # partial run support in the IR.
     benchmark_name = self._benchmark.id() + _runs_suffix(
-        self._result.benchmark_run, self._result.runs_per_benchmark)
-    seen_benchmarks = set(p.id for p in self._result.benchmark_subpipelines)
+        self._spec.benchmark_run, self._spec.runs_per_benchmark)
+    seen_benchmarks = set(p.id for p in self._spec.benchmark_subpipelines)
     if benchmark_name in seen_benchmarks:
       raise ValueError("evaluate was already called once for this benchmark. "
                        "Consider calling `with self.sub_benchmark(...):` and "
@@ -296,11 +314,14 @@ class Benchmark(abc.ABC):
     self.add(
         task.make_evaluation(
             benchmark_name=self._benchmark.id(),
-            benchmark_run=self._result.benchmark_run,
-            runs_per_benchmark=self._result.runs_per_benchmark,
-            **kwargs))
+            benchmark_run=self._spec.benchmark_run,
+            runs_per_benchmark=self._spec.runs_per_benchmark,
+            **kwargs),
+        always=always,
+        only=only,
+        skip=skip)
 
-    self._result.benchmark_subpipelines.append(
+    self._spec.benchmark_subpipelines.append(
         BenchmarkSubpipeline(
             benchmark_name, components=self._benchmark._all_components()))  # pylint: disable=protected-access
 
@@ -309,7 +330,11 @@ class Benchmark(abc.ABC):
 
     return f"{self.__class__.__qualname__}.benchmark"
 
-  def add(self, pipeline: PipelineLike, always: bool = False) -> Any:
+  def add(self,
+          pipeline: PipelineLike,
+          always: bool = False,
+          only: bool = False,
+          skip: bool = False) -> Any:
     """Adds the given nodes to the current benchmark DAG scope.
 
     There are several ways `self.add(...)` can be called. Suppose you have two
@@ -341,6 +366,25 @@ class Benchmark(abc.ABC):
     In order to run a DAG that does not produce a model, in which case you
     cannot call self.evaluate(), instead call self.add(..., always=True).
 
+    This method also enables programmatic partial runs via the `skip` and `only`
+    args. For example, in the following pipeline:
+
+        example_gen = self.add(MyExampleGen())
+        trainer = self.add(MyTrainer())
+
+    Assuming you had a previous execution of example_gen in your MLMD instance,
+    you can skip the example_gen stage execution, and reuse previously computed
+    artifacts using `skip=True`:
+
+        example_gen = self.add(MyExampleGen(), skip=True)
+        trainer = self.add(MyTrainer())
+
+    Alternatively, if you only want to execute select components, use
+    `only=True`:
+
+        example_gen = self.add(MyExampleGen())
+        trainer = self.add(MyTrainer(), only=True)
+
     Args:
       pipeline: A tfx.BaseComponent, nitroml.Subpipeline, or tfx.Pipeline
         subclass instance, or nested dict, list, or tuple of these objects. The
@@ -350,20 +394,36 @@ class Benchmark(abc.ABC):
         `pipeline`, even when a subbenchmark is filtered with the `match`
         flag. TODO(b/168906137): Remove once we have built-in partial DAG run
         support.
+      only: When `True`, only components and subpipelines added with `only=True`
+        will be run, whereas other components will be skipped.
+      skip: When `True`, only components and subpipelines added without
+        `skip=True` will be run.
 
     Returns:
       The argument passed to `pipeline`.
+
+    Raises:
+      ValueError: When both `skip` and `only` are `True`.
     """
+
+    if skip and only:
+      raise ValueError("Only one of `skip` or `only` can be True.")
 
     # Recursive PipelineLike types.
     if isinstance(pipeline, list):
-      return [self.add(x) for x in pipeline]
+      return [
+          self.add(x, always=always, only=only, skip=skip) for x in pipeline
+      ]
 
     if isinstance(pipeline, tuple):
-      return tuple(self.add(x) for x in pipeline)
+      return tuple(
+          self.add(x, always=always, only=only, skip=skip) for x in pipeline)
 
     if isinstance(pipeline, dict):
-      return {k: self.add(v) for k, v in pipeline.items()}
+      return {
+          k: self.add(v, always=always, only=only, skip=skip)
+          for k, v in pipeline.items()
+      }
 
     components = []
     if isinstance(pipeline, BaseComponent):
@@ -385,26 +445,32 @@ class Benchmark(abc.ABC):
       component._instance_name = _qualified_name(
           prefix=component._instance_name,
           name=self._benchmark.id(),
-          benchmark_run=self._result.benchmark_run,
-          runs_per_benchmark=self._result.runs_per_benchmark)
+          benchmark_run=self._spec.benchmark_run,
+          runs_per_benchmark=self._spec.runs_per_benchmark)
       # pylint: enable=protected-access
       new_components.add(component)
 
     self._benchmark._components += list(new_components)
     if always:
-      self._result.components_to_always_add += list(new_components)
+      self._spec.components_to_always_add += list(new_components)
+    if skip or only:
+      self._spec.requested_partial_run = True
+    if not skip:
+      self._spec.components_to_partial_run += list(new_components)
+    if only:
+      self._spec.exclusive_components_to_partial_run += list(new_components)
 
     return pipeline
 
   def __call__(self, benchmark_run: int, runs_per_benchmark: int, *args,
                **kwargs):
-    result = BenchmarkResult(benchmark_run, runs_per_benchmark)
-    self._result = result
+    spec = BenchmarkSpec(benchmark_run, runs_per_benchmark)
+    self._spec = spec
     try:
       self.benchmark(**kwargs)
     finally:
-      self._result = None
-    return result
+      self._spec = None
+    return spec
 
 
 class _SubBenchmark(Benchmark):
@@ -523,16 +589,16 @@ def run(benchmarks: List[Benchmark],
   for b in benchmarks:
     for benchmark_run in range(runs_per_benchmark):
       # Call benchmarks with pipeline args.
-      result = b(
+      spec = b(
           benchmark_run=benchmark_run + 1,
           runs_per_benchmark=runs_per_benchmark,
           **kwargs)
-      for benchmark_subpipeline in result.benchmark_subpipelines:
+      for benchmark_subpipeline in spec.benchmark_subpipelines:
         if re.match(FLAGS.match, benchmark_subpipeline.id):
           benchmark_subpipelines.append(benchmark_subpipeline)
 
   if FLAGS.match and not benchmark_subpipelines:
-    if result.components_to_always_add:
+    if spec.components_to_always_add:
       logging.info(
           "No benchmarks matched the pattern '%s'. "
           "Running components passed to self.add(..., always=True) only.",
@@ -541,7 +607,7 @@ def run(benchmarks: List[Benchmark],
       raise ValueError(f"No benchmarks matched the pattern '{FLAGS.match}'")
 
   benchmark_pipeline = BenchmarkPipeline(
-      components_to_always_add=result.components_to_always_add,
+      components_to_always_add=spec.components_to_always_add,
       benchmark_subpipelines=benchmark_subpipelines,
       pipeline_name=pipeline_name,
       pipeline_root=pipeline_root,
@@ -554,7 +620,19 @@ def run(benchmarks: List[Benchmark],
   for benchmark_name in benchmark_pipeline.benchmark_names:
     logging.info("\t%s", benchmark_name)
     logging.info("\t\tRUNNING")
-  tfx_runner.run(benchmark_pipeline)
+  dsl_compiler = compiler.Compiler()
+  pipeline_to_run = dsl_compiler.compile(benchmark_pipeline)
+  if spec.requested_partial_run:
+    logging.info("Only running the following nodes:\n%s",
+                 "\n".join(spec.nodes_to_partial_run))
+    pipeline_to_run = pipeline_filtering.filter_pipeline(
+        input_pipeline=pipeline_to_run,
+        pipeline_run_id_fn=(
+            pipeline_filtering.make_latest_resolver_pipeline_run_id_fn(
+                benchmark_pipeline.metadata_connection_config)),
+        skip_nodes=lambda x: x not in set(spec.nodes_to_partial_run))
+
+  tfx_runner.run(pipeline_to_run)
   return benchmark_pipeline
 
 

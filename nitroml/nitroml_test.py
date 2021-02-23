@@ -18,7 +18,7 @@
 import abc
 
 import types
-from typing import List
+from typing import List, Optional
 
 from absl import flags
 from absl.testing import absltest
@@ -31,14 +31,28 @@ from nitroml.subpipeline import SubpipelineOutputs
 
 from tfx import types as tfx_types
 from tfx.dsl.components.base.base_component import BaseComponent
+from tfx.dsl.components.base.base_driver import BaseDriver
+from tfx.dsl.components.base.executor_spec import ExecutorSpec
 from tfx.orchestration.beam import beam_dag_runner
 from tfx.orchestration.pipeline import Pipeline
 from tfx.types import channel_utils
 from tfx.types import standard_artifacts
 
+from google.protobuf import message
 from nitroml.protos import problem_statement_pb2 as ps_pb2
 
 FLAGS = flags.FLAGS
+
+
+class FakeExecutorSpec(ExecutorSpec):
+  """A fake ExecutorSpec component for testing."""
+
+  def encode(
+      self,
+      component_spec: Optional[tfx_types.ComponentSpec] = None
+  ) -> message.Message:
+    # Return an arbitrary proto.
+    return ps_pb2.ProblemStatement()
 
 
 class FakeExampleGen(BaseComponent):
@@ -46,11 +60,14 @@ class FakeExampleGen(BaseComponent):
 
   SPEC_CLASS = 'ExampleGenClass'
   EXECUTOR_SPEC = 'ExampleGenExecutorSpec'
-  executor_spec = None
+  executor_spec = FakeExecutorSpec()
+  driver_class = BaseDriver
+  platform_config = None
 
   def __init__(self, instance_name: str = ''):
     self.examples = channel_utils.as_channel([standard_artifacts.Examples()])
-    self.spec = types.SimpleNamespace(outputs=self.outputs, inputs={})
+    self.spec = types.SimpleNamespace(
+        outputs=self.outputs, inputs={}, exec_properties={})
     self._downstream_nodes = set()
     self._upstream_nodes = set()
     self._instance_name = instance_name
@@ -66,11 +83,14 @@ class FakeTrainer(BaseComponent):
 
   SPEC_CLASS = 'TrainerSpecClass'
   EXECUTOR_SPEC = 'TrainerExecutorSpec'
-  executor_spec = None
+  executor_spec = FakeExecutorSpec()
+  driver_class = BaseDriver
+  platform_config = None
 
   def __init__(self, instance_name: str = ''):
     self.model = channel_utils.as_channel([standard_artifacts.Model()])
-    self.spec = types.SimpleNamespace(outputs=self.outputs, inputs={})
+    self.spec = types.SimpleNamespace(
+        outputs=self.outputs, inputs={}, exec_properties={})
     self._downstream_nodes = set()
     self._upstream_nodes = set()
     self._instance_name = instance_name
@@ -121,7 +141,16 @@ class FakePipeline(Pipeline):
 class FakeBeamDagRunner(beam_dag_runner.BeamDagRunner):
   """A fake Beam TFX runner for testing."""
 
+  def __init__(self):
+    super().__init__()
+    self._got_pipeline = []
+
+  @property
+  def got_pipeline(self):
+    return self._got_pipeline
+
   def run(self, pipeline):
+    self._got_pipeline = pipeline
     return pipeline
 
 
@@ -307,6 +336,24 @@ class Benchmarks:
       with self.sub_benchmark('chicago_taxi'):
         self.evaluate(task=task, model=pipeline.model)
 
+  # Partial run benchmarks below:
+
+  class PartialRunSkipBenchmark(nitroml.Benchmark):
+
+    def benchmark(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components)
+      trainer = self.add(FakeTrainer(), skip=True)
+      self.evaluate(task=task, model=trainer.outputs.model, skip=True)
+
+  class PartialRunOnlyBenchmark(nitroml.Benchmark):
+
+    def benchmark(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components, only=True)
+      trainer = self.add(FakeTrainer())
+      self.evaluate(task=task, model=trainer.outputs.model)
+
   # Error causing benchmarks below:
 
   class CallAddBenchmarkTwice(nitroml.Benchmark):
@@ -343,6 +390,14 @@ class Benchmarks:
 
     def benchmark(self):
       self.add(FakeSubpipeline(), always=False)
+
+  class PartialRunSkipAndOnlyBenchmark(nitroml.Benchmark):
+
+    def benchmark(self):
+      task = FakeBenchmarkTask()
+      self.add(task.components, skip=True, only=True)
+      trainer = self.add(FakeTrainer())
+      self.evaluate(task=task, model=trainer.outputs.model)
 
 
 class NitroMLTest(parameterized.TestCase, absltest.TestCase):
@@ -601,6 +656,66 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
 
   @parameterized.named_parameters(
       {
+          'testcase_name':
+              'none',
+          'benchmark':
+              Benchmarks.BenchmarkComponents(),
+          'want_benchmarks': ['Benchmarks.BenchmarkComponents.benchmark'],
+          'want_components': [
+              'FakeExampleGen.Benchmarks.BenchmarkComponents.benchmark',
+              'FakeTrainer.Benchmarks.BenchmarkComponents.benchmark',
+              'Evaluator.model.Benchmarks.BenchmarkComponents.benchmark',
+              'BenchmarkResultPublisher.model.Benchmarks.BenchmarkComponents'
+              '.benchmark',
+          ],
+          'want_partial_run_components': [
+              'FakeExampleGen.Benchmarks.BenchmarkComponents.benchmark',
+              'FakeTrainer.Benchmarks.BenchmarkComponents.benchmark',
+              'Evaluator.model.Benchmarks.BenchmarkComponents.benchmark',
+              'BenchmarkResultPublisher.model.Benchmarks.BenchmarkComponents'
+              '.benchmark',
+          ],
+      }, {
+          'testcase_name':
+              'skip',
+          'benchmark':
+              Benchmarks.PartialRunSkipBenchmark(),
+          'want_benchmarks': ['Benchmarks.PartialRunSkipBenchmark.benchmark'],
+          'want_components': [
+              'FakeExampleGen.Benchmarks.PartialRunSkipBenchmark.benchmark',
+              'FakeTrainer.Benchmarks.PartialRunSkipBenchmark.benchmark',
+              'Evaluator.model.Benchmarks.PartialRunSkipBenchmark.benchmark',
+              'BenchmarkResultPublisher.model.Benchmarks.PartialRunSkipBenchmark.benchmark',
+          ],
+          'want_partial_run_components':
+              ['FakeExampleGen.Benchmarks.PartialRunSkipBenchmark.benchmark',],
+      }, {
+          'testcase_name':
+              'only',
+          'benchmark':
+              Benchmarks.PartialRunOnlyBenchmark(),
+          'want_benchmarks': ['Benchmarks.PartialRunOnlyBenchmark.benchmark'],
+          'want_components': [
+              'FakeExampleGen.Benchmarks.PartialRunOnlyBenchmark.benchmark',
+              'FakeTrainer.Benchmarks.PartialRunOnlyBenchmark.benchmark',
+              'Evaluator.model.Benchmarks.PartialRunOnlyBenchmark.benchmark',
+              'BenchmarkResultPublisher.model.Benchmarks.PartialRunOnlyBenchmark.benchmark',
+          ],
+          'want_partial_run_components':
+              ['FakeExampleGen.Benchmarks.PartialRunOnlyBenchmark.benchmark',],
+      })
+  def test_partial_run(self, benchmark, want_benchmarks, want_components,
+                       want_partial_run_components):
+    tfx_runner = FakeBeamDagRunner()
+    pipeline = nitroml.run([benchmark], tfx_runner=tfx_runner)
+    self.assertCountEqual(want_benchmarks, pipeline.benchmark_names)
+    self.assertCountEqual(want_components, [c.id for c in pipeline.components])
+    self.assertSameElements(
+        want_partial_run_components,
+        [n.pipeline_node.node_info.id for n in tfx_runner.got_pipeline.nodes])  # pytype: disable=attribute-error
+
+  @parameterized.named_parameters(
+      {
           'testcase_name': 'call_add_benchmark_twice',
           'benchmark': Benchmarks.CallAddBenchmarkTwice(),
       }, {
@@ -612,6 +727,9 @@ class NitroMLTest(parameterized.TestCase, absltest.TestCase):
       }, {
           'testcase_name': 'call_run_on_subpipeline_without_setting_always',
           'benchmark': Benchmarks.BenchmarkSubpipelineWithoutAlways(),
+      }, {
+          'testcase_name': 'partial_run_with_skip_and_only',
+          'benchmark': Benchmarks.PartialRunSkipAndOnlyBenchmark(),
       })
   def test_run_error(self, benchmark):
     with self.assertRaises(ValueError):

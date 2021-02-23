@@ -21,6 +21,7 @@ import collections
 import enum
 from typing import Any, Callable, Collection, Mapping, MutableMapping, Optional, Set, Union
 
+from nitroml.analytics import mlmd_analytics
 from tfx.dsl.compiler import constants as dsl_constants
 from tfx.proto.orchestration import pipeline_pb2 as p_pb2
 
@@ -92,6 +93,20 @@ def filter_pipeline(
   fixed_deployment_config = _fix_deployment_config(input_pipeline, node_map)
   return _make_filtered_pipeline(input_pipeline, node_map,
                                  fixed_deployment_config)
+
+
+def make_latest_resolver_pipeline_run_id_fn(
+    metadata_connection_config: mlmd_pb2.ConnectionConfig
+) -> Callable[[p_pb2.InputSpec.Channel], str]:
+  """Makes a pipeline_run_id_fn that automatically resolves pipeline_run_ids."""
+  mlmd_client = mlmd_analytics.Analytics(metadata_connection_config)
+
+  def _pipeline_run_id_fn(channel):
+    pipeline_run = mlmd_client.get_latest_pipeline_run(
+        component_id=channel.producer_node_query.id)
+    return pipeline_run.run_id
+
+  return _pipeline_run_id_fn
 
 
 class _Direction(enum.Enum):
