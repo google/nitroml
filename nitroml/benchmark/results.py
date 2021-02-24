@@ -25,7 +25,6 @@ import pandas as pd
 from ml_metadata import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 
-
 # Column name constants
 RUN_ID_KEY = 'run_id'
 STARTED_AT = 'started_at'
@@ -170,6 +169,9 @@ def _get_benchmark_results(store: metadata_store.MetadataStore) -> _Result:
     run_info = artifact_to_run_info[artifact_id]
     started_at = run_info.started_at // 1000
     evals[STARTED_AT] = datetime.datetime.fromtimestamp(started_at)
+    if RUN_ID_KEY not in metrics[artifact_id]:
+      # Non-IR based runner.
+      continue
     run_id = metrics[artifact_id][RUN_ID_KEY]
 
     result_key = run_id + '.' + evals[br.BenchmarkResult.BENCHMARK_NAME_KEY]

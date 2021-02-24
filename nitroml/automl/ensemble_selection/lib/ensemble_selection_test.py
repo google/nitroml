@@ -24,6 +24,8 @@ from nitroml.automl.ensemble_selection.lib import ensemble_selection
 import numpy as np
 import tensorflow as tf
 
+from nitroml.protos import problem_statement_pb2 as ps_pb2
+
 
 def _get_serve_tf_examples_fn(model: tf.keras.Model):
   """Returns a function that parses a serialized tf.Example and applies TFT."""
@@ -90,6 +92,11 @@ def build_model(seed: int) -> tf.keras.Model:
   return model
 
 
+def _test_predict_fn(loaded_model: ensemble_selection.LoadedSavedModel,
+                     x: tf.Tensor) -> tf.Tensor:
+  return loaded_model.signatures['serving_default'](x)['output_0']
+
+
 class EnsembleSelectionTest(absltest.TestCase):
 
   @classmethod
@@ -136,7 +143,14 @@ class EnsembleSelectionTest(absltest.TestCase):
     # - manually compute MSE after each iteration for each partial ensemble
     # - also output the ground truth (labels) so that we can verify
     es = ensemble_selection.EnsembleSelection(
+        problem_statement=ps_pb2.ProblemStatement(tasks=[
+            ps_pb2.Task(
+                type=ps_pb2.Type(
+                    one_dimensional_regression=ps_pb2.OneDimensionalRegression(
+                        label='label')))
+        ]),
         saved_model_paths=self.saved_model_paths,
+        predict_fn=_test_predict_fn,
         ensemble_size=3,
         metric=tf.keras.metrics.MeanSquaredError(),
         goal='minimize')
@@ -171,7 +185,14 @@ class EnsembleSelectionTest(absltest.TestCase):
 
   def test_lifecycle(self):
     es = ensemble_selection.EnsembleSelection(
+        problem_statement=ps_pb2.ProblemStatement(tasks=[
+            ps_pb2.Task(
+                type=ps_pb2.Type(
+                    one_dimensional_regression=ps_pb2.OneDimensionalRegression(
+                        label='label')))
+        ]),
         saved_model_paths=self.saved_model_paths,
+        predict_fn=_test_predict_fn,
         ensemble_size=3,
         metric=tf.keras.metrics.MeanSquaredError(),
         goal='minimize')
@@ -214,7 +235,14 @@ class EnsembleSelectionTest(absltest.TestCase):
 
   def test_calculate_weights(self):
     es = ensemble_selection.EnsembleSelection(
+        problem_statement=ps_pb2.ProblemStatement(tasks=[
+            ps_pb2.Task(
+                type=ps_pb2.Type(
+                    one_dimensional_regression=ps_pb2.OneDimensionalRegression(
+                        label='label')))
+        ]),
         saved_model_paths=self.saved_model_paths,
+        predict_fn=_test_predict_fn,
         ensemble_size=4,
         metric=tf.keras.metrics.MeanSquaredError(),
         goal='minimize')
@@ -227,7 +255,14 @@ class EnsembleSelectionTest(absltest.TestCase):
 
   def test_predict_before_fit(self):
     es = ensemble_selection.EnsembleSelection(
+        problem_statement=ps_pb2.ProblemStatement(tasks=[
+            ps_pb2.Task(
+                type=ps_pb2.Type(
+                    one_dimensional_regression=ps_pb2.OneDimensionalRegression(
+                        label='label')))
+        ]),
         saved_model_paths=self.saved_model_paths,
+        predict_fn=_test_predict_fn,
         ensemble_size=3,
         metric=tf.keras.metrics.MeanSquaredError(),
         goal='minimize')
@@ -239,7 +274,14 @@ class EnsembleSelectionTest(absltest.TestCase):
 
   def test_evaluate_metrics(self):
     es = ensemble_selection.EnsembleSelection(
+        problem_statement=ps_pb2.ProblemStatement(tasks=[
+            ps_pb2.Task(
+                type=ps_pb2.Type(
+                    one_dimensional_regression=ps_pb2.OneDimensionalRegression(
+                        label='label')))
+        ]),
         saved_model_paths=self.saved_model_paths,
+        predict_fn=_test_predict_fn,
         ensemble_size=3,
         metric=tf.keras.metrics.MeanSquaredError(),
         goal='minimize')
@@ -256,12 +298,26 @@ class EnsembleSelectionTest(absltest.TestCase):
 
   def test_evaluate(self):
     es_size_2 = ensemble_selection.EnsembleSelection(
+        problem_statement=ps_pb2.ProblemStatement(tasks=[
+            ps_pb2.Task(
+                type=ps_pb2.Type(
+                    one_dimensional_regression=ps_pb2.OneDimensionalRegression(
+                        label='label')))
+        ]),
         saved_model_paths=self.saved_model_paths,
+        predict_fn=_test_predict_fn,
         ensemble_size=2,
         metric=tf.keras.metrics.MeanSquaredError(),
         goal='minimize')
     es_size_4 = ensemble_selection.EnsembleSelection(
+        problem_statement=ps_pb2.ProblemStatement(tasks=[
+            ps_pb2.Task(
+                type=ps_pb2.Type(
+                    one_dimensional_regression=ps_pb2.OneDimensionalRegression(
+                        label='label')))
+        ]),
         saved_model_paths=self.saved_model_paths,
+        predict_fn=_test_predict_fn,
         ensemble_size=4,
         metric=tf.keras.metrics.MeanSquaredError(),
         goal='minimize')
