@@ -102,6 +102,17 @@ class BenchmarkTask(abc.ABC):
 
     return 'nitroml_prediction'
 
+  @property
+  def ignorable_features(self) -> List[str]:
+    """A list of features in the tf.Examples to ignore during training.
+
+    For example, if there is an opaque ID stored as a feature in the tf.Examples
+    and used to uniquely identify examples, the feature should be ignored during
+    training.
+    """
+
+    return []
+
   def make_evaluation(
       self,
       benchmark_name: str,
