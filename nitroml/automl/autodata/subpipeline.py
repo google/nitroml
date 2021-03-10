@@ -19,6 +19,7 @@ from typing import List, Optional
 
 from absl import logging
 from nitroml import subpipeline
+from nitroml.automl.autodata import callables
 from nitroml.automl.autodata.preprocessors import basic_preprocessor
 from nitroml.automl.autodata.preprocessors import preprocessor as pp
 from nitroml.automl.autodata.transform import component as transform
@@ -46,6 +47,7 @@ class AutoData(subpipeline.Subpipeline):
                problem_statement: ps_pb2.ProblemStatement,
                examples: types.Channel,
                preprocessor: Optional[pp.Preprocessor] = None,
+               ignore_features: List[str] = None,
                instance_name: Optional[str] = None):
     """Constructs an AutoDataPipeline instance.
 
@@ -56,6 +58,8 @@ class AutoData(subpipeline.Subpipeline):
         should contain the two splits 'train' and 'eval'.
       preprocessor: A `Preprocessor` instance which defines how TensorFlow
         Transform should preprocess raw Tensors from tensorflow.Examples.
+      ignore_features: List of feature names to mark as disabled in the output
+        Schema artifact.
       instance_name: Optional unique instance name. Necessary iff multiple
         AutoDataPipeline instances are declared in the same pipeline.
     """
@@ -76,8 +80,16 @@ class AutoData(subpipeline.Subpipeline):
     self._schema_gen = self._build_schema_gen(
         self._statistics_gen.outputs.statistics, self.id)
 
-    self._transform = self._build_transform(problem_statement, examples,
-                                            self._schema_gen.outputs.schema,
+    schema = self._schema_gen.outputs.schema
+    self._annotate_schema = None
+    if ignore_features:
+      self._annotate_schema = callables.annotate_schema(
+          ignore_features='\n'.join(ignore_features),
+          original_schema=schema,
+          instance_name=self.id)
+      schema = self._annotate_schema.outputs.schema
+
+    self._transform = self._build_transform(problem_statement, examples, schema,
                                             self.id)
 
   @property
@@ -99,16 +111,24 @@ class AutoData(subpipeline.Subpipeline):
   def components(self) -> List[base_component.BaseComponent]:
     """Returns the AutoData sub-pipeline's constituent components."""
 
-    return [self._schema_gen, self._statistics_gen, self._transform]
+    components = [self._schema_gen, self._statistics_gen, self._transform]
+    if self._annotate_schema:
+      components.append(self._annotate_schema)
+    return components
 
   @property
   def outputs(self) -> subpipeline.SubpipelineOutputs:
     """Return the AutoData sub-pipeline's outputs."""
     return subpipeline.SubpipelineOutputs({
-        'statistics': self._statistics_gen.outputs.statistics,
-        'schema': self._schema_gen.outputs.schema,
-        'transformed_examples': self._transform.outputs.transformed_examples,
-        'transform_graph': self._transform.outputs.transform_graph
+        'statistics':
+            self._statistics_gen.outputs.statistics,
+        'schema':
+            self._annotate_schema.outputs.schema
+            if self._annotate_schema else self._schema_gen.outputs.schema,
+        'transformed_examples':
+            self._transform.outputs.transformed_examples,
+        'transform_graph':
+            self._transform.outputs.transform_graph
     })
 
   def _build_statistics_gen(self, examples: types.Channel,
